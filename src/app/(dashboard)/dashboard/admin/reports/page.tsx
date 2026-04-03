@@ -158,7 +158,7 @@ export default function AdminReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={(val) => format(new Date(val), "dd MMM")} />
                   <YAxis tickFormatter={(val) => `Rp ${val / 1000}k`} />
-                  <Tooltip formatter={(value: number) => formatMoney(value || 0)} />
+                  <Tooltip formatter={(value: any) => formatMoney(Number(value) || 0)} />
                   <Bar dataKey="gross" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pemasukan" />
                   <Bar dataKey="net" fill="#82ca9d" radius={[4, 4, 0, 0]} name="Bersih" />
                 </BarChart>

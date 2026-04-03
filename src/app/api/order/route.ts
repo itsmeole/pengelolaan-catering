@@ -1,90 +1,113 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { NextResponse } from "next/server"
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
-export async function POST(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "STUDENT") {
-        return new NextResponse("Unauthorized", { status: 401 })
-    }
-
-    try {
-        const body = await req.json()
-        const { items, paymentMethod, proofImage } = body // items: { menuId, date, note, quantity, price }[]
-
-        if (!items || items.length === 0) {
-            return new NextResponse("No items", { status: 400 })
-        }
-
-        // Recalculate total from DB to prevent tampering, but for now trust price passed or refetch?
-        // Safer to refetch prices.
-        let totalAmount = 0
-        const orderItemsData = []
-
-        for (const item of items) {
-            const menu = await db.menuItem.findUnique({ where: { id: item.menuId } })
-            if (!menu) continue
-
-            totalAmount += menu.price * (item.quantity || 1)
-            orderItemsData.push({
-                menuId: item.menuId,
-                date: new Date(item.date), // Ensure date is valid
-                note: item.note,
-                quantity: item.quantity || 1,
-                price: menu.price
-            })
-        }
-
-        const order = await db.order.create({
-            data: {
-                studentId: session.user.id,
-                totalAmount,
-                status: "PENDING",
-                paymentMethod,
-                proofImage: paymentMethod === "TRANSFER" ? proofImage : null,
-                transferDate: paymentMethod === "TRANSFER" ? new Date() : null, // Should take from input if provided
-                items: {
-                    create: orderItemsData
-                }
+function getClient(cookieStore: any) {
+    return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() { return cookieStore.getAll() },
+                setAll() {}
             }
-        })
+        }
+    )
+}
 
-        return NextResponse.json(order)
+// GET: Fetch all orders for the current logged-in student
+export async function GET() {
+    try {
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
 
-    } catch (error) {
-        console.error("[ORDER_POST]", error)
-        return new NextResponse("Internal Error", { status: 500 })
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        const { data, error } = await supabase
+            .from('Order')
+            .select(`
+                *,
+                items:"OrderItem"(
+                    *,
+                    menu:"MenuItem"(
+                        id, name, imageUrl, price,
+                        vendor:profiles!vendorId(id, name, "vendorName")
+                    )
+                )
+            `)
+            .eq('studentId', user.id)
+            .order('createdAt', { ascending: false })
+
+        if (error) throw error
+
+        return NextResponse.json(data || [])
+    } catch (e) {
+        console.error('GET /api/order error:', e)
+        return NextResponse.json({ error: 'System Error' }, { status: 500 })
     }
 }
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session) return new NextResponse("Unauthorized", { status: 401 })
+// POST: Checkout — create a new Order with its OrderItems
+export async function POST(req: Request) {
+    try {
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
 
-    // Get orders for current user
-    const orders = await db.order.findMany({
-        where: // Vendor needs to see items for them? No, Order is by Student. Vendor sees OrderItems.
-            session.user.role === "STUDENT"
-                ? { studentId: session.user.id }
-                : session.user.role === "ADMIN" ? {} : undefined, // Vendor specific logic is different (fetched via OrderItems)
-        include: {
-            items: {
-                include: { menu: true }
-            },
-            student: { select: { name: true, class: true } }
-        },
-        orderBy: { createdAt: 'desc' }
-    })
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Vendor logic: Fetch order items where menu.vendorId === me
-    if (session.user.role === "VENDOR") {
-        // Complex query. Easier to fetch OrderItems directly.
-        // But the requirement says "Dashboard vendor info... Data Pemesanan".
-        // I'll make a separate endpoint for Vendor Orders or handle it here if requested.
-        // For now returning empty for Vendor on this route to avoid confusion or errors.
-        return NextResponse.json([])
+        const body = await req.json()
+        const { items, paymentMethod, proofImage } = body
+
+        if (!items || items.length === 0) {
+            return NextResponse.json({ error: 'Keranjang kosong' }, { status: 400 })
+        }
+
+        // Calculate total
+        const totalAmount = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0)
+
+        // Create the Order
+        const { data: order, error: orderError } = await supabase
+            .from('Order')
+            .insert({
+                studentId: user.id,
+                totalAmount,
+                status: 'PENDING',
+                paymentMethod,
+                proofImage: proofImage || null,
+            })
+            .select()
+            .single()
+
+        if (orderError || !order) {
+            console.error('Order insert error:', orderError)
+            throw orderError
+        }
+
+        // Create OrderItems
+        const orderItems = items.map((item: any) => ({
+            orderId: order.id,
+            menuId: item.menuId,
+            date: new Date(item.date).toISOString(),
+            quantity: item.quantity,
+            note: item.note || null,
+            price: item.price, // Final price (Base + 1000)
+            adminFee: 1000,    // Fixed margin for admin
+        }))
+
+        const { error: itemsError } = await supabase
+            .from('OrderItem')
+            .insert(orderItems)
+
+        if (itemsError) {
+            console.error('OrderItems insert error:', itemsError)
+            throw itemsError
+        }
+
+        return NextResponse.json({ success: true, orderId: order.id })
+    } catch (e) {
+        console.error('POST /api/order error:', e)
+        return NextResponse.json({ error: 'System Error' }, { status: 500 })
     }
-
-    return NextResponse.json(orders)
 }

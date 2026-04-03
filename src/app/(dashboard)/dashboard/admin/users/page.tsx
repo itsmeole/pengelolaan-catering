@@ -4,11 +4,12 @@ import { useEffect, useState, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { FileUp, Plus, Trash2, KeyRound, Pencil } from "lucide-react"
+import { FileUp, Plus, Trash2, KeyRound, Pencil, Download } from "lucide-react"
 import * as XLSX from 'xlsx'
 
 export default function AdminUsersPage() {
@@ -82,15 +83,27 @@ function StudentManager() {
         method: "POST",
         body: JSON.stringify(formData)
       })
+      const data = await res.json()
       if (res.ok) {
         toast.success("Siswa berhasil ditambahkan")
         setIsAddOpen(false)
         setFormData({ name: "", email: "", nis: "", class: "" })
         fetchStudents()
       } else {
-        toast.error("Gagal tambah siswa. Email/NIS mungkin duplikat.")
+        toast.error(data.error || "Gagal tambah siswa. Email/NIS mungkin duplikat.")
       }
-    } catch (e) { toast.error("Error sistem") }
+    } catch (e: any) { toast.error(e.message || "Error sistem") }
+  }
+
+  async function handleDownloadTemplate() {
+    const template = [
+      { Nama: "Contoh Siswa 1", Email: "siswa1@sekolah.sch.id", NIS: "123456", Kelas: "10-A" },
+      { Nama: "Contoh Siswa 2", Email: "siswa2@sekolah.sch.id", NIS: "123457", Kelas: "11-B" }
+    ]
+    const ws = XLSX.utils.json_to_sheet(template)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, "Template")
+    XLSX.writeFile(wb, "template_import_siswa.xlsx")
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -166,14 +179,17 @@ function StudentManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between">
+      <div className="flex flex-col md:flex-row justify-between gap-4">
         <Input
           placeholder="Cari siswa (Nama, NIS, Kelas)..."
           value={search} onChange={e => setSearch(e.target.value)}
           className="max-w-sm"
         />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input type="file" ref={fileInputRef} hidden accept=".xlsx, .xls" onChange={handleImport} />
+          <Button variant="outline" onClick={handleDownloadTemplate} title="Download Template Excel">
+            <Download className="mr-2 h-4 w-4" /> Template
+          </Button>
           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
             <FileUp className="mr-2 h-4 w-4" /> Import Excel
           </Button>
@@ -208,7 +224,7 @@ function StudentManager() {
         </div>
       </div>
 
-      <div className="border rounded-md">
+      <div className="border rounded-md overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -232,7 +248,7 @@ function StudentManager() {
                   <TableCell className="text-right space-x-2">
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={() => setFormData({ name: s.name, email: s.email, nis: s.nis, class: s.class, id: s.id })}>
+                        <Button variant="ghost" size="icon" onClick={() => setFormData({ name: s.name || "", email: s.email || "", nis: s.nis || "", class: s.class || "", id: s.id })}>
                           <Pencil className="h-4 w-4 text-blue-500" />
                         </Button>
                       </DialogTrigger>
@@ -281,7 +297,7 @@ function StudentManager() {
 function VendorManager() {
   const [vendors, setVendors] = useState<any[]>([])
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [formData, setFormData] = useState({ name: "", email: "", vendorName: "", password: "" })
+  const [formData, setFormData] = useState<any>({ name: "", email: "", vendorName: "", password: "" })
 
   useEffect(() => { fetchVendors() }, [])
 
@@ -297,13 +313,35 @@ function VendorManager() {
         method: "POST",
         body: JSON.stringify(formData)
       })
+      const data = await res.json()
       if (res.ok) {
         toast.success("Vendor berhasil dibuat")
         setIsAddOpen(false)
         setFormData({ name: "", email: "", vendorName: "", password: "" })
         fetchVendors()
       } else {
-        toast.error("Gagal buat vendor")
+        toast.error(data.error || "Gagal buat vendor")
+      }
+    } catch (e: any) { toast.error(e.message || "Error") }
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!formData.id) return
+    try {
+      const res = await fetch("/api/admin/users/vendors", {
+        method: "PUT",
+        body: JSON.stringify(formData) // Handles password update if provided, otherwise generic info
+      })
+      if (res.ok) {
+        toast.success("Data vendor diperbarui")
+        setFormData({ name: "", email: "", vendorName: "", password: "" }) // Reset form
+        // Ideally we should close a separate edit dialog, relying on reusing the Add dialog or a new one?
+        // Let's use a separate Dialog for Edit to avoid confusion or reuse properly.
+        // For simplicity in this interaction, I'll inline a Dialog in the table row like StudentManager.
+        fetchVendors()
+      } else {
+        toast.error("Gagal update vendor")
       }
     } catch (e) { toast.error("Error") }
   }
@@ -337,7 +375,7 @@ function VendorManager() {
               </div>
               <div className="space-y-2">
                 <Label>Password</Label>
-                <Input required type="password" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+                <PasswordInput required value={formData.password} onChange={(e: any) => setFormData({ ...formData, password: e.target.value })} />
               </div>
               <Button type="submit" className="w-full">Buat Akun Vendor</Button>
             </form>
@@ -345,7 +383,7 @@ function VendorManager() {
         </Dialog>
       </div>
 
-      <div className="border rounded-md">
+      <div className="border rounded-md overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -361,7 +399,40 @@ function VendorManager() {
                 <TableCell className="font-medium">{v.vendorName}</TableCell>
                 <TableCell>{v.name}</TableCell>
                 <TableCell>{v.email}</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right space-x-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => setFormData({ name: v.name || "", email: v.email || "", vendorName: v.vendorName || "", password: "", id: v.id })}>
+                        <Pencil className="h-4 w-4 text-blue-500" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Edit Vendor</DialogTitle></DialogHeader>
+                      <form onSubmit={handleEdit} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Nama Pemilik</Label>
+                          <Input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Nama Kantin (Brand)</Label>
+                          <Input required value={formData.vendorName} onChange={e => setFormData({ ...formData, vendorName: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email Login</Label>
+                          <Input required type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Password Baru (Opsional)</Label>
+                          <PasswordInput
+                            placeholder="Biarkan kosong jika tidak diubah"
+                            value={formData.password}
+                            onChange={e => setFormData({ ...formData, password: e.target.value })}
+                          />
+                        </div>
+                        <Button type="submit" className="w-full">Simpan Perubahan</Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
                   <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(v.id)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>

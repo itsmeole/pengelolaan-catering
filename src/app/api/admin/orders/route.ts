@@ -1,47 +1,59 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { NextResponse } from "next/server"
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") {
-        return new NextResponse("Unauthorized", { status: 401 })
-    }
+function getClient(cookieStore: any) {
+    return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { getAll() { return cookieStore.getAll() }, setAll() {} } }
+    )
+}
 
+// GET: Semua pesanan seluruh siswa untuk Admin
+export async function GET() {
     try {
-        const orders = await db.order.findMany({
-            include: {
-                student: { select: { name: true, class: true } },
-                items: { include: { menu: true } }
-            },
-            orderBy: { createdAt: 'desc' }
-        })
-        return NextResponse.json(orders)
-    } catch (error) {
-        return new NextResponse("Internal Error", { status: 500 })
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
+
+        const { data, error } = await supabase
+            .from('Order')
+            .select(`
+                *,
+                student:profiles!studentId(id, name, email, nis, class),
+                items:"OrderItem"(
+                    *,
+                    menu:"MenuItem"(
+                        id, name, price, imageUrl,
+                        vendor:profiles!vendorId(id, name, "vendorName")
+                    )
+                )
+            `)
+            .order('createdAt', { ascending: false })
+
+        if (error) throw error
+        return NextResponse.json(data || [])
+    } catch (e) {
+        console.error('ADMIN GET ORDERS ERROR:', e)
+        return NextResponse.json({ error: 'System Error' }, { status: 500 })
     }
 }
 
+// PUT: Update status pesanan (konfirmasi bayar, dll)
 export async function PUT(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") {
-        return new NextResponse("Unauthorized", { status: 401 })
-    }
-
     try {
         const { orderId, status } = await req.json()
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
 
-        await db.order.update({
-            where: { id: orderId },
-            data: {
-                status: status,
-                // If confirming payment, we can also set the update time
-            }
-        })
+        const { error } = await supabase
+            .from('Order')
+            .update({ status, updatedAt: new Date().toISOString() })
+            .eq('id', orderId)
 
+        if (error) throw error
         return NextResponse.json({ success: true })
-    } catch (error) {
-        return new NextResponse("Internal Error", { status: 500 })
+    } catch (e) {
+        return NextResponse.json({ error: 'System Error' }, { status: 500 })
     }
 }

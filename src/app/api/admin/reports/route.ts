@@ -1,93 +1,86 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { NextResponse } from "next/server"
-import { startOfDay, endOfDay, format } from "date-fns"
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { startOfDay, endOfDay, format } from 'date-fns'
 
 export async function GET(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") return new NextResponse("Unauthorized", { status: 401 })
-
     try {
         const { searchParams } = new URL(req.url)
-        const startStr = searchParams.get("start")
-        const endStr = searchParams.get("end")
+        const start = searchParams.get('start')
+        const end = searchParams.get('end')
 
-        if (!startStr || !endStr) return new NextResponse("Missing dates", { status: 400 })
+        if (!start || !end) {
+            return NextResponse.json({ error: 'Start and end dates required' }, { status: 400 })
+        }
 
-        const startDate = startOfDay(new Date(startStr))
-        const endDate = endOfDay(new Date(endStr))
+        const cookieStore = await cookies()
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { getAll() { return cookieStore.getAll() }, setAll() {} } }
+        )
 
-        // Fetch all completed/paid orders in range
-        const orders = await db.order.findMany({
-            where: {
-                createdAt: { gte: startDate, lte: endDate },
-                status: { in: ["PAID", "COMPLETED"] }
-            },
-            include: {
-                student: { select: { name: true } },
-                items: {
-                    include: {
-                        menu: {
-                            include: { vendor: { select: { vendorName: true } } }
-                        }
-                    }
-                }
-            }
-        })
+        // Fetch OrderItems within range where parent Order is PAID or COMPLETED
+        const { data: items, error } = await supabase
+            .from('OrderItem')
+            .select(`
+                id, quantity, price, adminFee, date,
+                menu:"MenuItem"(name),
+                order:"Order"!inner(
+                    status,
+                    student:profiles!studentId(name),
+                    items:"OrderItem"(
+                        menu:"MenuItem"(vendor:profiles!vendorId(vendorName, name))
+                    )
+                )
+            `)
+            .gte('date', startOfDay(new Date(start)).toISOString())
+            .lte('date', endOfDay(new Date(end)).toISOString())
+            .in('order.status', ['PAID', 'COMPLETED'])
 
-        // Aggregate Data
-        let totalGross = 0
-        let totalNet = 0
-        const dailyMap: Record<string, { date: string, gross: number, net: number, orders: number }> = {}
+        if (error) throw error
 
-        orders.forEach(order => {
-            totalGross += order.totalAmount
+        // Transform for display
+        const details = (items || []).map(item => {
+            // Find vendor name from the order's items structure (simplified join)
+            const vendorName = (item as any).order?.items?.[0]?.menu?.vendor?.vendorName || 
+                               ((item as any).order?.items?.[0]?.menu?.vendor as any)?.name || 'Vendor'
 
-            // Calculate Admin Fee (Net) - 1000 per item
-            let orderFee = 0
-            order.items.forEach(item => orderFee += (1000 * item.quantity))
-            totalNet += orderFee
-
-            // Group by Date for Chart
-            const dateKey = format(order.createdAt, "yyyy-MM-dd")
-            if (!dailyMap[dateKey]) {
-                dailyMap[dateKey] = { date: dateKey, gross: 0, net: 0, orders: 0 }
-            }
-            dailyMap[dateKey].gross += order.totalAmount
-            dailyMap[dateKey].net += orderFee
-            dailyMap[dateKey].orders += 1
-        })
-
-        // Sort chart data by date
-        const chartData = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date))
-
-        // Transaction Details
-        const transactionDetails = orders.flatMap(order => {
-            return order.items.map(item => ({
-                id: order.id,
-                date: format(order.createdAt, "yyyy-MM-dd HH:mm"),
-                studentName: order.student?.name || "Unknown",
-                vendorName: item.menu?.vendor?.vendorName || "Unknown Vendor",
-                itemName: item.menu?.name || "Unknown Item",
+            return {
+                date: format(new Date(item.date), "dd/MM/yyyy"),
+                studentName: (item as any).order?.student?.name || 'Siswa',
+                vendorName,
+                itemName: (item.menu as any)?.name || 'Menu',
                 price: item.price,
                 quantity: item.quantity,
                 total: item.price * item.quantity,
-                adminFee: 1000 * item.quantity
-            }))
+                adminFee: (item.adminFee || 0) * item.quantity
+            }
         })
+
+        // Summary
+        const totalOrders = new Set((items || []).map(i => (i.order as any)?.id)).size
+        const grossRevenue = details.reduce((acc, curr) => acc + curr.total, 0)
+        const netRevenue = details.reduce((acc, curr) => acc + curr.adminFee, 0)
+
+        // Aggregation for chart (Group by day)
+        const chartMap: Record<string, { date: string, gross: number, net: number }> = {}
+        details.forEach(d => {
+            const dayKey = d.date.split('/').reverse().join('-') // YYYY-MM-DD
+            if (!chartMap[dayKey]) chartMap[dayKey] = { date: dayKey, gross: 0, net: 0 }
+            chartMap[dayKey].gross += d.total
+            chartMap[dayKey].net += d.adminFee
+        })
+        const chart = Object.values(chartMap).sort((a, b) => a.date.localeCompare(b.date))
 
         return NextResponse.json({
-            summary: {
-                totalOrders: orders.length,
-                grossRevenue: totalGross,
-                netRevenue: totalNet
-            },
-            chart: chartData,
-            details: transactionDetails
+            summary: { totalOrders, grossRevenue, netRevenue },
+            details,
+            chart
         })
 
-    } catch (error) {
-        return new NextResponse("Internal Error", { status: 500 })
+    } catch (e) {
+        console.error('REPORTS ERROR:', e)
+        return NextResponse.json({ error: 'System Error' }, { status: 500 })
     }
 }

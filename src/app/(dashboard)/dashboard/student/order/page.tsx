@@ -1,35 +1,50 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { format } from "date-fns"
-import { Calendar as CalendarIcon, ShoppingCart, Loader2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { format, addDays, nextDay } from "date-fns"
+import { id as idLocale } from "date-fns/locale"
+import { ShoppingCart, Loader2, UtensilsCrossed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+
+
+// Map key API (bahasa Inggris) ke nama hari Indonesia
+const DAY_KEY_MAP: Record<string, string> = {
+    monday: "Senin",
+    tuesday: "Selasa",
+    wednesday: "Rabu",
+    thursday: "Kamis",
+    friday: "Jumat",
+    saturday: "Sabtu",
+    sunday: "Minggu",
+}
+const ALL_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
 
 export default function StudentOrderPage() {
     const [menus, setMenus] = useState<any[]>([])
+    // Cart: mulai kosong agar server & client sinkron, lalu isi dari localStorage setelah mount
     const [cart, setCart] = useState<any[]>([])
+    const cartLoaded = useRef(false) // mencegah overwrite sebelum load selesai
     const [isCartOpen, setIsCartOpen] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [workingDays, setWorkingDays] = useState<string[]>(ALL_DAYS)
+    const [activeDay, setActiveDay] = useState<string>(() => {
+        const todayName = new Date().toLocaleDateString("id-ID", { weekday: "long" })
+        return ALL_DAYS.find(d => d === todayName) || ALL_DAYS[0]
+    })
 
     // Checkout State
     const [paymentMethod, setPaymentMethod] = useState("CASH_PAY_LATER")
@@ -37,54 +52,83 @@ export default function StudentOrderPage() {
 
     // Add Item State
     const [selectedMenu, setSelectedMenu] = useState<any>(null)
-    const [date, setDate] = useState<Date>()
     const [note, setNote] = useState("")
     const [quantity, setQuantity] = useState(1)
     const [isAddOpen, setIsAddOpen] = useState(false)
 
     useEffect(() => {
+        // Load cart dari localStorage setelah hydration selesai
+        try {
+            const saved = localStorage.getItem("student_cart")
+            if (saved) setCart(JSON.parse(saved))
+        } catch { /* abaikan */ }
+        cartLoaded.current = true
+
         fetchMenus()
+        fetchWorkingDays()
     }, [])
 
+    // Simpan cart ke localStorage setiap kali berubah — HANYA setelah load awal selesai
+    useEffect(() => {
+        if (!cartLoaded.current) return
+        localStorage.setItem("student_cart", JSON.stringify(cart))
+    }, [cart])
+
     async function fetchMenus() {
-        const res = await fetch("/api/menu")
-        const data = await res.json()
-        setMenus(data)
+        try {
+            const res = await fetch("/api/student/menus")
+            const data = await res.json()
+            setMenus(Array.isArray(data) ? data : [])
+        } catch {
+            toast.error("Gagal memuat menu")
+        }
+    }
+
+    async function fetchWorkingDays() {
+        try {
+            const res = await fetch("/api/admin/settings/working-days")
+            const config = await res.json()
+            // Filter hari sesuai config admin
+            const active = ALL_DAYS.filter(dayId => {
+                const key = Object.entries(DAY_KEY_MAP).find(([, v]) => v === dayId)?.[0]
+                return key ? config[key] === true : false
+            })
+            setWorkingDays(active.length > 0 ? active : ALL_DAYS)
+            // Jika tab aktif bukan hari kerja, pindah ke hari kerja pertama
+            setActiveDay(prev => active.includes(prev) ? prev : (active[0] || ALL_DAYS[0]))
+        } catch {
+            // Tetap gunakan semua hari jika gagal fetch
+        }
     }
 
     const addToCart = () => {
-        if (!date) {
-            toast.error("Pilih tanggal pengiriman")
-            return
+        // Hitung tanggal minggu depan sesuai tab hari aktif
+        const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6 }
+        const targetWeekday = dayMap[activeDay] ?? 1
+        const today = new Date()
+        // Cari hari yang sesuai di minggu depan
+        let deliveryDate = nextDay(today, targetWeekday as 0|1|2|3|4|5|6)
+        // Jika hari ini sama dengan target, maju 7 hari lagi
+        if (today.getDay() === targetWeekday) {
+            deliveryDate = addDays(today, 7)
         }
-        // Check redundancy: Check if date already has order for this menu? Or check "1 menu once per day"? 
-        // Requirement 2.6: "siswa hanya dapat memesan menu sekali saja untuk hariannya". 
-        // This implies 1 order (transaction) per day? Or 1 menu item per day? 
-        // "mencegah redundan". 
-        // I'll assume they can order multiple *different* menus for a day, but not the *same* menu twice same day? 
-        // Or maybe just "Have you ordered for Monday? If yes, can't order again". 
-        // Simplest: Check if cart already has items for this Date? 
-        // "bisa custom pemesanan, senin A, selasa B".
-        // I'll allow multiple items per date in cart, but maybe warn if excessive.
 
         setCart([...cart, {
             menuId: selectedMenu.id,
             name: selectedMenu.name,
-            price: selectedMenu.price,
-            date: date,
+            price: selectedMenu.price + 1000, // Mark up for student
+            date: deliveryDate,
             note: note,
             quantity: quantity
         }])
         setIsAddOpen(false)
         setNote("")
         setQuantity(1)
-        toast.success("Masuk keranjang")
+        toast.success(`Ditambahkan untuk ${activeDay}, ${format(deliveryDate, "dd MMM yyyy", { locale: idLocale })}`)
     }
 
     const removeFromCart = (index: number) => {
-        const newCart = [...cart]
-        newCart.splice(index, 1)
-        setCart(newCart)
+        setCart(prev => prev.filter((_, i) => i !== index))
     }
 
     const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,21 +152,17 @@ export default function StudentOrderPage() {
         try {
             const res = await fetch("/api/order", {
                 method: "POST",
-                body: JSON.stringify({
-                    items: cart,
-                    paymentMethod,
-                    proofImage
-                })
+                body: JSON.stringify({ items: cart, paymentMethod, proofImage })
             })
             if (res.ok) {
                 toast.success("Pesanan berhasil dibuat!")
                 setCart([])
+                localStorage.removeItem("student_cart")
                 setIsCartOpen(false)
-                // Redirect to history?
             } else {
                 toast.error("Gagal membuat pesanan")
             }
-        } catch (error) {
+        } catch {
             toast.error("Error sistem")
         } finally {
             setLoading(false)
@@ -131,8 +171,23 @@ export default function StudentOrderPage() {
 
     const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
 
+    // Gunakan hari kerja dari config admin
+    const DAYS_ORDER = workingDays
+    const menuByDay: Record<string, any[]> = {}
+    DAYS_ORDER.forEach(d => { menuByDay[d] = [] })
+    menus.forEach((menu) => {
+        const days: string[] = menu.availableDays || []
+        if (days.length === 0) {
+            DAYS_ORDER.forEach(d => menuByDay[d].push(menu))
+        } else {
+            days.forEach((d) => {
+                if (menuByDay[d]) menuByDay[d].push(menu)
+            })
+        }
+    })
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold tracking-tight text-primary">Pesan Makanan</h2>
                 <Button variant="outline" onClick={() => setIsCartOpen(true)} className="relative">
@@ -146,60 +201,77 @@ export default function StudentOrderPage() {
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {menus.map((menu) => (
-                    <Card key={menu.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                        <div className="aspect-video w-full bg-muted relative">
-                            {menu.imageUrl ? (
-                                <img src={menu.imageUrl} alt={menu.name} className="object-cover w-full h-full" />
-                            ) : (
-                                <div className="flex items-center justify-center h-full text-muted-foreground bg-gray-100">
-                                    No Image
-                                </div>
-                            )}
-                            <div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-sm font-bold text-primary shadow-sm">
-                                Rp {menu.price.toLocaleString()}
-                            </div>
-                        </div>
-                        <CardHeader>
-                            <CardTitle className="text-lg">{menu.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground">{menu.vendor?.vendorName || "Vendor"}</p>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm line-clamp-2 text-gray-600">{menu.description}</p>
-                        </CardContent>
-                        <CardFooter>
-                            <Button className="w-full" onClick={() => {
-                                setSelectedMenu(menu)
-                                setIsAddOpen(true)
-                            }}>
-                                Pilih Menu
-                            </Button>
-                        </CardFooter>
-                    </Card>
+            {/* Tab Hari */}
+            <div className="flex gap-2 flex-wrap border-b pb-3">
+                {DAYS_ORDER.map((day) => (
+                    <button
+                        key={day}
+                        onClick={() => setActiveDay(day)}
+                        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            activeDay === day
+                                ? "bg-primary text-white shadow"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                    >
+                        {day}
+                        {menuByDay[day].length > 0 && (
+                            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeDay === day ? "bg-white/20" : "bg-primary/10 text-primary"}`}>
+                                {menuByDay[day].length}
+                            </span>
+                        )}
+                    </button>
                 ))}
             </div>
 
-            {/* Add Dialog */}
+            {/* Grid Menu per Hari */}
+            {menuByDay[activeDay].length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                    <UtensilsCrossed className="h-12 w-12 mb-3 opacity-20" />
+                    <p className="text-sm">Tidak ada menu tersedia untuk hari <strong>{activeDay}</strong>.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {menuByDay[activeDay].map((menu) => (
+                        <Card key={menu.id} className="overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                            {/* Gambar */}
+                            <div className="h-24 w-full bg-muted relative flex-shrink-0">
+                                {menu.imageUrl ? (
+                                    <img src={menu.imageUrl} alt={menu.name} className="object-cover w-full h-full" />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground bg-gray-100 text-xs">
+                                        No Image
+                                    </div>
+                                )}
+                                <div className="absolute top-1.5 right-1.5 bg-white/90 px-1.5 py-0.5 rounded text-[11px] font-bold text-primary shadow-sm">
+                                    Rp {(menu.price + 1000).toLocaleString()}
+                                </div>
+                            </div>
+                            {/* Konten */}
+                            <div className="flex flex-col flex-1 p-2.5 gap-1">
+                                <p className="font-semibold text-sm leading-tight line-clamp-1">{menu.name}</p>
+                                <p className="text-[11px] text-muted-foreground line-clamp-1">{menu.vendor?.vendorName || menu.vendor?.name || "Vendor"}</p>
+                                <p className="text-[11px] text-gray-500 line-clamp-2 flex-1">{menu.description}</p>
+                                <Button size="sm" className="w-full mt-2 text-xs h-7" onClick={() => {
+                                    setSelectedMenu(menu)
+                                    setIsAddOpen(true)
+                                }}>
+                                    Pilih
+                                </Button>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
+            )}
+
+            {/* Dialog Tambah ke Keranjang */}
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Pesan: {selectedMenu?.name}</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="grid gap-2">
-                            <Label>Tanggal Pengiriman</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? format(date, "PPP") : "Pilih tanggal"}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus disabled={(date) => date < new Date()} />
-                                </PopoverContent>
-                            </Popover>
+                    <div className="space-y-4 py-2">
+                        <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                            Pesanan ini akan diantar pada <strong>hari {activeDay} minggu depan</strong> sesuai jadwal pengelola.
                         </div>
                         <div className="grid gap-2">
                             <Label>Jumlah</Label>
@@ -216,7 +288,7 @@ export default function StudentOrderPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Cart Dialog/Sheet - Using Dialog for simplicity */}
+            {/* Dialog Keranjang */}
             <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
@@ -232,7 +304,7 @@ export default function StudentOrderPage() {
                                         <p className="font-bold">{item.name}</p>
                                         <p className="text-xs text-muted-foreground">{format(new Date(item.date), "PPP")}</p>
                                         {item.note && <p className="text-xs text-blue-600">Note: {item.note}</p>}
-                                        <p className="text-sm">x{item.quantity} @ {item.price.toLocaleString()}</p>
+                                        <p className="text-sm">x{item.quantity} @ Rp {item.price.toLocaleString()}</p>
                                     </div>
                                     <Button variant="ghost" size="sm" onClick={() => removeFromCart(idx)} className="text-destructive h-auto p-1">Hapus</Button>
                                 </div>
@@ -246,20 +318,16 @@ export default function StudentOrderPage() {
                                 <span>Total</span>
                                 <span>Rp {total.toLocaleString()}</span>
                             </div>
-
                             <div className="space-y-2">
                                 <Label>Metode Pembayaran</Label>
                                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="CASH_PAY_LATER">Bayar Nanti (Pay Later)</SelectItem>
                                         <SelectItem value="TRANSFER">Transfer Bank</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-
                             {paymentMethod === "TRANSFER" && (
                                 <div className="space-y-2 bg-blue-50 p-3 rounded text-sm">
                                     <p className="font-bold">Info Transfer:</p>
@@ -268,7 +336,6 @@ export default function StudentOrderPage() {
                                     <Input type="file" accept="image/*" onChange={handleProofChange} />
                                 </div>
                             )}
-
                             <Button onClick={checkout} className="w-full font-bold" disabled={loading}>
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Buat Pesanan

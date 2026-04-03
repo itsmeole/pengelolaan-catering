@@ -82,7 +82,10 @@ export function SidebarNav({ className, role, ...props }: SidebarNavProps) {
                 <Button
                     variant="ghost"
                     className="w-full justify-start gap-2 text-red-500 hover:text-red-600 hover:bg-red-50"
-                    onClick={() => import("next-auth/react").then(mod => mod.signOut({ callbackUrl: "/login" }))}
+                    onClick={async () => {
+                        await fetch('/api/auth/logout', { method: 'POST' })
+                        window.location.href = '/login'
+                    }}
                 >
                     <LogOut className="h-4 w-4" />
                     Logout

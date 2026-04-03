@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -45,7 +46,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Stats Cards - Colorful Borders */}
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card className="border-l-4 border-l-blue-500 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-slate-500">Total Pesanan (Besok)</CardTitle>
@@ -71,7 +72,7 @@ export default function AdminDashboard() {
                     <CardContent>
                         <div className="text-2xl font-bold text-slate-800">{formatCurrency(stats.revenue.gross)}</div>
                         <p className="text-xs text-slate-400 mt-1">
-                            Perlu verifikasi: 3
+                            Perlu verifikasi: {stats.unverifiedCount || 0}
                         </p>
                     </CardContent>
                 </Card>
@@ -90,6 +91,8 @@ export default function AdminDashboard() {
                         </p>
                     </CardContent>
                 </Card>
+                {/* System Status Integration */}
+                <SystemStatus />
             </div>
 
             {/* Split Content: Activity & Menu Preview */}
@@ -99,7 +102,7 @@ export default function AdminDashboard() {
                 <Card className="md:col-span-2 shadow-sm border-none">
                     <CardHeader className="flex flex-row items-center justify-between bg-transparent px-6 pt-6 pb-2">
                         <CardTitle className="text-lg font-bold text-slate-800">Aktivitas Terbaru</CardTitle>
-                        <Button variant="ghost" className="text-blue-600 text-sm h-8">Lihat Semua</Button>
+                        <Link href="/dashboard/admin/orders" className="text-blue-600 text-sm font-medium hover:underline">Lihat Semua</Link>
                     </CardHeader>
                     <CardContent className="px-6">
                         <div className="space-y-4">
@@ -121,12 +124,16 @@ export default function AdminDashboard() {
                                     <Badge
                                         variant="secondary"
                                         className={cn("font-normal",
-                                            activity.paymentMethod === 'CASH_PAY_LATER'
-                                                ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
-                                                : "bg-green-100 text-green-700 hover:bg-green-100"
+                                            activity.status === 'PAID' || activity.status === 'COMPLETED'
+                                                ? "bg-green-100 text-green-700 hover:bg-green-100"
+                                                : activity.status === 'CANCELLED'
+                                                ? "bg-red-100 text-red-700 hover:bg-red-100"
+                                                : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
                                         )}
                                     >
-                                        {activity.paymentMethod === 'CASH_PAY_LATER' ? 'Pending' : 'Sukses'}
+                                        {activity.status === 'PAID' || activity.status === 'COMPLETED' ? 'Lunas' 
+                                        : activity.status === 'CANCELLED' ? 'Dibatalkan' 
+                                        : 'Menunggu'}
                                     </Badge>
                                 </div>
                             ))}
@@ -178,10 +185,6 @@ export default function AdminDashboard() {
 
             </div>
 
-            {/* System Status - Bottom Left Sidebar styled box effectively */}
-            <div className="fixed bottom-6 left-6 w-52 hidden md:block">
-                <SystemStatus />
-            </div>
         </div>
     )
 }

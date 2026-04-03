@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { toast } from "sonner"
-import { useSession } from "next-auth/react"
 import { User, Store, Lock } from "lucide-react"
-
+import { PasswordInput } from "@/components/ui/password-input"
 export default function ProfilePage() {
-    const { data: session } = useSession()
     const [loading, setLoading] = useState(false)
+    const [userRole, setUserRole] = useState("STUDENT")
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -21,26 +20,19 @@ export default function ProfilePage() {
     })
 
     useEffect(() => {
-        if (session?.user) {
-            setFormData(prev => ({
-                ...prev,
-                name: session.user.name || "",
-                email: session.user.email || "",
-                vendorName: (session.user as any).vendorName || ""
-            }))
-        }
-        // Fetch fresh data from API to be sure
+        // Fetch fresh data from API
         fetch("/api/user/profile").then(res => res.json()).then(data => {
-            if (data) {
+            if (data && !data.error) {
                 setFormData(prev => ({
                     ...prev,
-                    name: data.name,
-                    email: data.email,
+                    name: data.name || "",
+                    email: data.email || "",
                     vendorName: data.vendorName || ""
                 }))
+                if (data.role) setUserRole(data.role)
             }
-        })
-    }, [session])
+        }).catch(err => console.error(err))
+    }, [])
 
     async function handleUpdateProfile(e: React.FormEvent) {
         e.preventDefault()
@@ -131,7 +123,7 @@ export default function ProfilePage() {
                                 />
                             </div>
 
-                            {session?.user.role === "VENDOR" && (
+                            {userRole === "VENDOR" && (
                                 <div className="space-y-2">
                                     <Label>Nama Kantin (Brand)</Label>
                                     <div className="relative">
@@ -162,10 +154,9 @@ export default function ProfilePage() {
                         <form onSubmit={handleUpdatePassword} className="space-y-4">
                             <div className="space-y-2">
                                 <Label>Password Baru</Label>
-                                <Input
-                                    type="password"
+                                <PasswordInput
                                     value={formData.newPassword}
-                                    onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
+                                    onChange={(e: any) => setFormData({ ...formData, newPassword: e.target.value })}
                                     placeholder="Minimal 6 karakter"
                                 />
                             </div>

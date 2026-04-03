@@ -1,46 +1,58 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
+import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from "next/server"
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") return new NextResponse("Unauthorized", { status: 401 })
-
+export async function GET() {
     try {
-        // @ts-ignore
-        const setting = await db.systemSetting.findUnique({
-            where: { key: "WORKING_DAYS" }
-        })
+        const supabase = await createClient()
+        // 1. Ambil data dari SystemSetting menggunakan Supabase
+        const { data, error } = await supabase
+            .from('SystemSetting')
+            .select('*')
+            .eq('key', 'working_days_config')
+            .single()
 
-        // Default config if not exists
-        const config = setting ? JSON.parse(setting.value) : {
-            monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false,
-            holidays: [] // Array of "YYYY-MM-DD" strings
+        // Default kembalian jika belum ada data di Database
+        if (error || !data) {
+            return NextResponse.json({
+                monday: true,
+                tuesday: true,
+                wednesday: true,
+                thursday: true,
+                friday: true,
+                saturday: false,
+                sunday: false,
+                holidays: []
+            })
         }
 
-        return NextResponse.json(config)
-    } catch (error) {
-        return new NextResponse("Internal Error", { status: 500 })
+        return NextResponse.json(JSON.parse(data.value))
+    } catch (e) {
+        return NextResponse.json({ error: "System Error" }, { status: 500 })
     }
 }
 
 export async function PUT(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") return new NextResponse("Unauthorized", { status: 401 })
-
     try {
-        const body = await req.json()
+        const payload = await req.json()
+        const supabase = await createClient()
 
-        // @ts-ignore
-        await db.systemSetting.upsert({
-            where: { key: "WORKING_DAYS" },
-            update: { value: JSON.stringify(body) },
-            create: { key: "WORKING_DAYS", value: JSON.stringify(body) }
-        })
+        // Upsert setting ke Supabase
+        const { error } = await supabase
+            .from('SystemSetting')
+            .upsert({
+                key: 'working_days_config',
+                value: JSON.stringify(payload),
+                updatedAt: new Date().toISOString()
+            }, { onConflict: 'key' })
+
+        if (error) {
+            console.error('Supabase Error:', error)
+            return NextResponse.json({ error: error.message }, { status: 500 })
+        }
 
         return NextResponse.json({ success: true })
-    } catch (error) {
-        return new NextResponse("Internal Error", { status: 500 })
+    } catch (e) {
+        console.error('System Error:', e)
+        return NextResponse.json({ error: "System Error" }, { status: 500 })
     }
 }

@@ -53,22 +53,34 @@ export default function AdminMenuPage() {
                 <span className="w-2 h-8 bg-primary rounded-full"></span>
                 {vendorName}
               </h3>
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {vendorMenus.map((menu) => (
-                  <Card key={menu.id} className="overflow-hidden">
+                  <Card key={menu.id} className="overflow-hidden flex flex-col">
                     {menu.imageUrl && (
-                      <div className="h-48 w-full overflow-hidden">
+                      <div className="h-28 w-full overflow-hidden flex-shrink-0">
                         <img src={menu.imageUrl} alt={menu.name} className="w-full h-full object-cover transition-transform hover:scale-105" />
                       </div>
                     )}
-                    <CardHeader>
+                    <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-lg">{menu.name}</CardTitle>
                         <Badge variant="secondary">Rp {menu.price.toLocaleString("id-ID")}</Badge>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{menu.description}</p>
+                    <CardContent className="flex-1 flex flex-col justify-between">
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{menu.description}</p>
+                      
+                      {/* Hari Ketersediaan */}
+                      <div className="flex flex-wrap gap-1 mt-auto">
+                        {(menu.availableDays || []).map((day: string) => (
+                            <span key={day} className="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                {day.substring(0, 3)}
+                            </span>
+                        ))}
+                        {(!menu.availableDays || menu.availableDays.length === 0) && (
+                            <span className="text-xs text-muted-foreground">Semua hari</span>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
                 ))}

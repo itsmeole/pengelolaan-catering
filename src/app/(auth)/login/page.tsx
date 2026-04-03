@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { signIn } from "next-auth/react"
+// next-auth removed
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -18,8 +18,8 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { PasswordInput } from "@/components/ui/password-input"
 import { toast } from "sonner"
-
 const formSchema = z.object({
     email: z.string().email(),
     password: z.string().min(1, "Password is required"),
@@ -40,18 +40,20 @@ export default function LoginPage() {
     async function onSubmit(values: z.infer<typeof formSchema>) {
         setLoading(true)
         try {
-            const result = await signIn("credentials", {
-                redirect: false,
-                email: values.email,
-                password: values.password,
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(values)
             })
 
-            if (result?.error) {
-                toast.error("Login gagal. Periksa email dan password.")
+            const data = await res.json()
+
+            if (!res.ok) {
+                toast.error(data.error || "Login gagal. Periksa email dan password.")
             } else {
                 toast.success("Login berhasil!")
                 router.refresh()
-                router.push("/dashboard") // Middleware redirects to specific role dashboard
+                router.push(data.redirectUrl || "/dashboard")
             }
         } catch (error) {
             toast.error("Terjadi kesalahan sistem")
@@ -91,7 +93,7 @@ export default function LoginPage() {
                                 <FormItem>
                                     <FormLabel>Password</FormLabel>
                                     <FormControl>
-                                        <Input type="password" {...field} />
+                                        <PasswordInput {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -106,9 +108,14 @@ export default function LoginPage() {
             <CardFooter className="flex flex-col gap-2 text-center text-sm">
                 <div className="text-muted-foreground">
                     Belum punya akun?{" "}
-                    <Link href="/register" className="text-primary hover:underline">
-                        Daftar Sekolah & Siswa
-                    </Link>
+                    <a 
+                        href="https://wa.me/6289676363933?text=Halo%20Admin,%20saya%20ingin%20mendaftar%20akun%20Go%20Catering" 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        className="text-primary font-bold hover:underline"
+                    >
+                        Hubungi Admin untuk Daftar
+                    </a>
                 </div>
             </CardFooter>
         </Card>

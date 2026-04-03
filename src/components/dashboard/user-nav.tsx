@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { signOut } from "next-auth/react"
+// removed next-auth
 import Link from "next/link"
 
 export function UserNav({ user }: { user: any }) {
@@ -44,7 +44,10 @@ export function UserNav({ user }: { user: any }) {
                     {/* Add more items if needed */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>
+                <DropdownMenuItem onClick={async () => {
+                    await fetch('/api/auth/logout', { method: 'POST' })
+                    window.location.href = '/login'
+                }}>
                     Log out
                 </DropdownMenuItem>
             </DropdownMenuContent>

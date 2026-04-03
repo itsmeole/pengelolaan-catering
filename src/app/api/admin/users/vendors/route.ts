@@ -1,86 +1,117 @@
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
-export async function GET(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") return new NextResponse("Unauthorized", { status: 401 })
+function getClient(cookieStore: any) {
+    return createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() { return cookieStore.getAll() },
+                setAll() {} // MENCEGAH OVERWRITE COOKIE ADMIN
+            }
+        }
+    )
+}
 
+export async function GET() {
     try {
-        const vendors = await db.user.findMany({
-            where: { role: "VENDOR" },
-            select: { id: true, name: true, email: true, vendorName: true, createdAt: true },
-            orderBy: { name: 'asc' }
-        })
-        return NextResponse.json(vendors)
-    } catch (error) {
-        return new NextResponse("Internal Error", { status: 500 })
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('role', 'VENDOR')
+
+        if (error) throw error
+        return NextResponse.json(data || [])
+    } catch (e) {
+        return NextResponse.json({ error: "System Error" }, { status: 500 })
     }
 }
 
 export async function POST(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") return new NextResponse("Unauthorized", { status: 401 })
-
     try {
-        const { name, email, vendorName, password } = await req.json()
+        const body = await req.json()
+        const { name, email, vendorName, password } = body
 
-        const hashedPassword = await bcrypt.hash(password, 10)
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
 
-        // Check duplicates
-        const existing = await db.user.findUnique({ where: { email } })
-        if (existing) return new NextResponse("Email already exists", { status: 400 })
+        // Create a clean client for signUp to avoid "already logged in" conflicts with Admin session
+        const supabaseAnon = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            { cookies: { getAll() { return [] }, setAll() {} } }
+        )
 
-        await db.user.create({
-            data: {
-                name,
-                email,
-                vendorName,
-                password: hashedPassword,
-                role: "VENDOR"
+        const { data: authData, error: authError } = await supabaseAnon.auth.signUp({
+            email,
+            password,
+            options: {
+                data: { name, role: 'VENDOR' }
             }
         })
 
-        return NextResponse.json({ success: true })
-    } catch (error) {
-        return new NextResponse("Internal Error", { status: 500 })
+        if (authError || !authData.user) {
+            return NextResponse.json({ error: authError?.message || "Failed to create user" }, { status: 400 })
+        }
+
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .update({ vendorName })
+            .eq('id', authData.user.id)
+
+        if (profileError) console.error("Profile Error:", profileError)
+
+        return NextResponse.json({ success: true, user: authData.user })
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message || "System Error" }, { status: 500 })
     }
 }
 
 export async function PUT(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") return new NextResponse("Unauthorized", { status: 401 })
-
     try {
-        const { id, password, ...data } = await req.json()
+        const body = await req.json()
+        const { id, name, email, vendorName } = body
 
-        const updateData: any = { ...data }
-        if (password) {
-            updateData.password = await bcrypt.hash(password, 10)
-        }
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
 
-        await db.user.update({ where: { id }, data: updateData })
+        // Hanya update detail profil, ganti password butuh akses ADMIN khusus 
+        // via SSR Admin SDK, kita skip password untuk VENDOR sementara
+        const { error } = await supabase
+            .from('profiles')
+            .update({ name, email, vendorName })
+            .eq('id', id)
 
+        if (error) throw error
         return NextResponse.json({ success: true })
     } catch (e) {
-        return new NextResponse("Error", { status: 500 })
+        return NextResponse.json({ error: "System Error" }, { status: 500 })
     }
 }
 
 export async function DELETE(req: Request) {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== "ADMIN") return new NextResponse("Unauthorized", { status: 401 })
-
     try {
         const { searchParams } = new URL(req.url)
         const id = searchParams.get("id")
-        if (!id) return new NextResponse("Missing ID", { status: 400 })
+        if (!id) return NextResponse.json({ error: "No ID" }, { status: 400 })
 
-        await db.user.delete({ where: { id } })
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
+
+        // Kita hapus profile. Supabase Auth Users idealnya dihapus pakai Admin SDK,
+        // tapi menghapus profile juga akan mencabut akses auth jika pakai RLS/Trigger yang baik.
+        const { error } = await supabase
+            .from('profiles')
+            .delete()
+            .eq('id', id)
+
+        if (error) throw error
         return NextResponse.json({ success: true })
     } catch (e) {
-        return new NextResponse("Error", { status: 500 })
+        return NextResponse.json({ error: "System Error" }, { status: 500 })
     }
 }

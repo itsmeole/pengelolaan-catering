@@ -20,13 +20,20 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { toast } from "sonner"
-import { Loader2 } from "lucide-react"
+import { Loader2, Eye, CheckCircle2, XCircle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState("ALL")
   const [filterPayment, setFilterPayment] = useState("ALL")
+  const [selectedProof, setSelectedProof] = useState<string | null>(null)
 
   useEffect(() => {
     fetchOrders()
@@ -161,16 +168,40 @@ export default function AdminOrdersPage() {
                   <TableCell>Rp {order.totalAmount.toLocaleString("id-ID")}</TableCell>
                   <TableCell>
                     {order.status === "PAID" && <Badge className="bg-green-600 hover:bg-green-700">Lunas</Badge>}
-                    {order.status === "PENDING" && <Badge variant="destructive">Belum Bayar</Badge>}
+                    {order.status === "PENDING" && (
+                      order.paymentMethod === "TRANSFER" 
+                        ? <Badge variant="outline" className="text-blue-600 border-blue-600 bg-blue-50 font-bold">Perlu Konfirmasi</Badge>
+                        : <Badge variant="destructive">Belum Bayar</Badge>
+                    )}
                     {order.status === "COMPLETED" && <Badge variant="secondary">Selesai</Badge>}
                   </TableCell>
                   <TableCell className="text-right">
-                    {/* If Pay Later AND Pending, show confirm button */}
-                    {order.status === "PENDING" && order.paymentMethod === "CASH_PAY_LATER" && (
-                      <Button size="sm" onClick={() => confirmPayment(order.id)}>
-                        Konfirmasi Bayar
-                      </Button>
-                    )}
+                    <div className="flex justify-end gap-2 items-center">
+                      {order.paymentMethod === "TRANSFER" && order.proofImage && (
+                        <Button 
+                          size="icon" 
+                          variant="outline" 
+                          className="h-8 w-8 text-blue-600 border-blue-200"
+                          onClick={() => setSelectedProof(order.proofImage)}
+                          title="Lihat Bukti"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      
+                      {order.status === "PENDING" && (
+                        <Button size="sm" onClick={() => confirmPayment(order.id)}>
+                          Konfirmasi Lunas
+                        </Button>
+                      )}
+                      
+                      {order.status === "PAID" && (
+                        <div className="flex items-center gap-1 text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Terkonfirmasi
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -178,6 +209,34 @@ export default function AdminOrdersPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Proof Dialog */}
+      <Dialog open={!!selectedProof} onOpenChange={(open) => !open && setSelectedProof(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border-none bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Bukti Transfer Pembayaran</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="bg-white rounded-lg p-6 shadow-2xl">
+              <div className="flex justify-between items-center mb-4 border-b pb-3">
+                <h3 className="font-bold text-xl text-slate-800">Bukti Transfer Pembayaran</h3>
+              </div>
+              <div className="aspect-[3/4] sm:aspect-video w-full bg-slate-50 border rounded-xl overflow-hidden flex items-center justify-center">
+                {selectedProof && (
+                  <img 
+                    src={selectedProof} 
+                    alt="Bukti Transfer" 
+                    className="max-h-full max-w-full object-contain"
+                  />
+                )}
+              </div>
+              <div className="mt-6 flex justify-end">
+                <Button variant="secondary" className="px-8" onClick={() => setSelectedProof(null)}>Tutup</Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
