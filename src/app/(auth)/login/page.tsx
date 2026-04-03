@@ -65,6 +65,9 @@ export default function LoginPage() {
     return (
         <Card className="border-none shadow-lg">
             <CardHeader className="space-y-1">
+                <div className="flex justify-center mb-4">
+                    <img src="/logo-kujang.png" alt="Logo Pupuk Kujang" className="h-20 w-20 object-contain" />
+                </div>
                 <CardTitle className="text-2xl font-bold text-center text-primary">Go Catering</CardTitle>
                 <CardDescription className="text-center">
                     Login untuk masuk ke akun anda
@@ -80,7 +83,7 @@ export default function LoginPage() {
                                 <FormItem>
                                     <FormLabel>Email</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="nama@sekolah.sch.id" {...field} />
+                                        <Input placeholder="nama@gmail.com" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -108,10 +111,10 @@ export default function LoginPage() {
             <CardFooter className="flex flex-col gap-2 text-center text-sm">
                 <div className="text-muted-foreground">
                     Belum punya akun?{" "}
-                    <a 
-                        href="https://wa.me/6289676363933?text=Halo%20Admin,%20saya%20ingin%20mendaftar%20akun%20Go%20Catering" 
-                        target="_blank" 
-                        rel="noreferrer" 
+                    <a
+                        href="https://wa.me/6289676363933?text=Halo%20Admin,%20saya%20ingin%20mendaftar%20akun%20Go%20Catering"
+                        target="_blank"
+                        rel="noreferrer"
                         className="text-primary font-bold hover:underline"
                     >
                         Hubungi Admin untuk Daftar

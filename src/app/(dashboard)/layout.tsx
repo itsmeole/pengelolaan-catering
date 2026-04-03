@@ -15,30 +15,30 @@ export default async function DashboardLayout({
     let userMock = { name: "Guest User", email: "guest@guest.com", role: "STUDENT" }
 
     // Read from Supabase
-        const supabase = createServerClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            {
-                cookies: {
-                    getAll() { return cookieStore.getAll() },
-                    setAll() { } // Readonly in layout
-                }
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() { return cookieStore.getAll() },
+                setAll() { } // Readonly in layout
             }
-        )
-        const { data: { user } } = await supabase.auth.getUser()
-        
-        if (!user) {
-            redirect("/login")
         }
-        
-        let rawRole = user.user_metadata?.role || "STUDENT"
-        if (!["STUDENT", "ADMIN", "VENDOR"].includes(rawRole)) rawRole = "STUDENT"
-        role = rawRole as "STUDENT" | "ADMIN" | "VENDOR"
-        userMock = {
-            name: user.user_metadata?.name || "User",
-            email: user.email || "",
-            role: role
-        }
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        redirect("/login")
+    }
+
+    let rawRole = user.user_metadata?.role || "STUDENT"
+    if (!["STUDENT", "ADMIN", "VENDOR"].includes(rawRole)) rawRole = "STUDENT"
+    role = rawRole as "STUDENT" | "ADMIN" | "VENDOR"
+    userMock = {
+        name: user.user_metadata?.name || "User",
+        email: user.email || "",
+        role: role
+    }
 
     return (
         <div className="flex min-h-screen flex-col md:flex-row">
@@ -46,10 +46,10 @@ export default async function DashboardLayout({
             <aside className="hidden w-64 flex-col border-r bg-sidebar md:flex">
                 <div className="flex h-16 items-center border-b px-6 bg-white">
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded bg-blue-600 flex items-center justify-center text-white font-bold">G</div>
+                        <img src="/logo-kujang.png" alt="Logo Pupuk Kujang" className="h-10 w-10 object-contain rounded-full bg-white p-0.5" />
                         <div className="flex flex-col">
-                            <span className="font-bold text-sm text-slate-800">Go Catering</span>
-                            <span className="text-[10px] text-slate-500">Panel Aplikasi</span>
+                            <span className="font-bold text-sm text-sidebar-foreground">Go Catering</span>
+                            <span className="text-[10px] text-slate-500">Pupuk Kujang Cikampek</span>
                         </div>
                     </div>
                 </div>

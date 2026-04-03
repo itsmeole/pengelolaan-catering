@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Go Catering",
   description: "Catering Management System",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
