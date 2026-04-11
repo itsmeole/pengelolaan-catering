@@ -2,8 +2,14 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-export async function GET() {
+import { startOfDay, endOfDay } from 'date-fns'
+
+export async function GET(req: Request) {
     try {
+        const { searchParams } = new URL(req.url)
+        const start = searchParams.get('start')
+        const end = searchParams.get('end')
+
         const cookieStore = await cookies()
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,7 +21,7 @@ export async function GET() {
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         // Fetch OrderItems for this vendor's menus that are PAST/FINISHED
-        const { data, error } = await supabase
+        let query = supabase
             .from('OrderItem')
             .select(`
                 *,
@@ -26,7 +32,14 @@ export async function GET() {
             `)
             .eq('vendorId', user.id)
             .in('order.status', ['PAID', 'COMPLETED', 'CANCELLED'])
-            .order('date', { ascending: false })
+
+        if (start && end) {
+            query = query
+                .gte('date', startOfDay(new Date(start)).toISOString())
+                .lte('date', endOfDay(new Date(end)).toISOString())
+        }
+
+        const { data, error } = await query.order('date', { ascending: false })
 
         if (error) throw error
 

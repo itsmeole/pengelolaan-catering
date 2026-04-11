@@ -38,7 +38,7 @@ export async function GET(req: Request) {
             .eq('vendorId', user.id)
             .gte('date', startOfDay(new Date(start)).toISOString())
             .lte('date', endOfDay(new Date(end)).toISOString())
-            .in('order.status', ['PAID', 'COMPLETED'])
+            .in('order.status', ['PAID', 'COMPLETED', 'CANCELLED'])
             // Hapus .neq('cancelStatus', 'APPROVED')
 
         if (error) throw error
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
                 adminFee: totalAdminFee,
                 netIncome,
                 quantity: item.quantity,
-                refundStatus: item.cancelStatus || 'NONE'
+                refundStatus: (item.order as any)?.status === 'CANCELLED' ? 'APPROVED' : (item.cancelStatus || 'NONE')
             }
         })
 

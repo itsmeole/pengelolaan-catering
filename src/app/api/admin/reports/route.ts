@@ -35,7 +35,7 @@ export async function GET(req: Request) {
             `)
             .gte('date', startOfDay(new Date(start)).toISOString())
             .lte('date', endOfDay(new Date(end)).toISOString())
-            .in('order.status', ['PAID', 'COMPLETED'])
+            .in('order.status', ['PAID', 'COMPLETED', 'CANCELLED'])
             .order('createdAt', { referencedTable: 'Order', ascending: false })
 
         if (error) throw error
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
                 quantity: item.quantity,
                 total: item.price * item.quantity,
                 adminFee: (item.adminFee || 0) * item.quantity,
-                refundStatus: item.cancelStatus || 'NONE',
+                refundStatus: (item as any).order?.status === 'CANCELLED' ? 'APPROVED' : (item.cancelStatus || 'NONE'),
                 refundReason: item.cancelReason || null
             }
         })

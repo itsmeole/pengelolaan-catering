@@ -47,34 +47,38 @@ export default function VendorRevenuePage() {
 
   function downloadExcel() {
     if (!data) return
-    const summary = [
+    const wsData = [
       ["Laporan Pendapatan Vendor"],
       ["Periode", `${startDate} s/d ${endDate}`],
       [""],
       ["Total Porsi", data.summary.totalPortions],
       ["Total Omzet (Kotor)", data.summary.grossRevenue],
-      ["Pendapatan Bersih (Setelah Potong Admin)", data.summary.netRevenue]
+      ["Pendapatan Bersih (Setelah Potong Admin)", data.summary.netRevenue],
+      [""],
+      [""],
+      ["Rincian Penjualan"],
+      ["Tgl Pesan", "Tgl Antar", "Siswa", "Kelas", "Menu", "Qty", "Harga Jual", "Total Kotor", "Fee Admin", "Penghasilan Bersih", "Status"]
     ]
-    const wsSummary = XLSX.utils.aoa_to_sheet(summary)
     
-    const details = data.details.map((d: any) => ({
-      "Tgl Pesan": d.processedAt ? format(new Date(d.processedAt), "dd/MM/yyyy HH:mm") : "-",
-      "Tgl Antar": d.date,
-      Siswa: d.studentName,
-      Kelas: d.studentClass,
-      Menu: d.itemName,
-      Qty: d.quantity,
-      HargaJual: d.totalPrice / d.quantity,
-      TotalKotor: d.refundStatus === 'APPROVED' ? 0 : d.totalPrice,
-      FeeAdmin: d.refundStatus === 'APPROVED' ? 0 : d.adminFee,
-      PenghasilanBersih: d.refundStatus === 'APPROVED' ? 0 : d.netIncome,
-      Status: d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'MENUNGGU REFUND' : 'SUKSES')
-    }))
-    const wsDetails = XLSX.utils.json_to_sheet(details)
+    data.details.forEach((d: any) => {
+        wsData.push([
+            d.processedAt ? format(new Date(d.processedAt), "dd/MM/yyyy HH:mm") : "-",
+            d.date,
+            d.studentName,
+            d.studentClass,
+            d.itemName,
+            d.quantity,
+            d.totalPrice / d.quantity,
+            d.refundStatus === 'APPROVED' ? 0 : d.totalPrice,
+            d.refundStatus === 'APPROVED' ? 0 : d.adminFee,
+            d.refundStatus === 'APPROVED' ? 0 : d.netIncome,
+            d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'MENUNGGU REFUND' : 'SUKSES')
+        ])
+    })
 
+    const ws = XLSX.utils.aoa_to_sheet(wsData)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan")
-    XLSX.utils.book_append_sheet(wb, wsDetails, "Detail Penjualan")
+    XLSX.utils.book_append_sheet(wb, ws, "Laporan Pendapatan")
     XLSX.writeFile(wb, `Pendapatan_Vendor_${startDate}_${endDate}.xlsx`)
     toast.success("Excel berhasil didownload")
   }
@@ -92,6 +96,11 @@ export default function VendorRevenuePage() {
     ]
     autoTable(doc, { startY: 40, head: [['Kategori', 'Nilai']], body: summaryData })
 
+    // Insert subtitle for table
+    const finalY = (doc as any).lastAutoTable.finalY || 40
+    doc.setFontSize(14)
+    doc.text("Rincian Penjualan", 14, finalY + 15)
+
     const tableData = data.details.map((d: any) => [
       d.processedAt ? format(new Date(d.processedAt), "dd/MM/yy HH:mm") : "-",
       d.date, 
@@ -102,7 +111,7 @@ export default function VendorRevenuePage() {
       d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'REFUND' : 'SUKSES')
     ])
     autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 10,
+      startY: finalY + 20,
       head: [['Tgl Pesan', 'Tgl Antar', 'Menu', 'Qty', 'Kotor', 'Bersih', 'Status']],
       body: tableData,
       headStyles: { fillColor: [59, 130, 246] }, // Biru profesional
