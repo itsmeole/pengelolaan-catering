@@ -9,6 +9,14 @@ import { DollarSign, ShoppingBag, TrendingUp, Users, CreditCard, Activity } from
 import { format } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { SystemStatus } from "@/components/dashboard/system-status"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState<any>(null)
@@ -141,43 +149,44 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* Menu Preview (1/3 width) */}
                 <Card className="shadow-sm border-none bg-white">
                     <CardHeader className="flex flex-row items-center justify-between px-6 pt-6 pb-2">
-                        <CardTitle className="text-sm font-bold text-slate-800">Menu Terlaris (Besok)</CardTitle>
-                        <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">
-                            {format(new Date(new Date().setDate(new Date().getDate() + 1)), "dd MMM")}
-                        </span>
+                        <CardTitle className="text-sm font-bold text-slate-800">Top 5 Menu Terlaris (7 Hari ke Depan)</CardTitle>
+                        <TrendingUp className="h-4 w-4 text-green-500" />
                     </CardHeader>
-                    <CardContent className="px-6 pb-6">
-                        {stats.topMenu ? (
-                            <div className="mt-2 space-y-4">
-                                <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-100">
-                                    <img
-                                        src={stats.topMenu.imageUrl || "/placeholder-food.jpg"}
-                                        className="object-cover w-full h-full"
-                                        alt={stats.topMenu.name}
-                                    />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-lg text-slate-800">{stats.topMenu.name}</h3>
-                                    <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
-                                        {stats.topMenu.description}
-                                    </p>
-                                </div>
-                                <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
-                                    <span className="text-sm text-blue-700 font-medium">Total Order Besok</span>
-                                    <span className="text-lg font-bold text-blue-700">{stats.topMenu.count} Porsi</span>
-                                </div>
-                                <Button className="w-full bg-slate-800 hover:bg-slate-700 text-white">
-                                    Lihat Detail Order
-                                </Button>
-                            </div>
+                    <CardContent className="px-2 pb-6">
+                        {stats.topWeeklyMenus && stats.topWeeklyMenus.length > 0 ? (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="w-[40px] text-xs">No</TableHead>
+                                        <TableHead className="text-xs">Menu</TableHead>
+                                        <TableHead className="text-xs text-right">Porsi</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {stats.topWeeklyMenus.map((menu: any, idx: number) => (
+                                        <TableRow key={menu.id} className="group">
+                                            <TableCell className="text-xs text-slate-500">{idx + 1}</TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-bold text-slate-800 line-clamp-1">{menu.name}</span>
+                                                    <span className="text-[10px] text-slate-400 font-medium">{menu.vendorName}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-50 font-bold text-xs ring-1 ring-inset ring-blue-700/10">
+                                                    {menu.count}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
                         ) : (
-                            <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-50 rounded-lg mt-4">
+                            <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-50 rounded-lg mx-4 mt-4">
                                 <ShoppingBag className="h-10 w-10 text-slate-300 mb-2" />
-                                <p className="text-sm text-slate-500 font-medium">Belum ada pesanan untuk besok.</p>
-                                <p className="text-xs text-slate-400">Data akan muncul setelah siswa memesan.</p>
+                                <p className="text-sm text-slate-500 font-medium">Belum ada data mingguan.</p>
                             </div>
                         )}
                     </CardContent>

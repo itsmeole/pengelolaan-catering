@@ -37,6 +37,7 @@ export function SidebarNav({ className, role, ...props }: SidebarNavProps) {
         VENDOR: [
             { href: "/dashboard/vendor", label: "Dashboard", icon: LayoutDashboard },
             { href: "/dashboard/vendor/menu", label: "Menu Saya", icon: ChefHat },
+            { href: "/dashboard/vendor/all-menus", label: "Menu Mingguan (Publik)", icon: Utensils },
             { href: "/dashboard/vendor/orders", label: "Data Pemesanan", icon: FileText },
             { href: "/dashboard/vendor/history", label: "Riwayat Transaksi", icon: History },
             { href: "/dashboard/vendor/revenue", label: "Pendapatan", icon: DollarSign },
@@ -45,7 +46,6 @@ export function SidebarNav({ className, role, ...props }: SidebarNavProps) {
             { href: "/dashboard/student", label: "Dashboard", icon: LayoutDashboard },
             { href: "/dashboard/student/order", label: "Pesan Makan", icon: Utensils },
             { href: "/dashboard/student/history", label: "Riwayat", icon: History },
-            { href: "/dashboard/student/profile", label: "Profile", icon: UserCircle },
         ]
     }
 
@@ -70,10 +70,6 @@ export function SidebarNav({ className, role, ...props }: SidebarNavProps) {
                     >
                         <Icon className={cn("h-5 w-5", isActive ? "text-blue-600" : "text-slate-400")} />
                         {item.label}
-                        {/* Example Badge for specific items if needed - hardcoded for now based on design */}
-                        {item.label === "Laporan" && (
-                            <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">3</span>
-                        )}
                     </Link>
                 )
             })}

@@ -69,16 +69,16 @@ export default function AdminMenuPage() {
                     </CardHeader>
                     <CardContent className="flex-1 flex flex-col justify-between">
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{menu.description}</p>
-                      
+
                       {/* Hari Ketersediaan */}
                       <div className="flex flex-wrap gap-1 mt-auto">
                         {(menu.availableDays || []).map((day: string) => (
-                            <span key={day} className="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                {day.substring(0, 3)}
-                            </span>
+                          <span key={day} className="bg-green-100 text-green-800 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            {day.substring(0, 3)}
+                          </span>
                         ))}
                         {(!menu.availableDays || menu.availableDays.length === 0) && (
-                            <span className="text-xs text-muted-foreground">Semua hari</span>
+                          <span className="text-xs text-muted-foreground">Semua hari</span>
                         )}
                       </div>
                     </CardContent>

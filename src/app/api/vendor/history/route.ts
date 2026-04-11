@@ -19,13 +19,12 @@ export async function GET() {
             .from('OrderItem')
             .select(`
                 *,
-                menu:"MenuItem"!inner(id, name, vendorId),
                 order:"Order"!inner(
-                    id, status, paymentMethod, studentId,
+                    id, status, paymentMethod, studentId, createdAt,
                     student:profiles!studentId(name, class)
                 )
             `)
-            .eq('menu.vendorId', user.id)
+            .eq('vendorId', user.id)
             .in('order.status', ['PAID', 'COMPLETED', 'CANCELLED'])
             .order('date', { ascending: false })
 

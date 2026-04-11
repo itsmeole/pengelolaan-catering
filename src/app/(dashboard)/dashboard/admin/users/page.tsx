@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { FileUp, Plus, Trash2, KeyRound, Pencil, Download } from "lucide-react"
 import * as XLSX from 'xlsx'
+import { ConfirmButton } from "@/components/ui/confirm-button"
 
 export default function AdminUsersPage() {
   return (
@@ -47,6 +48,10 @@ function StudentManager() {
 
   // Form State
   const [formData, setFormData] = useState<any>({ name: "", email: "", nis: "", class: "" })
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   useEffect(() => { fetchStudents() }, [])
 
@@ -119,17 +124,24 @@ function StudentManager() {
         const ws = wb.Sheets[wsname]
         const data = XLSX.utils.sheet_to_json(ws)
 
-        // Expect columns: NAME, EMAIL, NIS, CLASS
-        // Map keys to lower case
+        // Helper to find column by multiple possible keys (case insensitive)
+        const findVal = (row: any, keys: string[]) => {
+          const rowKeys = Object.keys(row);
+          const foundKey = rowKeys.find(rk => 
+            keys.some(k => rk.toLowerCase().includes(k.toLowerCase()))
+          );
+          return foundKey ? row[foundKey] : undefined;
+        };
+
         const formatted = data.map((row: any) => ({
-          name: row['Name'] || row['NAME'] || row['Nama'],
-          email: row['Email'] || row['EMAIL'],
-          nis: String(row['NIS'] || row['nis']),
-          class: row['Class'] || row['CLASS'] || row['Kelas']
+          name: findVal(row, ['Nama', 'Name', 'Full Name']),
+          email: findVal(row, ['Email', 'Mail']),
+          nis: String(findVal(row, ['NIS', 'NISN', 'Nomor Induk']) || ""),
+          class: String(findVal(row, ['Kelas', 'Class', 'Room']) || "")
         })).filter(r => r.name && r.email)
 
         if (formatted.length === 0) {
-          toast.error("Format Excel tidak valid atau kosong")
+          toast.error("Format Excel tidak valid atau data Nama/Email kosong")
           return
         }
 
@@ -140,9 +152,12 @@ function StudentManager() {
         const resData = await res.json()
 
         if (resData.success) {
-          toast.success(`Berhasil import ${resData.count} siswa`)
-          if (resData.errors.length > 0) {
-            toast.warning(`${resData.errors.length} data dilewati (Duplikat)`)
+          const msg = `Berhasil: ${resData.count} baru, ${resData.updated} diperbarui`
+          toast.success(msg)
+          
+          if (resData.errors && resData.errors.length > 0) {
+            console.error("Import Errors:", resData.errors)
+            toast.warning(`${resData.errors.length} baris bermasalah. Cek konsol (F12) untuk rincian.`)
           }
           fetchStudents()
         }
@@ -156,19 +171,25 @@ function StudentManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus siswa ini?")) return
-    await fetch(`/api/admin/users/students?id=${id}`, { method: "DELETE" })
-    toast.success("Siswa dihapus")
-    fetchStudents()
+    try {
+      await fetch(`/api/admin/users/students?id=${id}`, { method: "DELETE" })
+      toast.success("Data siswa berhasil dihapus")
+      fetchStudents()
+    } catch (e) {
+      toast.error("Gagal menghapus siswa")
+    }
   }
 
   async function handleResetPass(id: string) {
-    if (!confirm("Reset password ke default (123456)?")) return
-    await fetch(`/api/admin/users/students`, {
-      method: "PUT",
-      body: JSON.stringify({ id, type: "RESET_PASSWORD" })
-    })
-    toast.success("Password direset ke 123456")
+    try {
+      await fetch(`/api/admin/users/students`, {
+        method: "PUT",
+        body: JSON.stringify({ id, type: "RESET_PASSWORD" })
+      })
+      toast.success("Password direset ke default: 123456")
+    } catch (e) {
+      toast.error("Gagal mereset password")
+    }
   }
 
   const filtered = students.filter(s =>
@@ -176,6 +197,14 @@ function StudentManager() {
     s.nis.includes(search) ||
     s.class.toLowerCase().includes(search.toLowerCase())
   )
+
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Reset page when search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search])
 
   return (
     <div className="space-y-4">
@@ -236,10 +265,10 @@ function StudentManager() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {paginated.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center h-24">Tidak ada data</TableCell></TableRow>
             ) : (
-              filtered.map(s => (
+              paginated.map(s => (
                 <TableRow key={s.id}>
                   <TableCell>{s.nis}</TableCell>
                   <TableCell className="font-medium">{s.name}</TableCell>
@@ -277,18 +306,71 @@ function StudentManager() {
                         </form>
                       </DialogContent>
                     </Dialog>
-                    <Button variant="ghost" size="icon" onClick={() => handleResetPass(s.id)} title="Reset Password">
-                      <KeyRound className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(s.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <ConfirmButton
+                      title="Reset Password"
+                      description="Apakah Anda yakin ingin mereset password siswa ini ke default (123456)?"
+                      onConfirm={() => handleResetPass(s.id)}
+                      confirmText="Reset Sekarang"
+                    >
+                      <Button variant="ghost" size="icon" title="Reset Password">
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                    </ConfirmButton>
+
+                    <ConfirmButton
+                      title="Hapus Siswa"
+                      description={`Apakah Anda yakin ingin menghapus data siswa "${s.name}"? Tindakan ini permanen.`}
+                      onConfirm={() => handleDelete(s.id)}
+                      confirmText="Hapus"
+                      variant="destructive"
+                    >
+                      <Button variant="ghost" size="icon" className="text-red-500">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </ConfirmButton>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
+        <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Baris:</span>
+            <select 
+                value={pageSize} 
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="text-xs border rounded p-1"
+            >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+            </select>
+        </div>
+        <div className="flex items-center gap-4">
+            <span className="text-xs text-muted-foreground">
+                Hal {currentPage} dari {totalPages || 1}
+            </span>
+            <div className="flex gap-1">
+                <Button 
+                    variant="outline" size="sm" className="h-8 px-2 text-xs"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                >
+                    Prev
+                </Button>
+                <Button 
+                    variant="outline" size="sm" className="h-8 px-2 text-xs"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                >
+                    Next
+                </Button>
+            </div>
+        </div>
       </div>
     </div>
   )
@@ -298,6 +380,9 @@ function VendorManager() {
   const [vendors, setVendors] = useState<any[]>([])
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [formData, setFormData] = useState<any>({ name: "", email: "", vendorName: "", password: "" })
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   useEffect(() => { fetchVendors() }, [])
 
@@ -347,10 +432,13 @@ function VendorManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus vendor ini?")) return
-    await fetch(`/api/admin/users/vendors?id=${id}`, { method: "DELETE" })
-    toast.success("Vendor dihapus")
-    fetchVendors()
+    try {
+      await fetch(`/api/admin/users/vendors?id=${id}`, { method: "DELETE" })
+      toast.success("Akun vendor berhasil dihapus")
+      fetchVendors()
+    } catch (e) {
+      toast.error("Gagal menghapus vendor")
+    }
   }
 
   return (
@@ -394,7 +482,7 @@ function VendorManager() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {vendors.map(v => (
+            {vendors.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(v => (
               <TableRow key={v.id}>
                 <TableCell className="font-medium">{v.vendorName}</TableCell>
                 <TableCell>{v.name}</TableCell>
@@ -433,14 +521,49 @@ function VendorManager() {
                       </form>
                     </DialogContent>
                   </Dialog>
-                  <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(v.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <ConfirmButton
+                    title="Hapus Vendor"
+                    description={`Apakah Anda yakin ingin menghapus akun vendor "${v.vendorName}"? Semua data menu terkait juga akan terpengaruh.`}
+                    onConfirm={() => handleDelete(v.id)}
+                    confirmText="Hapus"
+                    variant="destructive"
+                  >
+                    <Button variant="ghost" size="icon" className="text-red-500">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </ConfirmButton>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
+        <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Baris:</span>
+            <select 
+                value={pageSize} 
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="text-xs border rounded p-1"
+            >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+            </select>
+        </div>
+        <div className="flex gap-1">
+            <Button 
+                variant="outline" size="sm" className="h-8 text-xs"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+            >Prev</Button>
+            <Button 
+                variant="outline" size="sm" className="h-8 text-xs"
+                onClick={() => setCurrentPage(p => Math.min(Math.ceil(vendors.length / pageSize), p + 1))}
+                disabled={currentPage >= Math.ceil(vendors.length / pageSize)}
+            >Next</Button>
+        </div>
       </div>
     </div>
   )

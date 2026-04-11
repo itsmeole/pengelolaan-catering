@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { createAdminClient } from '@/lib/supabaseAdmin'
 
 function getClient(cookieStore: any) {
     return createServerClient(
@@ -74,13 +75,23 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
     try {
         const body = await req.json()
-        const { id, name, email, vendorName } = body
+        const { id, name, email, vendorName, password } = body
 
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
+        const admin = createAdminClient()
 
-        // Hanya update detail profil, ganti password butuh akses ADMIN khusus 
-        // via SSR Admin SDK, kita skip password untuk VENDOR sementara
+        // 1. Sync with Supabase Auth (including Display Name in metadata)
+        const updateData: any = { 
+            email,
+            user_metadata: { name }
+        }
+        if (password) updateData.password = password
+
+        const { error: authError } = await admin.auth.admin.updateUserById(id, updateData)
+        if (authError) throw authError
+
+        // 2. Update Profile Table
         const { error } = await supabase
             .from('profiles')
             .update({ name, email, vendorName })
@@ -88,8 +99,8 @@ export async function PUT(req: Request) {
 
         if (error) throw error
         return NextResponse.json({ success: true })
-    } catch (e) {
-        return NextResponse.json({ error: "System Error" }, { status: 500 })
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message || "System Error" }, { status: 500 })
     }
 }
 
@@ -101,9 +112,13 @@ export async function DELETE(req: Request) {
 
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
+        const admin = createAdminClient()
 
-        // Kita hapus profile. Supabase Auth Users idealnya dihapus pakai Admin SDK,
-        // tapi menghapus profile juga akan mencabut akses auth jika pakai RLS/Trigger yang baik.
+        // 1. Delete from Supabase Auth
+        const { error: authError } = await admin.auth.admin.deleteUser(id)
+        if (authError) console.error("Auth Delete Error (continuing):", authError)
+
+        // 2. Delete from Profiles
         const { error } = await supabase
             .from('profiles')
             .delete()
@@ -111,7 +126,7 @@ export async function DELETE(req: Request) {
 
         if (error) throw error
         return NextResponse.json({ success: true })
-    } catch (e) {
-        return NextResponse.json({ error: "System Error" }, { status: 500 })
+    } catch (e: any) {
+        return NextResponse.json({ error: e.message || "System Error" }, { status: 500 })
     }
 }

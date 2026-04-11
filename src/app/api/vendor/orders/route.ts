@@ -26,14 +26,13 @@ export async function GET() {
             .from('OrderItem')
             .select(`
                 *,
-                menu:"MenuItem"!inner(id, name, vendorId),
                 order:"Order"!inner(
                     id, status, paymentMethod, studentId,
                     student:profiles!studentId(name, class)
                 )
             `)
-            .eq('menu.vendorId', user.id)
-            .or(`status.in.(PAID,COMPLETED),and(status.eq.PENDING,paymentMethod.eq.CASH_PAY_LATER)`, { foreignTable: 'order' })
+            .eq('vendorId', user.id)
+            .or('status.in.("PAID","COMPLETED"),and(status.eq.PENDING,paymentMethod.eq.CASH_PAY_LATER)', { foreignTable: 'order' })
             .order('date', { ascending: true })
 
         if (error) throw error

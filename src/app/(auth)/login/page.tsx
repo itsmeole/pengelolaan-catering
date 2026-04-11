@@ -66,7 +66,7 @@ export default function LoginPage() {
         <Card className="border-none shadow-lg">
             <CardHeader className="space-y-1">
                 <div className="flex justify-center mb-4">
-                    <img src="/logo-kujang.png" alt="Logo Pupuk Kujang" className="h-20 w-20 object-contain" />
+                    <img src="/logo-kujang.png" alt="Logo Pupuk Kujang" className="h-30 w-30 object-contain" />
                 </div>
                 <CardTitle className="text-2xl font-bold text-center text-primary">Go Catering</CardTitle>
                 <CardDescription className="text-center">

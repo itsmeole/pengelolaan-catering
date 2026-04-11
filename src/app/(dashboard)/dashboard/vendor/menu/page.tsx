@@ -12,6 +12,7 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
+import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -131,15 +132,17 @@ export default function VendorMenuPage() {
     }
 
     async function handleDelete(id: string) {
-        if (!confirm("Hapus menu ini?")) return
         try {
             const res = await fetch(`/api/vendor/menus/${id}`, { method: "DELETE" })
             if (res.ok) {
-                toast.success("Menu dihapus")
+                toast.success("Menu berhasil dihapus")
                 fetchMenus()
+            } else {
+                toast.error("Gagal menghapus menu")
             }
         } catch (error) {
-            toast.error("Gagal menghapus")
+            console.error(error)
+            toast.error("Terjadi kesalahan sistem")
         }
     }
 
@@ -246,9 +249,17 @@ export default function VendorMenuPage() {
                                         <Button variant="ghost" size="icon" onClick={() => handleEdit(menu)}>
                                             <Pencil className="h-4 w-4 text-blue-600" />
                                         </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(menu.id)}>
-                                            <Trash className="h-4 w-4 text-destructive" />
-                                        </Button>
+                                        <ConfirmButton
+                                          title="Hapus Menu"
+                                          description={`Apakah Anda yakin ingin menghapus menu "${menu.name}"? Data ini tidak dapat dikembalikan.`}
+                                          onConfirm={() => handleDelete(menu.id)}
+                                          confirmText="Hapus"
+                                          variant="destructive"
+                                        >
+                                          <Button variant="ghost" size="icon">
+                                              <Trash className="h-4 w-4 text-destructive" />
+                                          </Button>
+                                        </ConfirmButton>
                                     </div>
                                 </TableCell>
                             </TableRow>

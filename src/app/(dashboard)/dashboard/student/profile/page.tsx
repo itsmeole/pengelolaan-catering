@@ -7,20 +7,16 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { UserCircle, Loader2, Save, BookUser } from "lucide-react"
-import { createBrowserClient } from "@supabase/ssr"
+import { createClient } from "@/lib/supabase/client"
 
-export default function StudentProfilePage() {
+export default function ProfilePage() {
     const [profile, setProfile] = useState<any>(null)
+    const [name, setName] = useState("")
+    const [newPassword, setNewPassword] = useState("")
+    const [currentPassword, setCurrentPassword] = useState("")
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
-    const [name, setName] = useState("")
-    const [currentPassword, setCurrentPassword] = useState("")
-    const [newPassword, setNewPassword] = useState("")
-
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    const supabase = createClient()
 
     useEffect(() => {
         async function load() {

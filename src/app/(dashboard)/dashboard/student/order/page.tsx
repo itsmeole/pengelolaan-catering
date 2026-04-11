@@ -41,6 +41,9 @@ export default function StudentOrderPage() {
     const [isCartOpen, setIsCartOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [workingDays, setWorkingDays] = useState<string[]>(ALL_DAYS)
+    const [isOrderWindowOpen, setIsOrderWindowOpen] = useState(true)
+    const [deadlineInfo, setDeadlineInfo] = useState("")
+    const [userRole, setUserRole] = useState<string>("STUDENT")
     const [activeDay, setActiveDay] = useState<string>(() => {
         const todayName = new Date().toLocaleDateString("id-ID", { weekday: "long" })
         return ALL_DAYS.find(d => d === todayName) || ALL_DAYS[0]
@@ -66,6 +69,7 @@ export default function StudentOrderPage() {
 
         fetchMenus()
         fetchWorkingDays()
+        fetchUserProfile()
     }, [])
 
     // Simpan cart ke localStorage setiap kali berubah — HANYA setelah load awal selesai
@@ -88,6 +92,23 @@ export default function StudentOrderPage() {
         try {
             const res = await fetch("/api/admin/settings/working-days")
             const config = await res.json()
+            
+            // Logika Deadline
+            const now = new Date()
+            const day = now.getDay()
+            const [dHour, dMin] = (config.deadlineTime || "20:00").split(":").map(Number)
+            setDeadlineInfo(`${config.deadlineTime || "20:00"}`)
+
+            if (day === 6) { // Sabtu
+                setIsOrderWindowOpen(true)
+            } else if (day === 0) { // Minggu
+                const deadline = new Date(now)
+                deadline.setHours(dHour, dMin, 0, 0)
+                setIsOrderWindowOpen(now <= deadline)
+            } else {
+                setIsOrderWindowOpen(false)
+            }
+
             // Filter hari sesuai config admin
             const active = ALL_DAYS.filter(dayId => {
                 const key = Object.entries(DAY_KEY_MAP).find(([, v]) => v === dayId)?.[0]
@@ -96,9 +117,15 @@ export default function StudentOrderPage() {
             setWorkingDays(active.length > 0 ? active : ALL_DAYS)
             // Jika tab aktif bukan hari kerja, pindah ke hari kerja pertama
             setActiveDay(prev => active.includes(prev) ? prev : (active[0] || ALL_DAYS[0]))
-        } catch {
-            // Tetap gunakan semua hari jika gagal fetch
-        }
+        } catch { }
+    }
+
+    async function fetchUserProfile() {
+        try {
+            const res = await fetch("/api/auth/me")
+            const data = await res.json()
+            setUserRole(data.role || "STUDENT")
+        } catch { }
     }
 
     const addToCart = () => {
@@ -201,6 +228,27 @@ export default function StudentOrderPage() {
                 </Button>
             </div>
 
+            {/* Pesan Status Jendela Pemesanan */}
+            {userRole === 'STUDENT' && (
+                <Card className={`p-4 border-l-4 ${isOrderWindowOpen ? "bg-green-50 border-green-500" : "bg-red-50 border-red-500"}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${isOrderWindowOpen ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+                            <Loader2 className={`h-4 w-4 ${!isOrderWindowOpen && "text-red-500 animate-none opacity-50"}`} />
+                        </div>
+                        <div>
+                            <p className={`font-bold text-sm ${isOrderWindowOpen ? "text-green-800" : "text-red-800"}`}>
+                                {isOrderWindowOpen ? "Jendela Pemesanan DIBUKA" : "Jendela Pemesanan DITUTUP"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {isOrderWindowOpen 
+                                    ? `Batas akhir pemesanan hari Minggu pukul ${deadlineInfo}. Yuk pesan sekarang!` 
+                                    : `Pemesanan ditutup. Siswa hanya dapat memesan pada hari Sabtu s/d Minggu pukul ${deadlineInfo}.`}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+            )}
+
             {/* Tab Hari */}
             <div className="flex gap-2 flex-wrap border-b pb-3">
                 {DAYS_ORDER.map((day) => (
@@ -251,11 +299,16 @@ export default function StudentOrderPage() {
                                 <p className="font-semibold text-sm leading-tight line-clamp-1">{menu.name}</p>
                                 <p className="text-[11px] text-muted-foreground line-clamp-1">{menu.vendor?.vendorName || menu.vendor?.name || "Vendor"}</p>
                                 <p className="text-[11px] text-gray-500 line-clamp-2 flex-1">{menu.description}</p>
-                                <Button size="sm" className="w-full mt-2 text-xs h-7" onClick={() => {
-                                    setSelectedMenu(menu)
-                                    setIsAddOpen(true)
-                                }}>
-                                    Pilih
+                                <Button 
+                                    size="sm" 
+                                    className="w-full mt-2 text-xs h-7" 
+                                    disabled={!isOrderWindowOpen && userRole === 'STUDENT'}
+                                    onClick={() => {
+                                        setSelectedMenu(menu)
+                                        setIsAddOpen(true)
+                                    }}
+                                >
+                                    {isOrderWindowOpen || userRole === 'ADMIN' ? "Pilih" : "Tutup"}
                                 </Button>
                             </div>
                         </Card>
@@ -304,7 +357,7 @@ export default function StudentOrderPage() {
                                         <p className="font-bold">{item.name}</p>
                                         <p className="text-xs text-muted-foreground">{format(new Date(item.date), "PPP")}</p>
                                         {item.note && <p className="text-xs text-blue-600">Note: {item.note}</p>}
-                                        <p className="text-sm">x{item.quantity} @ Rp {item.price.toLocaleString()}</p>
+                                        <p className="text-sm">x{item.quantity} Rp {item.price.toLocaleString()}</p>
                                     </div>
                                     <Button variant="ghost" size="sm" onClick={() => removeFromCart(idx)} className="text-destructive h-auto p-1">Hapus</Button>
                                 </div>
@@ -331,7 +384,7 @@ export default function StudentOrderPage() {
                             {paymentMethod === "TRANSFER" && (
                                 <div className="space-y-2 bg-blue-50 p-3 rounded text-sm">
                                     <p className="font-bold">Info Transfer:</p>
-                                    <p>Bank BCA: 1234567890 (Pengelola)</p>
+                                    <p>Bank BRI:  1249 0100 4332 503 (Bu Tama)</p>
                                     <Label>Upload Bukti Transfer</Label>
                                     <Input type="file" accept="image/*" onChange={handleProofChange} />
                                 </div>

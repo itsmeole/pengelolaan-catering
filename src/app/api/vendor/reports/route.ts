@@ -28,17 +28,18 @@ export async function GET(req: Request) {
         const { data: items, error } = await supabase
             .from('OrderItem')
             .select(`
-                id, quantity, price, adminFee, date,
-                menu:"MenuItem"!inner(id, name, vendorId),
+                id, quantity, price, adminFee, date, cancelStatus, menuName,
                 order:"Order"!inner(
                     status,
+                    createdAt,
                     student:profiles!studentId(name, class)
                 )
             `)
-            .eq('menu.vendorId', user.id)
+            .eq('vendorId', user.id)
             .gte('date', startOfDay(new Date(start)).toISOString())
             .lte('date', endOfDay(new Date(end)).toISOString())
             .in('order.status', ['PAID', 'COMPLETED'])
+            // Hapus .neq('cancelStatus', 'APPROVED')
 
         if (error) throw error
 
@@ -49,21 +50,25 @@ export async function GET(req: Request) {
             const netIncome = totalPrice - totalAdminFee
 
             return {
+                id: item.id,
                 date: format(new Date(item.date), "dd/MM/yyyy"),
-                studentName: (item as any).order?.student?.name || 'Siswa',
-                studentClass: (item as any).order?.student?.class || '-',
-                itemName: (item.menu as any)?.name || 'Menu',
+                processedAt: (item.order as any)?.createdAt,
+                studentName: (item.order as any)?.student?.name || 'Siswa',
+                studentClass: (item.order as any)?.student?.class || '-',
+                itemName: item.menuName || 'Menu',
                 totalPrice,
                 adminFee: totalAdminFee,
                 netIncome,
-                quantity: item.quantity
+                quantity: item.quantity,
+                refundStatus: item.cancelStatus || 'NONE'
             }
         })
 
-        // 3. Summary
-        const grossRevenue = details.reduce((acc, curr) => acc + curr.totalPrice, 0)
-        const netRevenue = details.reduce((acc, curr) => acc + curr.netIncome, 0)
-        const totalPortions = details.reduce((acc, curr) => acc + curr.quantity, 0)
+        // 3. Summary: EXCLUDE approved cancellations
+        const activeDetails = details.filter(d => d.refundStatus !== 'APPROVED')
+        const grossRevenue = activeDetails.reduce((acc, curr) => acc + curr.totalPrice, 0)
+        const netRevenue = activeDetails.reduce((acc, curr) => acc + curr.netIncome, 0)
+        const totalPortions = activeDetails.reduce((acc, curr) => acc + curr.quantity, 0)
 
         // Aggregation for chart (Group by day)
         const chartMap: Record<string, { date: string, income: number, portions: number }> = {}

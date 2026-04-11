@@ -2,8 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        const { searchParams } = new URL(req.url)
+        const customStart = searchParams.get('start')
+        const customEnd = searchParams.get('end')
+
         const cookieStore = await cookies()
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,57 +27,46 @@ export async function GET() {
         }
         const vendorId = user.id
 
-        // 2. Fetch menus belonging to this vendor
-        const { data: vendorMenus, error: menuErr } = await supabase
-            .from('MenuItem')
-            .select('id, name, price')
-            .eq('vendorId', vendorId)
-            
-        if (!vendorMenus || vendorMenus.length === 0) {
-            return NextResponse.json({
-                tomorrowOrderCount: 0,
-                weeklyOrderCount: 0,
-                cookingList: []
-            })
-        }
-        
-        const menuIds = vendorMenus.map(m => m.id)
-
-        // 3. Time frames
+        // 2. Time frames
         const tomorrow = new Date()
         tomorrow.setDate(tomorrow.getDate() + 1)
         const tomorrowStart = new Date(tomorrow.setHours(0,0,0,0)).toISOString()
         const tomorrowEnd = new Date(tomorrow.setHours(23,59,59,999)).toISOString()
         
+        // Final filter range for cooking list
+        const filterStart = customStart ? new Date(new Date(customStart).setHours(0,0,0,0)).toISOString() : tomorrowStart
+        const filterEnd = customEnd ? new Date(new Date(customEnd).setHours(23,59,59,999)).toISOString() : tomorrowEnd
+
         const weekStart = new Date()
         weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1) // Monday
         const startOfWeekStr = new Date(weekStart.setHours(0,0,0,0)).toISOString()
 
-        // 4. Query OrderItems
-        // Need to query Order items linked to vendor's menus, but we also only want valid orders (status != CANCELLED)
-        // Since Supabase doesn't easily allow cross-table IN filtering simply without views,
-        // we'll fetch order items for the week and map them in memory (safe for small scope)
-        const { data: orderItems } = await supabase
+        // 3. Query OrderItems for this vendor (Snapshot)
+        const fetchStart = new Date(Math.min(new Date(startOfWeekStr).getTime(), new Date(filterStart).getTime())).toISOString()
+
+        const { data: orderItems, error: itemsErr } = await supabase
             .from('OrderItem')
             .select(`
-                id, date, quantity, note, menuId,
+                id, date, quantity, note, menuId, menuName, price, cancelStatus, vendorId,
                 Order!inner(status, paymentMethod)
             `)
-            .in('menuId', menuIds)
-            .gte('date', startOfWeekStr)
+            .eq('vendorId', vendorId)
+            .gte('date', fetchStart)
+        
+        if (itemsErr) throw itemsErr
         
         const validItems = (orderItems || []).filter((item: any) => {
             const status = item.Order?.status
             const method = item.Order?.paymentMethod
+            const cStatus = item.cancelStatus || 'NONE'
             
+            // Kecualikan yang sudah DISETUJUI batal
+            if (cStatus === 'APPROVED') return false
+
             // Masuk daftar masak jika: Sudah Lunas/Selesai OR (Pending tapi Pay Later)
             return status === 'PAID' || status === 'COMPLETED' || 
                    (status === 'PENDING' && method === 'CASH_PAY_LATER')
         })
-
-        const paidItems = validItems.filter((item: any) => 
-            item.Order?.status === 'PAID' || item.Order?.status === 'COMPLETED'
-        )
 
         let tomorrowCount = 0
         let weeklyCount = 0
@@ -90,37 +83,34 @@ export async function GET() {
         }
 
         validItems.forEach((item: any) => {
-            weeklyCount += item.quantity || 1
+            // Stats for the week (Monday - Now)
+            if (item.date >= startOfWeekStr) {
+                weeklyCount += item.quantity || 1
 
-            // Count Revenue for Paid items
-            if (item.Order?.status === 'PAID' || item.Order?.status === 'COMPLETED') {
-                const itemMenuPrice = vendorMenus.find(m => m.id === item.menuId)?.price || 0
-                const itemTotal = itemMenuPrice * (item.quantity || 1)
-                totalRevenue += itemTotal
-                
-                // Add to chart
-                const itemDate = new Date(item.date)
-                const dayName = itemDate.toLocaleDateString('id-ID', { weekday: 'short' })
-                if (chartDataMap[dayName] !== undefined) {
-                    chartDataMap[dayName] += itemTotal
+                if (item.Order?.status === 'PAID' || item.Order?.status === 'COMPLETED') {
+                    const itemTotal = (item.price || 0) * (item.quantity || 1)
+                    totalRevenue += itemTotal
+                    
+                    const itemDate = new Date(item.date)
+                    const dayName = itemDate.toLocaleDateString('id-ID', { weekday: 'short' })
+                    if (chartDataMap[dayName] !== undefined) {
+                        chartDataMap[dayName] += itemTotal
+                    }
                 }
             }
 
-            // Check if item is for tomorrow
-            if (item.date >= tomorrowStart && item.date <= tomorrowEnd) {
+            // FILTER: Masuk Cooking List jika dalam rentang filter (besok atau custom)
+            if (item.date >= filterStart && item.date <= filterEnd) {
                 tomorrowCount += item.quantity || 1
 
-                // Add to cooking list
-                const menuData = vendorMenus.find(m => m.id === item.menuId)
-                if (menuData) {
-                    if (!cookingMap[item.menuId]) {
-                        cookingMap[item.menuId] = { name: menuData.name, qty: 0, notes: [] }
-                    }
-                    cookingMap[item.menuId].qty += item.quantity || 1
-                    
-                    if (item.note && item.note.trim() !== "") {
-                        cookingMap[item.menuId].notes.push(item.note)
-                    }
+                const mId = item.menuId || 'deleted'
+                if (!cookingMap[mId]) {
+                    cookingMap[mId] = { name: item.menuName || 'Menu Terhapus', qty: 0, notes: [] }
+                }
+                cookingMap[mId].qty += item.quantity || 1
+                
+                if (item.note && item.note.trim() !== "") {
+                    cookingMap[mId].notes.push(item.note)
                 }
             }
         })

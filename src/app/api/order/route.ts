@@ -24,23 +24,38 @@ export async function GET() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+        // OTOMASI: Ubah status PAID ke COMPLETED jika sudah > 5 hari dari jadwal makan terbaru
+        const fiveDaysAgo = new Date()
+        fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5)
+
+        const { data: oldItems } = await supabase
+            .from('OrderItem')
+            .select('orderId')
+            .lt('date', fiveDaysAgo.toISOString())
+
+        if (oldItems && oldItems.length > 0) {
+            const oldOrderIds = Array.from(new Set(oldItems.map(i => i.orderId)))
+            await supabase
+                .from('Order')
+                .update({ status: 'COMPLETED', updatedAt: new Date().toISOString() })
+                .in('id', oldOrderIds)
+                .eq('studentId', user.id)
+                .eq('status', 'PAID')
+        }
+
         const { data, error } = await supabase
             .from('Order')
             .select(`
-                *,
+                id, studentId, totalAmount, status, paymentMethod, proofImage, isProofInvalid, rejectionReason, cancelStatus, createdAt, updatedAt,
                 items:"OrderItem"(
-                    *,
-                    menu:"MenuItem"(
-                        id, name, imageUrl, price,
-                        vendor:profiles!vendorId(id, name, "vendorName")
-                    )
+                    id, orderId, menuId, date, quantity, note, price, adminFee, menuName, vendorName, vendorId, cancelStatus,
+                    menu:"MenuItem"(imageUrl, name)
                 )
             `)
             .eq('studentId', user.id)
             .order('createdAt', { ascending: false })
 
         if (error) throw error
-
         return NextResponse.json(data || [])
     } catch (e) {
         console.error('GET /api/order error:', e)
@@ -48,8 +63,44 @@ export async function GET() {
     }
 }
 
+// PATCH: Untuk mengunggah ulang bukti transfer atau konfirmasi pesanan selesai
+export async function PATCH(req: Request) {
+    try {
+        const { orderId, proofImage, status } = await req.json()
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
+
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        const updateData: any = { updatedAt: new Date().toISOString() }
+        
+        if (proofImage) {
+            updateData.proofImage = proofImage
+            updateData.isProofInvalid = false
+            updateData.rejectionReason = null
+        }
+
+        if (status === 'COMPLETED') {
+            updateData.status = 'COMPLETED'
+        }
+
+        const { error } = await supabase
+            .from('Order')
+            .update(updateData)
+            .eq('id', orderId)
+            .eq('studentId', user.id)
+
+        if (error) throw error
+        return NextResponse.json({ success: true })
+    } catch (e) {
+        return NextResponse.json({ error: 'System Error' }, { status: 500 })
+    }
+}
+
 // POST: Checkout — create a new Order with its OrderItems
 export async function POST(req: Request) {
+    // ... (Keep existing code)
     try {
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
@@ -60,14 +111,40 @@ export async function POST(req: Request) {
         const body = await req.json()
         const { items, paymentMethod, proofImage } = body
 
+        // --- VALIDASI DEADLINE JENDELA PEMESANAN ---
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        if (profile?.role === 'STUDENT') {
+            // Ambil config hari kerja & deadline
+            const { data: configData } = await supabase.from('SystemSetting').select('value').eq('key', 'working_days_config').single()
+            const config = configData ? JSON.parse(configData.value) : { deadlineTime: "20:00" }
+            
+            const now = new Date()
+            const day = now.getDay() // 0: Minggu, 6: Sabtu
+            const [dHour, dMin] = (config.deadlineTime || "20:00").split(":").map(Number)
+            
+            let isOpen = false
+            if (day === 6) { // Sabtu: Selalu buka
+                isOpen = true
+            } else if (day === 0) { // Minggu: Buka sampai jam deadline
+                const deadline = new Date(now)
+                deadline.setHours(dHour, dMin, 0, 0)
+                if (now <= deadline) isOpen = true
+            }
+
+            if (!isOpen) {
+                return NextResponse.json({ 
+                    error: `Pemesanan ditutup. Siswa hanya dapat memesan pada hari Sabtu s/d Minggu pukul ${config.deadlineTime || "20:00"}.` 
+                }, { status: 403 })
+            }
+        }
+        // --- END VALIDASI ---
+
         if (!items || items.length === 0) {
             return NextResponse.json({ error: 'Keranjang kosong' }, { status: 400 })
         }
 
-        // Calculate total
         const totalAmount = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0)
 
-        // Create the Order
         const { data: order, error: orderError } = await supabase
             .from('Order')
             .insert({
@@ -80,30 +157,37 @@ export async function POST(req: Request) {
             .select()
             .single()
 
-        if (orderError || !order) {
-            console.error('Order insert error:', orderError)
-            throw orderError
-        }
+        if (orderError || !order) throw orderError
 
-        // Create OrderItems
-        const orderItems = items.map((item: any) => ({
-            orderId: order.id,
-            menuId: item.menuId,
-            date: new Date(item.date).toISOString(),
-            quantity: item.quantity,
-            note: item.note || null,
-            price: item.price, // Final price (Base + 1000)
-            adminFee: 1000,    // Fixed margin for admin
-        }))
+        // 3. Fetch Menu Details for Snapshotting
+        const menuIds = items.map((i: any) => i.menuId)
+        const { data: menuDetails } = await supabase
+            .from('MenuItem')
+            .select('id, name, vendor:profiles!vendorId(id, "vendorName", name)')
+            .in('id', menuIds)
+
+        const orderItems = items.map((item: any) => {
+            const detail = menuDetails?.find(m => m.id === item.menuId)
+            const vendor: any = Array.isArray(detail?.vendor) ? detail?.vendor[0] : detail?.vendor
+
+            return {
+                orderId: order.id,
+                menuId: item.menuId,
+                date: new Date(item.date).toISOString(),
+                quantity: item.quantity,
+                note: item.note || null,
+                price: item.price - 1000,
+                adminFee: 1000,
+                menuName: detail?.name || 'Menu Terhapus',
+                vendorName: vendor?.vendorName || vendor?.name || 'Vendor Terhapus',
+                vendorId: vendor?.id
+            }
+        })
 
         const { error: itemsError } = await supabase
-            .from('OrderItem')
-            .insert(orderItems)
+            .from('OrderItem').insert(orderItems)
 
-        if (itemsError) {
-            console.error('OrderItems insert error:', itemsError)
-            throw itemsError
-        }
+        if (itemsError) throw itemsError
 
         return NextResponse.json({ success: true, orderId: order.id })
     } catch (e) {

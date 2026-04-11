@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Power, PowerOff } from "lucide-react"
 
 export function SystemStatus() {
-    const [isOpen, setIsOpen] = useState<boolean | null>(null)
+    const [status, setStatus] = useState<{ isOpen: boolean; deadline: string } | null>(null)
 
     useEffect(() => {
         // Fetch status
@@ -14,30 +14,38 @@ export function SystemStatus() {
             .then(config => {
                 if (!config) return
 
-                const tomorrow = new Date()
-                tomorrow.setDate(tomorrow.getDate() + 1)
-                const tomorrowWeekday = tomorrow.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
-                const isOpenDay = config[tomorrowWeekday]
+                const now = new Date()
+                const day = now.getDay() // 0: Sunday, 6: Saturday
+                const deadlineTime = config.deadlineTime || "20:00"
+                const [dHour, dMin] = deadlineTime.split(":").map(Number)
 
-                const dateStr = tomorrow.toISOString().split('T')[0]
-                const isHoliday = config.holidays?.includes(dateStr)
+                let isOpen = false
+                if (day === 6) { // Saturday
+                    isOpen = true
+                } else if (day === 0) { // Sunday
+                    const deadline = new Date(now)
+                    deadline.setHours(dHour, dMin, 0, 0)
+                    isOpen = now <= deadline
+                }
 
-                setIsOpen(isOpenDay && !isHoliday)
+                setStatus({ isOpen, deadline: deadlineTime })
             })
             .catch(err => console.error("Failed to fetch system status"))
     }, [])
 
-    if (isOpen === null) return (
+    if (status === null) return (
         <Card className="border-l-4 border-l-slate-200 shadow-sm animate-pulse">
             <CardContent className="h-[104px] p-6 lg:p-6"></CardContent>
         </Card>
     )
 
+    const { isOpen, deadline } = status
+
     return (
-        <Card className={`border-l-4 shadow-sm ${isOpen ? "border-l-blue-500" : "border-l-red-500"}`}>
+        <Card className={`border-l-4 shadow-sm ${isOpen ? "border-l-green-500" : "border-l-red-500"}`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-slate-500">Status Sistem</CardTitle>
-                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isOpen ? "bg-blue-50 text-blue-600" : "bg-red-50 text-red-600"}`}>
+                <CardTitle className="text-sm font-medium text-slate-500">Pemesanan Mingguan</CardTitle>
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center ${isOpen ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>
                     {isOpen ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
                 </div>
             </CardHeader>
@@ -47,7 +55,9 @@ export function SystemStatus() {
                     <div className="text-2xl font-bold text-slate-800">{isOpen ? "BUKA" : "TUTUP"}</div>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
-                    {isOpen ? "Pesanan otomatis masuk" : "Hari Libur / Tidak Beroperasi"}
+                    {isOpen 
+                        ? `Batas: Minggu pukul ${deadline}` 
+                        : "Hanya Sabtu s/d Minggu"}
                 </p>
             </CardContent>
         </Card>

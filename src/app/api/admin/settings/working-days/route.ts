@@ -21,7 +21,8 @@ export async function GET() {
                 friday: true,
                 saturday: false,
                 sunday: false,
-                holidays: []
+                holidays: [],
+                deadlineTime: "20:00"
             })
         }
 

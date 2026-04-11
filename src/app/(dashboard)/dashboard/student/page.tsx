@@ -35,13 +35,12 @@ export default function StudentDashboard() {
             // Hitung Top 3 Vendor dari histori pesanan
             const vendorCount: Record<string, { name: string; vendorName: string; count: number }> = {}
             allItems.forEach((item: any) => {
-                const vendor = item.menu?.vendor
-                if (!vendor) return
-                const vid = vendor.id
+                const vid = item.vendorId
+                if (!vid) return
                 if (!vendorCount[vid]) {
                     vendorCount[vid] = {
-                        name: vendor.name || "Vendor",
-                        vendorName: vendor.vendorName || vendor.name || "Vendor",
+                        name: item.vendorName || "Vendor",
+                        vendorName: item.vendorName || "Vendor",
                         count: 0
                     }
                 }
@@ -110,9 +109,9 @@ export default function StudentDashboard() {
                                     <div key={idx} className="flex items-center space-x-4 border p-3 rounded bg-accent/10">
                                         {item.menu?.imageUrl && <img src={item.menu.imageUrl} className="h-12 w-12 rounded object-cover" />}
                                         <div>
-                                            <p className="font-bold">{item.menu?.name}</p>
+                                            <p className="font-bold">{item.menuName || item.menu?.name}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                {item.menu?.vendor?.vendorName || item.menu?.vendor?.name} · Qty: {item.quantity}
+                                                {item.vendorName} · Qty: {item.quantity}
                                             </p>
                                         </div>
                                     </div>

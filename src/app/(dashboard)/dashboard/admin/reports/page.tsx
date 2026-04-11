@@ -54,14 +54,16 @@ export default function AdminReportsPage() {
 
     // 2. Details Sheet
     const details = data.details.map((d: any) => ({
-      Tanggal: d.date,
+      "Tgl Pesan": d.transactionDate,
+      "Tgl Antar": d.deliveryDate,
       Siswa: d.studentName,
       Vendor: d.vendorName,
       Menu: d.itemName,
       Harga: d.price,
       Qty: d.quantity,
-      Total: d.total,
-      FeeAdmin: d.adminFee
+      Total: d.refundStatus === 'APPROVED' ? 0 : d.total,
+      FeeAdmin: d.refundStatus === 'APPROVED' ? 0 : d.adminFee,
+      Status: d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'MINTA REFUND' : 'SUKSES')
     }))
     const wsDetails = XLSX.utils.json_to_sheet(details)
 
@@ -93,11 +95,19 @@ export default function AdminReportsPage() {
     doc.text(`Pendapatan Bersih: ${formatMoney(data.summary.netRevenue)}`, 14, 76)
 
     // Table
-    const rows = data.details.map((d: any) => [d.date, d.vendorName, d.itemName, d.quantity, formatMoney(d.total), formatMoney(d.adminFee)])
+    const rows = data.details.map((d: any) => [
+      d.transactionDate,
+      d.deliveryDate, 
+      d.vendorName, 
+      d.itemName, 
+      d.quantity, 
+      d.refundStatus === 'APPROVED' ? 'Rp 0 (BATAL)' : formatMoney(d.total), 
+      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.adminFee)
+    ])
 
     autoTable(doc, {
       startY: 90,
-      head: [['Tanggal', 'Vendor', 'Menu', 'Qty', 'Total', 'Fee']],
+      head: [['Tgl Pesan', 'Tgl Antar', 'Vendor', 'Menu', 'Qty', 'Total', 'Fee']],
       body: rows,
     })
 
@@ -178,29 +188,48 @@ export default function AdminReportsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted sticky top-0">
                   <tr className="border-b">
-                    <th className="h-10 px-4 text-left font-medium">Tanggal</th>
+                    <th className="h-10 px-4 text-left font-medium">Tgl Pesan</th>
+                    <th className="h-10 px-4 text-left font-medium">Tgl Antar</th>
                     <th className="h-10 px-4 text-left font-medium">Siswa</th>
                     <th className="h-10 px-4 text-left font-medium">Vendor</th>
-                    <th className="h-10 px-4 text-left font-medium">Menu</th>
-                    <th className="h-10 px-4 text-right font-medium">Harga</th>
-                    <th className="h-10 px-4 text-right font-medium">Qty</th>
+                    <th className="h-10 px-4 text-left font-medium text-xs">Menu</th>
                     <th className="h-10 px-4 text-right font-medium">Total</th>
                     <th className="h-10 px-4 text-right font-medium">Fee</th>
+                    <th className="h-10 px-4 text-center font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.details.map((item: any, idx: number) => (
-                    <tr key={idx} className="border-b hover:bg-muted/50">
-                      <td className="p-4">{item.date}</td>
-                      <td className="p-4">{item.studentName}</td>
-                      <td className="p-4">{item.vendorName}</td>
-                      <td className="p-4">{item.itemName}</td>
-                      <td className="p-4 text-right">{formatMoney(item.price)}</td>
-                      <td className="p-4 text-right">{item.quantity}</td>
-                      <td className="p-4 text-right">{formatMoney(item.total)}</td>
-                      <td className="p-4 text-right text-green-600">{formatMoney(item.adminFee)}</td>
-                    </tr>
-                  ))}
+                  {data.details.map((item: any, idx: number) => {
+                    const isCancelled = item.refundStatus === 'APPROVED';
+                    const isPending = item.refundStatus === 'PENDING';
+
+                    return (
+                      <tr key={idx} className={`border-b transition-colors hover:bg-muted/50 ${isCancelled ? 'bg-red-50/30 text-muted-foreground line-through' : (isPending ? 'bg-orange-50/50' : '')}`}>
+                        <td className="p-4 text-[10px] whitespace-nowrap">{item.transactionDate}</td>
+                        <td className="p-4 text-[10px] whitespace-nowrap">{item.deliveryDate}</td>
+                        <td className="p-4">{item.studentName}</td>
+                        <td className="p-4">{item.vendorName}</td>
+                        <td className="p-4">{item.itemName}</td>
+                        <td className="p-4 text-right">{formatMoney(item.total)}</td>
+                        <td className="p-4 text-right">{formatMoney(item.adminFee)}</td>
+                        <td className="p-4 text-center">
+                          {isCancelled ? (
+                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded-full font-bold uppercase">
+                              Dibatalkan
+                            </span>
+                          ) : isPending ? (
+                            <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-bold uppercase animate-pulse" title={item.refundReason}>
+                              Minta Refund
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold uppercase">
+                              Sukses
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

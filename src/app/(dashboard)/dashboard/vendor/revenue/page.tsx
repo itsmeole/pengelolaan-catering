@@ -23,6 +23,10 @@ export default function VendorRevenuePage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
+  // Pagination states for the details table
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
   useEffect(() => {
     fetchReports()
   }, [])
@@ -54,15 +58,17 @@ export default function VendorRevenuePage() {
     const wsSummary = XLSX.utils.aoa_to_sheet(summary)
     
     const details = data.details.map((d: any) => ({
-      Tanggal: d.date,
+      "Tgl Pesan": d.processedAt ? format(new Date(d.processedAt), "dd/MM/yyyy HH:mm") : "-",
+      "Tgl Antar": d.date,
       Siswa: d.studentName,
       Kelas: d.studentClass,
       Menu: d.itemName,
       Qty: d.quantity,
       HargaJual: d.totalPrice / d.quantity,
-      TotalKotor: d.totalPrice,
-      FeeAdmin: d.adminFee,
-      PenghasilanBersih: d.netIncome
+      TotalKotor: d.refundStatus === 'APPROVED' ? 0 : d.totalPrice,
+      FeeAdmin: d.refundStatus === 'APPROVED' ? 0 : d.adminFee,
+      PenghasilanBersih: d.refundStatus === 'APPROVED' ? 0 : d.netIncome,
+      Status: d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'MENUNGGU REFUND' : 'SUKSES')
     }))
     const wsDetails = XLSX.utils.json_to_sheet(details)
 
@@ -86,11 +92,20 @@ export default function VendorRevenuePage() {
     ]
     autoTable(doc, { startY: 40, head: [['Kategori', 'Nilai']], body: summaryData })
 
-    const tableData = data.details.map((d: any) => [d.date, d.itemName, d.quantity, formatMoney(d.totalPrice), formatMoney(d.netIncome)])
+    const tableData = data.details.map((d: any) => [
+      d.processedAt ? format(new Date(d.processedAt), "dd/MM/yy HH:mm") : "-",
+      d.date, 
+      d.itemName, 
+      d.quantity, 
+      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.totalPrice), 
+      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.netIncome),
+      d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'REFUND' : 'SUKSES')
+    ])
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 10,
-      head: [['Tanggal', 'Menu', 'Qty', 'Kotor', 'Bersih']],
+      head: [['Tgl Pesan', 'Tgl Antar', 'Menu', 'Qty', 'Kotor', 'Bersih', 'Status']],
       body: tableData,
+      headStyles: { fillColor: [59, 130, 246] }, // Biru profesional
     })
     doc.save(`Pendapatan_Vendor_${startDate}_${endDate}.pdf`)
   }
@@ -231,35 +246,86 @@ export default function VendorRevenuePage() {
               <Table>
                 <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="pl-6">Tanggal</TableHead>
+                    <TableHead className="pl-6">Tgl Pesan</TableHead>
+                    <TableHead>Tgl Antar</TableHead>
                     <TableHead>Siswa</TableHead>
                     <TableHead>Menu</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Kotor</TableHead>
-                    <TableHead className="text-right pr-6">Bersih</TableHead>
+                    <TableHead className="text-right">Penghasilan</TableHead>
+                    <TableHead className="text-center pr-6">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.details.map((item: any, idx: number) => (
-                    <TableRow key={idx} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="pl-6">{item.date}</TableCell>
-                      <TableCell>
-                          <div className="flex flex-col">
-                              <span className="font-medium text-slate-800">{item.studentName}</span>
-                              <span className="text-[10px] text-muted-foreground uppercase">{item.studentClass}</span>
-                          </div>
-                      </TableCell>
-                      <TableCell className="font-medium">{item.itemName}</TableCell>
-                      <TableCell className="text-right">{item.quantity}</TableCell>
-                      <TableCell className="text-right text-slate-500">{formatMoney(item.totalPrice)}</TableCell>
-                      <TableCell className="text-right font-bold text-blue-600 pr-6">{formatMoney(item.netIncome)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  {data.details.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item: any, idx: number) => {
+                    const isCancelled = item.refundStatus === 'APPROVED';
+                    const isPending = item.refundStatus === 'PENDING';
+
+                    return (
+                      <TableRow key={idx} className={`transition-colors border-b hover:bg-slate-50/50 ${isCancelled ? 'bg-red-50/30 text-slate-400 line-through' : (isPending ? 'bg-orange-50/50' : '')}`}>
+                        <TableCell className="pl-6 py-4 text-[10px] text-muted-foreground whitespace-nowrap">
+                            {item.processedAt ? format(new Date(item.processedAt), "dd/MM/yyyy HH:mm") : "-"}
+                        </TableCell>
+                        <TableCell className="py-4 font-medium whitespace-nowrap">{item.date}</TableCell>
+                        <TableCell className="py-4">
+                            <div className="flex flex-col">
+                                <span className="font-medium text-slate-800">{item.studentName}</span>
+                                <span className="text-[10px] text-muted-foreground uppercase">{item.studentClass}</span>
+                            </div>
+                        </TableCell>
+                        <TableCell className="py-4 font-medium">{item.itemName}</TableCell>
+                        <TableCell className="py-4 text-right">{item.quantity}</TableCell>
+                        <TableCell className="py-4 text-right font-bold text-blue-600">
+                            {isCancelled ? '-' : formatMoney(item.netIncome)}
+                        </TableCell>
+                        <TableCell className="py-4 text-center pr-6">
+                          {isCancelled ? (
+                            <Badge variant="destructive" className="text-[9px] uppercase font-bold py-0 h-5">Dibatalkan</Badge>
+                          ) : isPending ? (
+                            <Badge variant="outline" className="text-[9px] uppercase font-bold text-orange-600 border-orange-200 py-0 h-5 animate-pulse">Menunggu Refund</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[9px] uppercase font-bold text-green-600 bg-green-50 border-green-100 py-0 h-5">Terkirim</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex justify-between items-center bg-white p-4 border-t">
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Lihat per:</span>
+                <select 
+                  value={pageSize} 
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="text-xs border rounded p-1"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex gap-2">
+                <Button 
+                  variant="outline" size="sm" className="h-8 text-xs"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >Prev</Button>
+                <div className="flex items-center gap-2 mx-2 text-xs font-medium text-muted-foreground">
+                    Hal {currentPage} dari {Math.ceil(data.details.length / pageSize) || 1}
+                </div>
+                <Button 
+                  variant="outline" size="sm" className="h-8 text-xs"
+                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(data.details.length / pageSize), p + 1))}
+                  disabled={currentPage >= Math.ceil(data.details.length / pageSize) || data.details.length === 0}
+                >Next</Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       )}
     </div>
   )

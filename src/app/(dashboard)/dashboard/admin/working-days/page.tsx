@@ -98,6 +98,21 @@ export default function WorkingDaysPage() {
                                 />
                             </div>
                         ))}
+
+                        <div className="pt-4 border-t mt-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Jam Terakhir Pemesanan (Minggu)</Label>
+                                    <p className="text-xs text-muted-foreground">Siswa hanya bisa memesan sebelum jam ini di hari Minggu.</p>
+                                </div>
+                                <input
+                                    type="time"
+                                    className="px-3 py-1 border rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
+                                    value={config.deadlineTime || "20:00"}
+                                    onChange={(e) => setConfig({ ...config, deadlineTime: e.target.value })}
+                                />
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 

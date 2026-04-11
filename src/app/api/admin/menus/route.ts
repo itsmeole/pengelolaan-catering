@@ -16,9 +16,9 @@ export async function GET() {
             }
         )
 
-        // Verifikasi Admin (Opsional tapi direkomendasikan)
+        // Verifikasi Admin atau Vendor
         const { data: { user } } = await supabase.auth.getUser()
-        if (!user || user.user_metadata?.role !== 'ADMIN') {
+        if (!user || (user.user_metadata?.role !== 'ADMIN' && user.user_metadata?.role !== 'VENDOR')) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
