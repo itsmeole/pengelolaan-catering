@@ -46,6 +46,7 @@ export default function AdminOrdersPage() {
   const [filterStatus, setFilterStatus] = useState("ALL")
   const [filterPayment, setFilterPayment] = useState("ALL")
   const [selectedProof, setSelectedProof] = useState<string | null>(null)
+  const [adminFee, setAdminFee] = useState<number>(1000)
 
   // States for Add Order
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -77,7 +78,16 @@ export default function AdminOrdersPage() {
     fetchOrders()
     fetchStudents()
     fetchMenus()
+    fetchAdminFee()
   }, [])
+
+  async function fetchAdminFee() {
+      try {
+          const res = await fetch("/api/public/settings/admin-fee")
+          const data = await res.json()
+          if (data.fee !== undefined) setAdminFee(data.fee)
+      } catch { }
+  }
 
   async function fetchStudents() {
     try {
@@ -154,7 +164,7 @@ export default function AdminOrdersPage() {
             date: item.date,
             quantity: item.quantity,
             note: item.note,
-            price: item.price // API akan menambahkan 1000 fee
+            price: item.price // API akan otomatis nambah adminFee
           }))
         })
       })
@@ -180,7 +190,7 @@ export default function AdminOrdersPage() {
     }
   }
 
-  const orderSubtotal = orderItems.reduce((acc, item) => acc + ((item.price + 1000) * item.quantity), 0)
+  const orderSubtotal = orderItems.reduce((acc, item) => acc + ((item.price + adminFee) * item.quantity), 0)
 
   async function updateOrderStatus(orderId: string, status: string) {
     try {
@@ -370,7 +380,7 @@ export default function AdminOrdersPage() {
                                 {availableMenus.map(m => (
                                   <SelectItem key={m.id} value={m.id}>
                                     <div className="flex flex-col gap-0.5">
-                                      <span className="font-semibold">{m.name} (Rp {(m.price + 1000).toLocaleString()})</span>
+                                      <span className="font-semibold">{m.name} (Rp {(m.price + adminFee).toLocaleString()})</span>
                                       <div className="flex items-center gap-2">
                                         <span className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded italic font-medium">
                                           Vendor: {m.vendor?.vendorName || m.vendor?.name || "Anonim"}

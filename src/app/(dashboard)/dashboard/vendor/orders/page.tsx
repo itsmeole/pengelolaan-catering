@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, ChefHat, CalendarDays, User, Utensils, CalendarClock } from "lucide-react"
+import { Loader2, ChefHat, CalendarDays, User, Utensils, CalendarClock, Download } from "lucide-react"
+import { toast } from "sonner"
+import * as XLSX from "xlsx"
 
 export default function VendorOrdersPage() {
   const [items, setItems] = useState<any[]>([])
@@ -55,6 +57,43 @@ export default function VendorOrdersPage() {
   // Get unique dates from filtered items
   const uniqueDates = Array.from(new Set(filteredItems.map(i => i.date.split('T')[0]))).sort()
 
+  const handleExportExcel = () => {
+    if (filteredItems.length === 0) return toast.error("Tidak ada data untuk diekspor")
+    
+    // Siapkan array data object yang akan menjadi row di Excel
+    const exportData = filteredItems.map((item) => {
+        const dateStr = format(parseISO(item.date), "EEEE, dd MMMM yyyy", { locale: idLocale })
+        return {
+            "Tanggal": dateStr,
+            "Menu": item.menuName || "Menu Terhapus",
+            "Siswa": item.order?.student?.name || "-",
+            "Kelas": item.order?.student?.class || "-",
+            "Jumlah Porsi": item.quantity,
+            "Catatan": item.note || "-"
+        }
+    })
+    
+    try {
+        const worksheet = XLSX.utils.json_to_sheet(exportData)
+        // Autoresizing lebar kolom (opsional tapi bagus)
+        const colWidths = [
+            { wch: 25 }, { wch: 30 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }
+        ]
+        worksheet["!cols"] = colWidths
+        
+        const workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Daftar Masak")
+        
+        let labelFilter = filter === 'this_week' ? 'Minggu_Ini' : filter === 'next_week' ? 'Minggu_Depan' : 'Semua'
+        const fileName = `Daftar_Masak_Vendor_${labelFilter}_${format(new Date(), "ddMMyyyy")}.xlsx`
+        
+        XLSX.writeFile(workbook, fileName)
+        toast.success("Berhasil mengunduh Excel!")
+    } catch(e) {
+        toast.error("Gagal membuat file excel")
+    }
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center py-24">
       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -63,30 +102,41 @@ export default function VendorOrdersPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-primary">Daftar Masak</h2>
           <p className="text-muted-foreground">Jadwal persiapan menu berdasarkan pesanan siswa.</p>
         </div>
         
-        <div className="flex bg-slate-100 p-1 rounded-lg w-fit border">
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex bg-slate-100 p-1 rounded-lg w-fit border">
+            <button 
+              onClick={() => setFilter('this_week')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'this_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Minggu Ini
+            </button>
+            <button 
+              onClick={() => setFilter('next_week')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'next_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Minggu Depan
+            </button>
+            <button 
+              onClick={() => setFilter('all')}
+              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Semua
+            </button>
+          </div>
+          
           <button 
-            onClick={() => setFilter('this_week')}
-            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'this_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+            onClick={handleExportExcel}
+            disabled={filteredItems.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Minggu Ini
-          </button>
-          <button 
-            onClick={() => setFilter('next_week')}
-            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'next_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Minggu Depan
-          </button>
-          <button 
-            onClick={() => setFilter('all')}
-            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-          >
-            Semua
+            <Download className="h-4 w-4" />
+            Ekspor Excel
           </button>
         </div>
       </div>

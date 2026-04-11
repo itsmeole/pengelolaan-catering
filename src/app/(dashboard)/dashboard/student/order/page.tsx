@@ -14,10 +14,11 @@ import {
     DialogFooter
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { Card } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 
 
@@ -41,8 +42,9 @@ export default function StudentOrderPage() {
     const [isCartOpen, setIsCartOpen] = useState(false)
     const [loading, setLoading] = useState(false)
     const [workingDays, setWorkingDays] = useState<string[]>(ALL_DAYS)
-    const [isOrderWindowOpen, setIsOrderWindowOpen] = useState(true)
-    const [deadlineInfo, setDeadlineInfo] = useState("")
+    const [adminFee, setAdminFee] = useState<number>(1000)
+    const [orderWeek, setOrderWeek] = useState<'THIS_WEEK' | 'NEXT_WEEK'>('THIS_WEEK')
+    const [deadlineInfo, setDeadlineInfo] = useState("20:00")
     const [userRole, setUserRole] = useState<string>("STUDENT")
     const [activeDay, setActiveDay] = useState<string>(() => {
         const todayName = new Date().toLocaleDateString("id-ID", { weekday: "long" })
@@ -70,7 +72,16 @@ export default function StudentOrderPage() {
         fetchMenus()
         fetchWorkingDays()
         fetchUserProfile()
+        fetchAdminFee()
     }, [])
+
+    async function fetchAdminFee() {
+        try {
+            const res = await fetch("/api/public/settings/admin-fee")
+            const data = await res.json()
+            if (data.fee !== undefined) setAdminFee(data.fee)
+        } catch { }
+    }
 
     // Simpan cart ke localStorage setiap kali berubah — HANYA setelah load awal selesai
     useEffect(() => {
@@ -93,21 +104,7 @@ export default function StudentOrderPage() {
             const res = await fetch("/api/admin/settings/working-days")
             const config = await res.json()
             
-            // Logika Deadline
-            const now = new Date()
-            const day = now.getDay()
-            const [dHour, dMin] = (config.deadlineTime || "20:00").split(":").map(Number)
-            setDeadlineInfo(`${config.deadlineTime || "20:00"}`)
-
-            if (day === 6) { // Sabtu
-                setIsOrderWindowOpen(true)
-            } else if (day === 0) { // Minggu
-                const deadline = new Date(now)
-                deadline.setHours(dHour, dMin, 0, 0)
-                setIsOrderWindowOpen(now <= deadline)
-            } else {
-                setIsOrderWindowOpen(false)
-            }
+            setDeadlineInfo(config.deadlineTime || "20:00")
 
             // Filter hari sesuai config admin
             const active = ALL_DAYS.filter(dayId => {
@@ -128,22 +125,39 @@ export default function StudentOrderPage() {
         } catch { }
     }
 
-    const addToCart = () => {
-        // Hitung tanggal minggu depan sesuai tab hari aktif
-        const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6 }
-        const targetWeekday = dayMap[activeDay] ?? 1
+    const getDeliveryDate = (dayName: string, week: 'THIS_WEEK' | 'NEXT_WEEK') => {
+        const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6, Minggu: 0 }
+        const targetWeekday = dayMap[dayName] ?? 1
         const today = new Date()
-        // Cari hari yang sesuai di minggu depan
-        let deliveryDate = nextDay(today, targetWeekday as 0|1|2|3|4|5|6)
-        // Jika hari ini sama dengan target, maju 7 hari lagi
-        if (today.getDay() === targetWeekday) {
-            deliveryDate = addDays(today, 7)
+        
+        if (week === 'THIS_WEEK') {
+            const currentDay = today.getDay()
+            let diff = targetWeekday - currentDay
+            return addDays(today, diff)
+        } else {
+            let deliveryDate = nextDay(today, targetWeekday as 0|1|2|3|4|5|6)
+            if (today.getDay() === targetWeekday) {
+                deliveryDate = addDays(today, 7)
+            }
+            return deliveryDate
         }
+    }
+
+    const checkIsAvailable = (deliveryDate: Date) => {
+        const now = new Date()
+        const deadline = new Date(deliveryDate)
+        const [dHour, dMin] = deadlineInfo.split(":").map(Number)
+        deadline.setHours(dHour, dMin, 0, 0)
+        return now <= deadline
+    }
+
+    const addToCart = () => {
+        const deliveryDate = getDeliveryDate(activeDay, orderWeek)
 
         setCart([...cart, {
             menuId: selectedMenu.id,
             name: selectedMenu.name,
-            price: selectedMenu.price + 1000, // Mark up for student
+            price: selectedMenu.price + adminFee, // Mark up for student
             date: deliveryDate,
             note: note,
             quantity: quantity
@@ -187,7 +201,8 @@ export default function StudentOrderPage() {
                 localStorage.removeItem("student_cart")
                 setIsCartOpen(false)
             } else {
-                toast.error("Gagal membuat pesanan")
+                const data = await res.json()
+                toast.error(data.error || "Gagal membuat pesanan")
             }
         } catch {
             toast.error("Error sistem")
@@ -228,26 +243,12 @@ export default function StudentOrderPage() {
                 </Button>
             </div>
 
-            {/* Pesan Status Jendela Pemesanan */}
-            {userRole === 'STUDENT' && (
-                <Card className={`p-4 border-l-4 ${isOrderWindowOpen ? "bg-green-50 border-green-500" : "bg-red-50 border-red-500"}`}>
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${isOrderWindowOpen ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-                            <Loader2 className={`h-4 w-4 ${!isOrderWindowOpen && "text-red-500 animate-none opacity-50"}`} />
-                        </div>
-                        <div>
-                            <p className={`font-bold text-sm ${isOrderWindowOpen ? "text-green-800" : "text-red-800"}`}>
-                                {isOrderWindowOpen ? "Jendela Pemesanan DIBUKA" : "Jendela Pemesanan DITUTUP"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {isOrderWindowOpen 
-                                    ? `Batas akhir pemesanan hari Minggu pukul ${deadlineInfo}. Yuk pesan sekarang!` 
-                                    : `Pemesanan ditutup. Siswa hanya dapat memesan pada hari Sabtu s/d Minggu pukul ${deadlineInfo}.`}
-                            </p>
-                        </div>
-                    </div>
-                </Card>
-            )}
+            <Tabs value={orderWeek} onValueChange={(v) => setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')} className="w-full mb-2">
+                <TabsList className="grid w-full max-w-sm grid-cols-2">
+                    <TabsTrigger value="THIS_WEEK">Pesan Minggu Ini</TabsTrigger>
+                    <TabsTrigger value="NEXT_WEEK">Pesan Minggu Depan</TabsTrigger>
+                </TabsList>
+            </Tabs>
 
             {/* Tab Hari */}
             <div className="flex gap-2 flex-wrap border-b pb-3">
@@ -291,7 +292,7 @@ export default function StudentOrderPage() {
                                     </div>
                                 )}
                                 <div className="absolute top-1.5 right-1.5 bg-white/90 px-1.5 py-0.5 rounded text-[11px] font-bold text-primary shadow-sm">
-                                    Rp {(menu.price + 1000).toLocaleString()}
+                                    Rp {(menu.price + adminFee).toLocaleString()}
                                 </div>
                             </div>
                             {/* Konten */}
@@ -302,13 +303,13 @@ export default function StudentOrderPage() {
                                 <Button 
                                     size="sm" 
                                     className="w-full mt-2 text-xs h-7" 
-                                    disabled={!isOrderWindowOpen && userRole === 'STUDENT'}
+                                    disabled={!checkIsAvailable(getDeliveryDate(activeDay, orderWeek)) && userRole === 'STUDENT'}
                                     onClick={() => {
                                         setSelectedMenu(menu)
                                         setIsAddOpen(true)
                                     }}
                                 >
-                                    {isOrderWindowOpen || userRole === 'ADMIN' ? "Pilih" : "Tutup"}
+                                    {checkIsAvailable(getDeliveryDate(activeDay, orderWeek)) || userRole === 'ADMIN' ? "Pilih" : "Batas Waktu Habis"}
                                 </Button>
                             </div>
                         </Card>
@@ -324,7 +325,7 @@ export default function StudentOrderPage() {
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <div className="rounded-md bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-                            Pesanan ini akan diantar pada <strong>hari {activeDay} minggu depan</strong> sesuai jadwal pengelola.
+                            Pesanan ini akan diantar pada <strong>hari {activeDay} {orderWeek === 'THIS_WEEK' ? 'minggu ini' : 'minggu depan'}</strong> ({format(getDeliveryDate(activeDay, orderWeek), "dd MMM yyyy", { locale: idLocale })}).
                         </div>
                         <div className="grid gap-2">
                             <Label>Jumlah</Label>

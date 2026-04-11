@@ -15,7 +15,8 @@ import {
     CalendarClock,
     DollarSign,
     UserCircle,
-    LogOut
+    LogOut,
+    Settings
 } from "lucide-react"
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
@@ -31,7 +32,7 @@ export function SidebarNav({ className, role, ...props }: SidebarNavProps) {
             { href: "/dashboard/admin/menus", label: "Menu Mingguan", icon: Utensils },
             { href: "/dashboard/admin/orders", label: "Data Pemesanan", icon: FileText },
             { href: "/dashboard/admin/users", label: "Kelola User", icon: Users },
-            { href: "/dashboard/admin/working-days", label: "Kelola Hari Kerja", icon: CalendarClock },
+            { href: "/dashboard/admin/working-days", label: "Pengaturan Sistem", icon: Settings },
             { href: "/dashboard/admin/reports", label: "Laporan", icon: BarChart },
         ],
         VENDOR: [

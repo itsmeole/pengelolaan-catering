@@ -59,20 +59,7 @@ export async function GET() {
                 }))
         }
 
-        // 3. Tomorrow's Stats (For the Top Metric Card)
-        const tomStart = new Date(tomorrow).toISOString()
-        const tomorrowEnd = new Date(tomorrow)
-        tomorrowEnd.setHours(23,59,59,999)
-        const tomEnd = tomorrowEnd.toISOString()
-
-        const { data: tomItems } = await supabase
-            .from('OrderItem')
-            .select('quantity')
-            .gte('date', tomStart)
-            .lte('date', tomEnd)
-            .neq('cancelStatus', 'APPROVED')
-        
-        const totalItemsTomorrow = tomItems?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0
+        const totalItemsWeekly = futureItems?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0
 
         // 4. Calculate Unverified Orders (PENDING)
         const { count: unverifiedCount } = await supabase
@@ -113,7 +100,7 @@ export async function GET() {
         }))
 
         return NextResponse.json({
-            weeklyOrders: { count: totalItemsTomorrow, trend: 0 },
+            weeklyOrders: { count: totalItemsWeekly, trend: 0 },
             revenue: { gross: grossRevenue, net: netRevenue, trend: 0 },
             unverifiedCount: unverifiedCount || 0,
             recentActivity: recentActivity,

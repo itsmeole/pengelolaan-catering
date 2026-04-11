@@ -32,8 +32,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Data pesanan tidak lengkap' }, { status: 400 })
         }
 
-        // Total amount (Vendor Price + 1000 Admin Fee per item)
-        const totalAmount = items.reduce((acc: number, item: any) => acc + ((item.price + 1000) * item.quantity), 0)
+        const { data: feeData } = await supabase.from('SystemSetting').select('value').eq('key', 'admin_fee_config').single()
+        const adminFee = feeData ? JSON.parse(feeData.value).fee : 1000
+
+        // Total amount (Vendor Price + Admin Fee per item)
+        const totalAmount = items.reduce((acc: number, item: any) => acc + ((item.price + adminFee) * item.quantity), 0)
 
         // 2. Buat Order (Default PENDING untuk transparansi manual)
         const { data: order, error: orderError } = await supabase
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
                 quantity: item.quantity,
                 note: item.note || null,
                 price: item.price,
-                adminFee: 1000,
+                adminFee: adminFee,
                 menuName: detail?.name || 'Menu Terhapus',
                 vendorName: vendor?.vendorName || vendor?.name || 'Vendor Terhapus',
                 vendorId: vendor?.id

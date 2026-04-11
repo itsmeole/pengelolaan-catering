@@ -5,13 +5,25 @@ import { addDays, startOfWeek, addWeeks, format, isBefore, parseISO } from 'date
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { studentId, phone, items, paymentMethod, proofImage } = body
+        const { studentId, phone, items, paymentMethod, proofImage, orderWeek } = body
 
         if (!studentId || !items || items.length === 0) {
             return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 })
         }
 
         const supabase = createAdminClient()
+
+        // 1.5 Cek Cek Anti Spam
+        const { data: activeOrders } = await supabase
+            .from('Order')
+            .select('id')
+            .eq('studentId', studentId)
+            .in('status', ['PENDING', 'PAID'])
+            .limit(1)
+
+        if (activeOrders && activeOrders.length > 0) {
+            return NextResponse.json({ error: "Siswa masih memiliki pesanan aktif yang belum dibayar atau didistribusikan. Harap selesaikan pesanan sebelumnya." }, { status: 400 })
+        }
 
         // 1. Update Phone di Profile Siswa
         if (phone) {
@@ -30,29 +42,57 @@ export async function POST(req: Request) {
             saturday: false, sunday: false, holidays: []
         }
 
-        // Tentukan tanggal-tanggal makan untuk minggu depan (Senin - Jumat/Sabtu sesuai config)
-        // Minggu depan dihitung dari awal minggu berikutnya (Senin depan)
-        const nextMonday = addDays(startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), 0)
+        const { data: feeData } = await supabase
+            .from('SystemSetting')
+            .select('value')
+            .eq('key', 'admin_fee_config')
+            .single()
+        const ADMIN_FEE = feeData ? JSON.parse(feeData.value).fee : 1000
+
+        const [dHour, dMin] = (config.deadlineTime || "20:00").split(":").map(Number)
         
+        let startDate = new Date()
+        let endDate = new Date()
+        const now = new Date()
+
+        if (orderWeek === 'THIS_WEEK') {
+            startDate = new Date()
+            endDate = new Date()
+            endDate.setDate(startDate.getDate() + ((7 - startDate.getDay()) % 7))
+            if (startDate.getDay() === 0) endDate = new Date(startDate) // Minggu
+        } else {
+            startDate = addDays(startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), 0)
+            endDate = addDays(startDate, 6)
+        }
+
         const orderDates: string[] = []
         const daysMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
         
-        for (let i = 0; i < 7; i++) {
-            const currentDay = addDays(nextMonday, i)
-            const dayName = daysMap[currentDay.getDay()]
-            const dateStr = format(currentDay, 'yyyy-MM-dd')
+        let currentDayLoop = new Date(startDate)
+        currentDayLoop.setHours(0,0,0,0)
+        const endDayLoop = new Date(endDate)
+        endDayLoop.setHours(23,59,59,999)
+
+        while(currentDayLoop <= endDayLoop) {
+            const dayName = daysMap[currentDayLoop.getDay()]
+            const dateStr = format(currentDayLoop, 'yyyy-MM-dd')
             
-            // Cek apakah hari tersebut aktif di config dan bukan hari libur
             const isWorkingDay = config[dayName]
             const isHoliday = (config.holidays || []).some((h: any) => h.date === dateStr)
             
-            if (isWorkingDay && !isHoliday) {
+            const validDeadline = new Date(currentDayLoop)
+            validDeadline.setHours(dHour, dMin, 0, 0)
+            const isWindowOpen = now <= validDeadline
+            
+            if (isWorkingDay && !isHoliday && isWindowOpen) {
                 orderDates.push(dateStr)
             }
+            
+            currentDayLoop = addDays(currentDayLoop, 1)
         }
 
         if (orderDates.length === 0) {
-            return NextResponse.json({ error: "Tidak ada hari kerja tersedia di minggu depan" }, { status: 400 })
+            return NextResponse.json({ error: "Batas pemesanan hari kerja untuk pilihan waktu tersebut sudah habis." }, { status: 400 })
         }
 
         // 3. Kalkulasi Total Harga & Distribusi Item per Hari
@@ -70,7 +110,6 @@ export async function POST(req: Request) {
         
         let totalAmount = 0
         const orderItemsToInsert: any[] = []
-        const ADMIN_FEE = 1000
 
         // Mapping hari Inggris ke Indonesia untuk pencocokan availableDays
         const daysMapIndo: Record<string, string> = {

@@ -111,33 +111,43 @@ export async function POST(req: Request) {
         const body = await req.json()
         const { items, paymentMethod, proofImage } = body
 
-        // --- VALIDASI DEADLINE JENDELA PEMESANAN ---
+        // --- 0. CEK ANTI SPAM ---
+        const { data: activeOrders } = await supabase
+            .from('Order')
+            .select('id')
+            .eq('studentId', user.id)
+            .in('status', ['PENDING', 'PAID'])
+            .limit(1)
+
+        if (activeOrders && activeOrders.length > 0) {
+            return NextResponse.json({ error: 'Anda masih memiliki pesanan aktif yang belum dibayar atau didistribusikan. Harap selesaikan pesanan sebelumnya agar bisa membuat pesanan baru.' }, { status: 400 })
+        }
+
+        // --- VALIDASI DEADLINE HARI H ---
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
         if (profile?.role === 'STUDENT') {
-            // Ambil config hari kerja & deadline
             const { data: configData } = await supabase.from('SystemSetting').select('value').eq('key', 'working_days_config').single()
             const config = configData ? JSON.parse(configData.value) : { deadlineTime: "20:00" }
-            
-            const now = new Date()
-            const day = now.getDay() // 0: Minggu, 6: Sabtu
             const [dHour, dMin] = (config.deadlineTime || "20:00").split(":").map(Number)
-            
-            let isOpen = false
-            if (day === 6) { // Sabtu: Selalu buka
-                isOpen = true
-            } else if (day === 0) { // Minggu: Buka sampai jam deadline
-                const deadline = new Date(now)
-                deadline.setHours(dHour, dMin, 0, 0)
-                if (now <= deadline) isOpen = true
-            }
+            const now = new Date()
 
-            if (!isOpen) {
-                return NextResponse.json({ 
-                    error: `Pemesanan ditutup. Siswa hanya dapat memesan pada hari Sabtu s/d Minggu pukul ${config.deadlineTime || "20:00"}.` 
-                }, { status: 403 })
+            for (const item of items) {
+                const itemDate = new Date(item.date)
+                const deadline = new Date(itemDate)
+                deadline.setHours(dHour, dMin, 0, 0)
+
+                if (now > deadline) {
+                    return NextResponse.json({ 
+                        error: `Batas jam pemesanan masuk untuk tanggal ${itemDate.toLocaleDateString('id-ID')} sudah ditutup secara harian pada pukul ${config.deadlineTime || "20:00"}.` 
+                    }, { status: 403 })
+                }
             }
         }
         // --- END VALIDASI ---
+
+        // Ambil Admin Fee dari DB untuk keamanan validasi harga di backend
+        const { data: feeData } = await supabase.from('SystemSetting').select('value').eq('key', 'admin_fee_config').single()
+        const adminFee = feeData && feeData.value ? JSON.parse(feeData.value).fee : 1000
 
         if (!items || items.length === 0) {
             return NextResponse.json({ error: 'Keranjang kosong' }, { status: 400 })
@@ -176,8 +186,8 @@ export async function POST(req: Request) {
                 date: new Date(item.date).toISOString(),
                 quantity: item.quantity,
                 note: item.note || null,
-                price: item.price - 1000,
-                adminFee: 1000,
+                price: item.price - adminFee,
+                adminFee: adminFee,
                 menuName: detail?.name || 'Menu Terhapus',
                 vendorName: vendor?.vendorName || vendor?.name || 'Vendor Terhapus',
                 vendorId: vendor?.id

@@ -57,15 +57,15 @@ export default function AdminDashboard() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card className="border-l-4 border-l-blue-500 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500">Total Pesanan (Besok)</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-500">Total Pesanan (7 Hari ke Depan)</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                             <ShoppingBag className="h-4 w-4" />
                         </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-slate-800">{stats.weeklyOrders.count}</div>
-                        <p className="text-xs text-green-600 font-medium mt-1">
-                            {stats.weeklyOrders.trend >= 0 ? "+" : ""}{stats.weeklyOrders.trend}% dari kemarin
+                        <p className="text-xs text-slate-400 font-medium mt-1">
+                            Akumulasi porsi mingguan
                         </p>
                     </CardContent>
                 </Card>

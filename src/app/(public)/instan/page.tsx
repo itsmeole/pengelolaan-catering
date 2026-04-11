@@ -10,6 +10,8 @@ import { toast } from "sonner"
 import { Search, Utensils, CreditCard, ChevronRight, ChevronLeft, CheckCircle2, MessageSquare, Phone, Info } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { addDays, nextDay } from "date-fns"
 
 export default function InstantOrderPage() {
     const [step, setStep] = useState(1)
@@ -25,13 +27,54 @@ export default function InstantOrderPage() {
     const [paymentMethod, setPaymentMethod] = useState("CASH_PAY_LATER")
     const [proofImage, setProofImage] = useState<string | null>(null)
     const [orderSuccess, setOrderSuccess] = useState<any>(null)
+    const [adminFee, setAdminFee] = useState<number>(1000)
+    const [orderWeek, setOrderWeek] = useState<'THIS_WEEK' | 'NEXT_WEEK'>('THIS_WEEK')
+    const [deadlineInfo, setDeadlineInfo] = useState("20:00")
 
-    // Fetch Menus on Load
+    // Fetch Menus and Admin Fee on Load
     useEffect(() => {
         fetch("/api/public/menus")
             .then(res => res.json())
             .then(data => setMenus(data))
+        
+        fetch("/api/public/settings/admin-fee")
+            .then(res => res.json())
+            .then(data => {
+                if (data.fee !== undefined) setAdminFee(data.fee)
+            }).catch(() => {})
+
+        fetch("/api/admin/settings/working-days")
+            .then(res => res.json())
+            .then(data => {
+                if(data.deadlineTime) setDeadlineInfo(data.deadlineTime)
+            }).catch(() => {})
     }, [])
+
+    const getDeliveryDate = (dayName: string, week: 'THIS_WEEK' | 'NEXT_WEEK') => {
+        const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6, Minggu: 0 }
+        const targetWeekday = dayMap[dayName] ?? 1
+        const today = new Date()
+        
+        if (week === 'THIS_WEEK') {
+            const currentDay = today.getDay()
+            let diff = targetWeekday - currentDay
+            return addDays(today, diff)
+        } else {
+            let deliveryDate = nextDay(today, targetWeekday as 0|1|2|3|4|5|6)
+            if (today.getDay() === targetWeekday) {
+                deliveryDate = addDays(today, 7)
+            }
+            return deliveryDate
+        }
+    }
+
+    const checkIsAvailable = (deliveryDate: Date) => {
+        const now = new Date()
+        const deadline = new Date(deliveryDate)
+        const [dHour, dMin] = deadlineInfo.split(":").map(Number)
+        deadline.setHours(dHour, dMin, 0, 0)
+        return now <= deadline
+    }
 
     // Search Students
     useEffect(() => {
@@ -84,6 +127,7 @@ export default function InstantOrderPage() {
                 body: JSON.stringify({
                     studentId: selectedStudent.id,
                     phone,
+                    orderWeek,
                     items,
                     paymentMethod,
                     proofImage
@@ -107,7 +151,7 @@ export default function InstantOrderPage() {
 
     const totalAmount = menus.reduce((acc, menu) => {
         const qty = selectedMenus[menu.id] || 0
-        return acc + (qty * (menu.price + 1000))
+        return acc + (qty * (menu.price + adminFee))
     }, 0)
 
     if (step === 4) {
@@ -241,21 +285,32 @@ export default function InstantOrderPage() {
 
                         {step === 2 && (
                             <div className="space-y-12">
+                                <Tabs value={orderWeek} onValueChange={(v) => setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')} className="w-full">
+                                    <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+                                        <TabsTrigger value="THIS_WEEK">Pesan Minggu Ini</TabsTrigger>
+                                        <TabsTrigger value="NEXT_WEEK">Pesan Minggu Depan</TabsTrigger>
+                                    </TabsList>
+                                </Tabs>
+
                                 {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
                                     .map(day => {
                                         const dayMenus = menus.filter(m => 
                                             m.availableDays?.includes(day) || 
-                                            // Fallback if availableDays is empty/null, show in all week days? 
-                                            // No, admin should define it. But for safety:
                                             (!m.availableDays && (day !== "Sabtu" && day !== "Minggu"))
                                         )
                                         
                                         if (dayMenus.length === 0) return null
 
+                                        // Tambahan: cek ketersediaan berdasarkan Hari H
+                                        const cDate = getDeliveryDate(day, orderWeek)
+                                        const isAvailable = checkIsAvailable(cDate)
+
                                         return (
-                                            <div key={day} className="space-y-6">
+                                            <div key={day} className={`space-y-6 ${!isAvailable ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
                                                 <div className="flex items-center gap-4">
-                                                    <h3 className="text-xl font-extrabold text-slate-800 border-l-4 border-blue-500 pl-4">{day}</h3>
+                                                    <h3 className="text-xl font-extrabold text-slate-800 border-l-4 border-blue-500 pl-4">
+                                                        {day} {!isAvailable && <span className="text-red-500 text-sm italic font-normal ml-2">(Ditutup)</span>}
+                                                    </h3>
                                                     <Separator className="flex-1" />
                                                 </div>
                                                 
@@ -269,7 +324,7 @@ export default function InstantOrderPage() {
                                                                 />
                                                                 <div className="absolute top-2 left-2">
                                                                     <Badge className="bg-white/90 text-blue-600 font-bold backdrop-blur-sm border-none shadow-sm">
-                                                                        Rp {(menu.price + 1000).toLocaleString("id-ID")}
+                                                                        Rp {(menu.price + adminFee).toLocaleString("id-ID")}
                                                                     </Badge>
                                                                 </div>
                                                                 <div className="absolute bottom-2 left-2">
@@ -281,7 +336,10 @@ export default function InstantOrderPage() {
                                                             <CardContent className="p-4 space-y-3">
                                                                 <div>
                                                                     <h3 className="font-bold text-slate-900 line-clamp-1">{menu.name}</h3>
-                                                                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                                                                    {menu.description && (
+                                                                        <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{menu.description}</p>
+                                                                    )}
+                                                                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-1.5">
                                                                         By: <span className="font-semibold text-blue-600">{menu.vendor?.vendorName}</span>
                                                                     </p>
                                                                 </div>
@@ -378,7 +436,7 @@ export default function InstantOrderPage() {
                                             return (
                                                 <div key={menuId} className="flex justify-between text-sm">
                                                     <span>{menu?.name} (x{qty})</span>
-                                                    <span className="font-bold">Rp {((menu?.price + 1000) * qty).toLocaleString("id-ID")}</span>
+                                                    <span className="font-bold">Rp {((menu?.price + adminFee) * qty).toLocaleString("id-ID")}</span>
                                                 </div>
                                             )
                                         })}
