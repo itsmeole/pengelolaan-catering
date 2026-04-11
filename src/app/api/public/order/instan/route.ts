@@ -11,6 +11,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 })
         }
 
+        if (items.some((i: any) => i.quantity < 1)) {
+            return NextResponse.json({ error: 'Semua menu yang dipilih minimal harus dibeli 1 porsi' }, { status: 400 })
+        }
+
         const supabase = createAdminClient()
 
         // 1.5 Cek Cek Anti Spam

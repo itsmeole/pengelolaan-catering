@@ -152,6 +152,10 @@ export async function POST(req: Request) {
         if (!items || items.length === 0) {
             return NextResponse.json({ error: 'Keranjang kosong' }, { status: 400 })
         }
+        
+        if (items.some((i: any) => i.quantity < 1)) {
+            return NextResponse.json({ error: 'Jumlah porsi tidak valid (minimal 1)' }, { status: 400 })
+        }
 
         const totalAmount = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0)
 

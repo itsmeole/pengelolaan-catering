@@ -45,9 +45,9 @@ export async function GET(req: Request) {
 
         // 2. Transform for display
         const details = (items || []).map(item => {
-            const totalPrice = item.price * item.quantity
+            const netIncome = item.price * item.quantity
             const totalAdminFee = (item.adminFee || 0) * item.quantity
-            const netIncome = totalPrice - totalAdminFee
+            const totalPrice = netIncome + totalAdminFee
 
             return {
                 id: item.id,

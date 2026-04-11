@@ -101,9 +101,12 @@ export default function InstantOrderPage() {
                 return
             }
         }
-        if (step === 2 && Object.keys(selectedMenus).length === 0) {
-            toast.error("Pilih minimal satu menu")
-            return
+        if (step === 2) {
+            const validMenusCount = Object.values(selectedMenus).filter(qty => Number(qty) > 0).length
+            if (validMenusCount === 0) {
+                toast.error("Pilih minimal satu menu (jumlah porsi > 0)")
+                return
+            }
         }
         setStep(step + 1)
     }
@@ -118,9 +121,15 @@ export default function InstantOrderPage() {
 
         setLoading(true)
         try {
-            const items = Object.entries(selectedMenus).map(([menuId, quantity]) => ({
-                menuId, quantity
-            }))
+            const items = Object.entries(selectedMenus)
+                .filter(([_, qty]) => Number(qty) > 0)
+                .map(([menuId, quantity]) => ({ menuId, quantity }))
+
+            if (items.length === 0) {
+                toast.error("Silakan pilih minimal 1 porsi menu sebelum konfirmasi.")
+                setLoading(false)
+                return
+            }
 
             const res = await fetch("/api/public/order/instan", {
                 method: "POST",
@@ -431,12 +440,14 @@ export default function InstantOrderPage() {
                                 <div className="bg-blue-600 text-white p-6 rounded-xl space-y-4 shadow-lg shadow-blue-200">
                                     <h4 className="font-bold text-center opacity-90">Ringkasan Pesanan</h4>
                                     <div className="space-y-2">
-                                        {Object.entries(selectedMenus).map(([menuId, qty]) => {
+                                        {Object.entries(selectedMenus)
+                                            .filter(([_, qty]) => Number(qty) > 0)
+                                            .map(([menuId, qty]) => {
                                             const menu = menus.find(m => m.id === menuId)
                                             return (
                                                 <div key={menuId} className="flex justify-between text-sm">
                                                     <span>{menu?.name} (x{qty})</span>
-                                                    <span className="font-bold">Rp {((menu?.price + adminFee) * qty).toLocaleString("id-ID")}</span>
+                                                    <span className="font-bold">Rp {((menu?.price + adminFee) * Number(qty)).toLocaleString("id-ID")}</span>
                                                 </div>
                                             )
                                         })}

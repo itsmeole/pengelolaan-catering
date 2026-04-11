@@ -152,6 +152,11 @@ export default function StudentOrderPage() {
     }
 
     const addToCart = () => {
+        if (!quantity || quantity < 1) {
+            toast.error("Silakan isi jumlah porsi minimal 1")
+            return
+        }
+
         const deliveryDate = getDeliveryDate(activeDay, orderWeek)
 
         setCart([...cart, {
@@ -329,7 +334,7 @@ export default function StudentOrderPage() {
                         </div>
                         <div className="grid gap-2">
                             <Label>Jumlah</Label>
-                            <Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value))} />
+                            <Input type="number" min={1} value={Number.isNaN(quantity) || quantity === 0 ? "" : quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} />
                         </div>
                         <div className="grid gap-2">
                             <Label>Catatan (Opsional)</Label>
