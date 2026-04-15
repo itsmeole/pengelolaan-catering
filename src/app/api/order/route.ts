@@ -24,31 +24,59 @@ export async function GET() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        // OTOMASI: Ubah status PAID ke COMPLETED jika sudah > 5 hari dari jadwal makan terbaru
-        const fiveDaysAgo = new Date()
-        fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5)
+        // OTOMASI: Konfirmasi per-item setelah 1x24 jam dari jadwal antar
+        const oneDayAgo = new Date()
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1)
 
-        const { data: oldItems } = await supabase
-            .from('OrderItem')
-            .select('orderId')
-            .lt('date', fiveDaysAgo.toISOString())
+        // Step 1: Ambil ID order milik student yang masih PAID
+        const { data: paidOrders } = await supabase
+            .from('Order')
+            .select('id')
+            .eq('studentId', user.id)
+            .eq('status', 'PAID')
 
-        if (oldItems && oldItems.length > 0) {
-            const oldOrderIds = Array.from(new Set(oldItems.map(i => i.orderId)))
-            await supabase
-                .from('Order')
-                .update({ status: 'COMPLETED', updatedAt: new Date().toISOString() })
-                .in('id', oldOrderIds)
-                .eq('studentId', user.id)
-                .eq('status', 'PAID')
+        const paidOrderIds = (paidOrders || []).map((o: any) => o.id)
+
+        if (paidOrderIds.length > 0) {
+            // Step 2: Cari item yang belum dikonfirmasi dan sudah lewat 24 jam
+            const { data: overdueItems } = await supabase
+                .from('OrderItem')
+                .select('id, orderId')
+                .lt('date', oneDayAgo.toISOString())
+                .is('receivedAt', null)
+                .neq('cancelStatus', 'APPROVED')
+                .in('orderId', paidOrderIds)
+
+            if (overdueItems && overdueItems.length > 0) {
+                const overdueIds = overdueItems.map((i: any) => i.id)
+                await supabase
+                    .from('OrderItem')
+                    .update({ receivedAt: new Date().toISOString() })
+                    .in('id', overdueIds)
+
+                // Cek apakah semua item per order sudah ada receivedAt
+                const overdueOrderIds = Array.from(new Set(overdueItems.map((i: any) => i.orderId)))
+                for (const oId of overdueOrderIds) {
+                    const { data: allItems } = await supabase
+                        .from('OrderItem')
+                        .select('receivedAt, cancelStatus')
+                        .eq('orderId', oId)
+                    const allDone = (allItems || []).every((i: any) => i.receivedAt !== null || i.cancelStatus === 'APPROVED')
+                    if (allDone) {
+                        await supabase.from('Order').update({ status: 'COMPLETED', updatedAt: new Date().toISOString() })
+                            .eq('id', oId).eq('status', 'PAID')
+                    }
+                }
+            }
         }
+
 
         const { data, error } = await supabase
             .from('Order')
             .select(`
                 id, studentId, totalAmount, status, paymentMethod, proofImage, isProofInvalid, rejectionReason, cancelStatus, createdAt, updatedAt,
                 items:"OrderItem"(
-                    id, orderId, menuId, date, quantity, note, price, adminFee, menuName, vendorName, vendorId, cancelStatus,
+                    id, orderId, menuId, date, quantity, note, price, adminFee, menuName, vendorName, vendorId, cancelStatus, receivedAt,
                     menu:"MenuItem"(imageUrl, name)
                 )
             `)
@@ -66,7 +94,7 @@ export async function GET() {
 // PATCH: Untuk mengunggah ulang bukti transfer atau konfirmasi pesanan selesai
 export async function PATCH(req: Request) {
     try {
-        const { orderId, proofImage, status } = await req.json()
+        const { orderId, proofImage, status, itemIds } = await req.json()
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
 
@@ -83,6 +111,37 @@ export async function PATCH(req: Request) {
 
         if (status === 'COMPLETED') {
             updateData.status = 'COMPLETED'
+        }
+
+        // Konfirmasi per-item diterima
+        if (itemIds && Array.isArray(itemIds) && itemIds.length > 0) {
+            // Verify items belong to this order and student
+            const { data: orderCheck } = await supabase
+                .from('Order')
+                .select('id')
+                .eq('id', orderId)
+                .eq('studentId', user.id)
+                .single()
+            if (!orderCheck) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+            await supabase
+                .from('OrderItem')
+                .update({ receivedAt: new Date().toISOString() })
+                .in('id', itemIds)
+                .eq('orderId', orderId)
+
+            // Cek apakah semua item sudah diterima atau dibatalkan
+            const { data: allItems } = await supabase
+                .from('OrderItem')
+                .select('receivedAt, cancelStatus')
+                .eq('orderId', orderId)
+            const allDone = (allItems || []).every(i => i.receivedAt !== null || i.cancelStatus === 'APPROVED')
+            if (allDone) {
+                await supabase.from('Order').update({ status: 'COMPLETED', updatedAt: new Date().toISOString() })
+                    .eq('id', orderId).eq('status', 'PAID')
+            }
+
+            return NextResponse.json({ success: true, allDone })
         }
 
         const { error } = await supabase
@@ -127,18 +186,29 @@ export async function POST(req: Request) {
         const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
         if (profile?.role === 'STUDENT') {
             const { data: configData } = await supabase.from('SystemSetting').select('value').eq('key', 'working_days_config').single()
-            const config = configData ? JSON.parse(configData.value) : { deadlineTime: "20:00" }
-            const [dHour, dMin] = (config.deadlineTime || "20:00").split(":").map(Number)
+            const config = configData ? JSON.parse(configData.value) : { deadlineTime: "08:00" }
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
             const now = new Date()
 
             for (const item of items) {
                 const itemDate = new Date(item.date)
-                const deadline = new Date(itemDate)
-                deadline.setHours(dHour, dMin, 0, 0)
+                const dayKey = dayNames[itemDate.getDay()]
+                // Support new object format { dayOffset, time } and old string format
+                const raw = config.dailyDeadlines?.[dayKey]
+                const deadlineObj = typeof raw === 'object' && raw !== null
+                    ? raw
+                    : { dayOffset: 0, time: typeof raw === 'string' ? raw : (config.deadlineTime || "08:00") }
+                const [h, m] = (deadlineObj.time || "08:00").split(":").map(Number)
+                const dayOffset = deadlineObj.dayOffset ?? 0
+                // Build deadline date: itemDate shifted by dayOffset, at the cutoff time
+                const deadlineDate = new Date(itemDate)
+                deadlineDate.setDate(deadlineDate.getDate() + dayOffset)
+                deadlineDate.setHours(h, m, 0, 0)
 
-                if (now > deadline) {
+                if (now > deadlineDate) {
+                    const offsetLabel = dayOffset === -1 ? " (H-1, sehari sebelumnya pukul " + deadlineObj.time + ")" : ` pada pukul ${deadlineObj.time}`
                     return NextResponse.json({ 
-                        error: `Batas jam pemesanan masuk untuk tanggal ${itemDate.toLocaleDateString('id-ID')} sudah ditutup secara harian pada pukul ${config.deadlineTime || "20:00"}.` 
+                        error: `Batas jam pemesanan untuk tanggal ${itemDate.toLocaleDateString('id-ID')} sudah ditutup${offsetLabel}.` 
                     }, { status: 403 })
                 }
             }

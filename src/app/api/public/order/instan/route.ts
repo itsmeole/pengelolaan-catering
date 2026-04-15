@@ -1,9 +1,23 @@
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { addDays, startOfWeek, addWeeks, format, isBefore, parseISO } from 'date-fns'
+import { addDays, startOfWeek, addWeeks, format } from 'date-fns'
+import { checkRateLimit, recordRequest, getClientIp } from '@/lib/rateLimiter'
 
 export async function POST(req: Request) {
     try {
+        // ── LAYER 1: IP Rate Limiting ──────────────────────────────────────────
+        const clientIp = getClientIp(req)
+        const rateCheck = checkRateLimit(clientIp)
+        if (!rateCheck.allowed) {
+            const minutes = Math.ceil(rateCheck.retryAfterSeconds / 60)
+            return NextResponse.json(
+                { error: `Terlalu banyak percobaan pemesanan. Silakan coba lagi dalam ${rateCheck.retryAfterSeconds} detik (±${minutes} menit).` },
+                { status: 429, headers: { 'Retry-After': String(rateCheck.retryAfterSeconds) } }
+            )
+        }
+
         const body = await req.json()
         const { studentId, phone, items, paymentMethod, proofImage, orderWeek } = body
 
@@ -15,9 +29,30 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Semua menu yang dipilih minimal harus dibeli 1 porsi' }, { status: 400 })
         }
 
+        // ── LAYER 2: Session-Identity Binding ─────────────────────────────────
+        // Jika ada sesi login aktif, pastikan studentId di body = user yang login.
+        // Ini mencegah user terotentikasi menggunakan data akun orang lain.
+        try {
+            const cookieStore = await cookies()
+            const anonClient = createServerClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+            )
+            const { data: { user } } = await anonClient.auth.getUser()
+            if (user && user.id !== studentId) {
+                return NextResponse.json(
+                    { error: 'Anda tidak dapat memesan atas nama orang lain saat sedang masuk (login). Gunakan akun yang sesuai.' },
+                    { status: 403 }
+                )
+            }
+        } catch {
+            // Jika tidak ada sesi (public mode), lanjutkan tanpa pemblokiran
+        }
+
         const supabase = createAdminClient()
 
-        // 1.5 Cek Cek Anti Spam
+        // 1.5 Cek Anti Spam — satu siswa tidak boleh punya 2 order aktif
         const { data: activeOrders } = await supabase
             .from('Order')
             .select('id')
@@ -28,6 +63,11 @@ export async function POST(req: Request) {
         if (activeOrders && activeOrders.length > 0) {
             return NextResponse.json({ error: "Siswa masih memiliki pesanan aktif yang belum dibayar atau didistribusikan. Harap selesaikan pesanan sebelumnya." }, { status: 400 })
         }
+
+        // ── LAYER 3: Catat IP setelah validasi dasar lolos ────────────────────
+        recordRequest(clientIp)
+
+
 
         // 1. Update Phone di Profile Siswa
         if (phone) {
@@ -53,7 +93,23 @@ export async function POST(req: Request) {
             .single()
         const ADMIN_FEE = feeData ? JSON.parse(feeData.value).fee : 1000
 
-        const [dHour, dMin] = (config.deadlineTime || "20:00").split(":").map(Number)
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+        // Helper: get deadline datetime for a target date (supports dayOffset)
+        function getDeadlineFor(date: Date): Date {
+            const dayKey = dayNames[date.getDay()]
+            const raw = config.dailyDeadlines?.[dayKey]
+            const deadlineObj = typeof raw === 'object' && raw !== null
+                ? raw
+                : { dayOffset: 0, time: typeof raw === 'string' ? raw : (config.deadlineTime || "08:00") }
+            const [h, m] = (deadlineObj.time || "08:00").split(":").map(Number)
+            const dayOffset = deadlineObj.dayOffset ?? 0
+            // Deadline is on (date + dayOffset) at the cutoff time
+            const d = new Date(date)
+            d.setDate(d.getDate() + dayOffset)
+            d.setHours(h, m, 0, 0)
+            return d
+        }
         
         let startDate = new Date()
         let endDate = new Date()
@@ -84,8 +140,7 @@ export async function POST(req: Request) {
             const isWorkingDay = config[dayName]
             const isHoliday = (config.holidays || []).some((h: any) => h.date === dateStr)
             
-            const validDeadline = new Date(currentDayLoop)
-            validDeadline.setHours(dHour, dMin, 0, 0)
+            const validDeadline = getDeadlineFor(currentDayLoop)
             const isWindowOpen = now <= validDeadline
             
             if (isWorkingDay && !isHoliday && isWindowOpen) {

@@ -47,6 +47,7 @@ export default function AdminOrdersPage() {
   const [filterPayment, setFilterPayment] = useState("ALL")
   const [selectedProof, setSelectedProof] = useState<string | null>(null)
   const [adminFee, setAdminFee] = useState<number>(1000)
+  const [searchName, setSearchName] = useState("")
 
   // States for Add Order
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -276,6 +277,12 @@ export default function AdminOrdersPage() {
     if (filterStatus !== "ALL" && order.status !== filterStatus) return false;
     if (filterPayment === "PAY_LATER" && order.paymentMethod !== "CASH_PAY_LATER") return false;
     if (filterPayment === "TRANSFER" && order.paymentMethod !== "TRANSFER") return false;
+    if (searchName.trim() !== "") {
+      const q = searchName.toLowerCase()
+      const name = (order.student?.name || "").toLowerCase()
+      const kelas = (order.student?.class || "").toLowerCase()
+      if (!name.includes(q) && !kelas.includes(q)) return false;
+    }
     return true;
   })
 
@@ -285,7 +292,7 @@ export default function AdminOrdersPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterStatus, filterPayment])
+  }, [filterStatus, filterPayment, searchName])
 
   return (
     <div className="space-y-6">
@@ -592,6 +599,17 @@ export default function AdminOrdersPage() {
             {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Filter className="h-4 w-4" />}
           </Button>
         </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        <Input
+          placeholder="Cari nama siswa atau kelas..."
+          value={searchName}
+          onChange={(e) => setSearchName(e.target.value)}
+          className="pl-9 h-10 bg-white"
+        />
       </div>
 
       <div className="border rounded-md">

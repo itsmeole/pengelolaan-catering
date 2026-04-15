@@ -55,14 +55,14 @@ export default function VendorDashboard() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card className="border-l-4 border-l-blue-500 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500">Total Porsi Filter</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-500">Order Minggu Depan</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                             <Calendar className="h-4 w-4" />
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-slate-800">{stats.tomorrowOrderCount}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Porsi dalam rentang filter</p>
+                        <div className="text-2xl font-bold text-slate-800">{stats.nextWeekOrderCount ?? 0}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Total pesanan minggu depan</p>
                     </CardContent>
                 </Card>
 

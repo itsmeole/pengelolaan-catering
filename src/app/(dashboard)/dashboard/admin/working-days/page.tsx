@@ -136,29 +136,64 @@ export default function SettingsPage() {
                             { k: "friday", l: "Jumat" },
                             { k: "saturday", l: "Sabtu" },
                             { k: "sunday", l: "Minggu" },
-                        ].map((day) => (
-                            <div key={day.k} className="flex items-center justify-between border-b pb-2 last:border-0">
-                                <Label className="font-medium text-base">{day.l}</Label>
-                                <Switch
-                                    checked={config[day.k]}
-                                    onCheckedChange={() => toggleDay(day.k)}
-                                />
-                            </div>
-                        ))}
+                        ].map((day) => {
+                            const raw = config.dailyDeadlines?.[day.k]
+                            const deadlineObj = typeof raw === 'object' && raw !== null
+                                ? raw
+                                : { dayOffset: 0, time: typeof raw === 'string' ? raw : (config.deadlineTime || "08:00") }
 
-                        <div className="pt-4 border-t mt-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-0.5">
-                                    <Label className="text-base">Batas Waktu Harian (Hari H)</Label>
-                                    <p className="text-xs text-muted-foreground">Siswa hanya bisa memesan/membatalkan menu untuk hari ini (Current Day) sebelum jam ini terlewati.</p>
+                            const updateDeadline = (patch: any) => setConfig({
+                                ...config,
+                                dailyDeadlines: {
+                                    ...(config.dailyDeadlines || {}),
+                                    [day.k]: { ...deadlineObj, ...patch }
+                                }
+                            })
+
+                            return (
+                                <div key={day.k} className="border-b pb-3 last:border-0 space-y-2">
+                                    {/* Baris 1: Label + Toggle selalu sejajar */}
+                                    <div className="flex items-center justify-between">
+                                        <Label className="font-medium text-base">{day.l}</Label>
+                                        <Switch
+                                            checked={config[day.k]}
+                                            onCheckedChange={() => toggleDay(day.k)}
+                                        />
+                                    </div>
+                                    {/* Baris 2: Input muncul di bawah jika hari aktif */}
+                                    {config[day.k] && (
+                                        <div className="flex items-center gap-3 flex-wrap pl-1">
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Batas Hari</span>
+                                                <select
+                                                    className="px-2 py-1 border rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                                                    value={deadlineObj.dayOffset ?? 0}
+                                                    onChange={(e) => updateDeadline({ dayOffset: Number(e.target.value) })}
+                                                >
+                                                    <option value={0}>H (Hari Itu)</option>
+                                                    <option value={-1}>H-1 (Sehari Sebelum)</option>
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Jam Cutoff</span>
+                                                <input
+                                                    type="time"
+                                                    className="px-2 py-1 border rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary w-[90px]"
+                                                    value={deadlineObj.time}
+                                                    onChange={(e) => updateDeadline({ time: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <input
-                                    type="time"
-                                    className="px-3 py-1 border rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary"
-                                    value={config.deadlineTime || "20:00"}
-                                    onChange={(e) => setConfig({ ...config, deadlineTime: e.target.value })}
-                                />
-                            </div>
+                            )
+                        })}
+
+                        <div className="pt-3 mt-2 border-t">
+                            <p className="text-xs text-muted-foreground">
+                                💡 <strong>H (Hari Itu)</strong>: Siswa harus pesan sebelum jam cutoff di hari yang sama.<br/>
+                                💡 <strong>H-1</strong>: Siswa harus pesan sebelum jam cutoff di hari sebelumnya.
+                            </p>
                         </div>
                     </CardContent>
                 </Card>

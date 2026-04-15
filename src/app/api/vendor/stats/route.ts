@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { startOfWeek, endOfWeek, addWeeks } from 'date-fns'
 
 export async function GET(req: Request) {
     try {
@@ -37,12 +38,18 @@ export async function GET(req: Request) {
         const filterStart = customStart ? new Date(new Date(customStart).setHours(0,0,0,0)).toISOString() : tomorrowStart
         const filterEnd = customEnd ? new Date(new Date(customEnd).setHours(23,59,59,999)).toISOString() : tomorrowEnd
 
-        const weekStart = new Date()
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1) // Monday
-        const startOfWeekStr = new Date(weekStart.setHours(0,0,0,0)).toISOString()
+        const now = new Date()
+        // This week (Monday to Sunday)
+        const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString()
+        const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 }).toISOString()
+        
+        // Next week (Monday to Sunday)
+        const nextWeek = addWeeks(now, 1)
+        const nextWeekStart = startOfWeek(nextWeek, { weekStartsOn: 1 }).toISOString()
+        const nextWeekEnd = endOfWeek(nextWeek, { weekStartsOn: 1 }).toISOString()
 
         // 3. Query OrderItems for this vendor (Snapshot)
-        const fetchStart = new Date(Math.min(new Date(startOfWeekStr).getTime(), new Date(filterStart).getTime())).toISOString()
+        const fetchStart = new Date(Math.min(new Date(thisWeekStart).getTime(), new Date(filterStart).getTime())).toISOString()
 
         const { data: orderItems, error: itemsErr } = await supabase
             .from('OrderItem')
@@ -69,6 +76,7 @@ export async function GET(req: Request) {
         })
 
         let tomorrowCount = 0
+        let nextWeekCount = 0
         let weeklyCount = 0
         let totalRevenue = 0
         const cookingMap: Record<string, { name: string, qty: number, notes: string[] }> = {}
@@ -83,8 +91,8 @@ export async function GET(req: Request) {
         }
 
         validItems.forEach((item: any) => {
-            // Stats for the week (Monday - Now)
-            if (item.date >= startOfWeekStr) {
+            // Stats for this week
+            if (item.date >= thisWeekStart && item.date <= thisWeekEnd) {
                 weeklyCount += item.quantity || 1
 
                 if (item.Order?.status === 'PAID' || item.Order?.status === 'COMPLETED') {
@@ -97,6 +105,11 @@ export async function GET(req: Request) {
                         chartDataMap[dayName] += itemTotal
                     }
                 }
+            }
+
+            // Stats for next week
+            if (item.date >= nextWeekStart && item.date <= nextWeekEnd) {
+                nextWeekCount += item.quantity || 1
             }
 
             // FILTER: Masuk Cooking List jika dalam rentang filter (besok atau custom)
@@ -124,6 +137,7 @@ export async function GET(req: Request) {
 
         return NextResponse.json({
             tomorrowOrderCount: tomorrowCount,
+            nextWeekOrderCount: nextWeekCount,
             weeklyOrderCount: weeklyCount,
             totalRevenue,
             cookingList,
