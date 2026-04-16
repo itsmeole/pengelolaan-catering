@@ -65,12 +65,14 @@ export async function GET(req: Request) {
         const netRevenue = details.filter(filterActive).reduce((acc, curr) => acc + curr.adminFee, 0)
 
         // Aggregation for chart (Group by day)
-        const chartMap: Record<string, { date: string, gross: number, net: number }> = {}
+        const chartMap: Record<string, { date: string, gross: number, net: number, count: number }> = {}
         details.forEach(d => {
+            if (d.refundStatus === 'APPROVED') return // exclude cancelled
             const dayKey = d.deliveryDate.split('/').reverse().join('-') // YYYY-MM-DD
-            if (!chartMap[dayKey]) chartMap[dayKey] = { date: dayKey, gross: 0, net: 0 }
+            if (!chartMap[dayKey]) chartMap[dayKey] = { date: dayKey, gross: 0, net: 0, count: 0 }
             chartMap[dayKey].gross += d.total
             chartMap[dayKey].net += d.adminFee
+            chartMap[dayKey].count += 1
         })
         const chart = Object.values(chartMap).sort((a, b) => a.date.localeCompare(b.date))
 

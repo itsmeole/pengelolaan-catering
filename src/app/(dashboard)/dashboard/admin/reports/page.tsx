@@ -168,7 +168,25 @@ export default function AdminReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={(val) => format(new Date(val), "dd MMM")} />
                   <YAxis tickFormatter={(val) => `Rp ${val / 1000}k`} />
-                  <Tooltip formatter={(value: any) => formatMoney(Number(value) || 0)} />
+                  <Tooltip
+                    content={({ active, payload, label }: any) => {
+                      if (active && payload && payload.length) {
+                        const count = payload[0]?.payload?.count ?? 0
+                        return (
+                          <div className="bg-white border rounded-lg shadow-lg p-3 text-sm space-y-1">
+                            <p className="font-bold text-slate-700">{label}</p>
+                            <p className="text-muted-foreground text-xs">{count} item pesanan</p>
+                            {payload.map((p: any) => (
+                              <p key={p.name} style={{ color: p.color }}>
+                                {p.name === 'gross' ? 'Pemasukan' : 'Bersih'}: {formatMoney(p.value)}
+                              </p>
+                            ))}
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
                   <Bar dataKey="gross" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pemasukan" />
                   <Bar dataKey="net" fill="#82ca9d" radius={[4, 4, 0, 0]} name="Bersih" />
                 </BarChart>
