@@ -296,8 +296,8 @@ export default function InstantOrderPage() {
                             <div className="space-y-12">
                                 <Tabs value={orderWeek} onValueChange={(v) => setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')} className="w-full">
                                     <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-                                        <TabsTrigger value="THIS_WEEK">Pesan Minggu Ini</TabsTrigger>
-                                        <TabsTrigger value="NEXT_WEEK">Pesan Minggu Depan</TabsTrigger>
+                                        <TabsTrigger value="THIS_WEEK">Untuk Minggu Ini</TabsTrigger>
+                                        <TabsTrigger value="NEXT_WEEK">Untuk Minggu Depan</TabsTrigger>
                                     </TabsList>
                                 </Tabs>
 

@@ -60,15 +60,11 @@ export default function StudentOrderPage() {
     const [note, setNote] = useState("")
     const [quantity, setQuantity] = useState(1)
     const [isAddOpen, setIsAddOpen] = useState(false)
+    // Key keranjang unik per user, diset setelah profile dimuat
+    const [cartKey, setCartKey] = useState<string | null>(null)
 
     useEffect(() => {
-        // Load cart dari localStorage setelah hydration selesai
-        try {
-            const saved = localStorage.getItem("student_cart")
-            if (saved) setCart(JSON.parse(saved))
-        } catch { /* abaikan */ }
-        cartLoaded.current = true
-
+        // Cart akan dimuat di fetchUserProfile setelah user ID diketahui
         fetchMenus()
         fetchWorkingDays()
         fetchUserProfile()
@@ -83,11 +79,11 @@ export default function StudentOrderPage() {
         } catch { }
     }
 
-    // Simpan cart ke localStorage setiap kali berubah — HANYA setelah load awal selesai
+    // Simpan cart ke localStorage setiap kali berubah — HANYA setelah load awal selesai & cartKey tersedia
     useEffect(() => {
-        if (!cartLoaded.current) return
-        localStorage.setItem("student_cart", JSON.stringify(cart))
-    }, [cart])
+        if (!cartLoaded.current || !cartKey) return
+        localStorage.setItem(cartKey, JSON.stringify(cart))
+    }, [cart, cartKey])
 
     async function fetchMenus() {
         try {
@@ -122,6 +118,17 @@ export default function StudentOrderPage() {
             const res = await fetch("/api/auth/me")
             const data = await res.json()
             setUserRole(data.role || "STUDENT")
+
+            // Buat key keranjang unik per user agar tidak tercampur antar siswa
+            if (data.id) {
+                const key = `student_cart_${data.id}`
+                setCartKey(key)
+                try {
+                    const saved = localStorage.getItem(key)
+                    if (saved) setCart(JSON.parse(saved))
+                } catch { /* abaikan */ }
+                cartLoaded.current = true
+            }
         } catch { }
     }
 
@@ -203,7 +210,7 @@ export default function StudentOrderPage() {
             if (res.ok) {
                 toast.success("Pesanan berhasil dibuat!")
                 setCart([])
-                localStorage.removeItem("student_cart")
+                if (cartKey) localStorage.removeItem(cartKey)
                 setIsCartOpen(false)
             } else {
                 const data = await res.json()
@@ -250,8 +257,8 @@ export default function StudentOrderPage() {
 
             <Tabs value={orderWeek} onValueChange={(v) => setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')} className="w-full mb-2">
                 <TabsList className="grid w-full max-w-sm grid-cols-2">
-                    <TabsTrigger value="THIS_WEEK">Pesan Minggu Ini</TabsTrigger>
-                    <TabsTrigger value="NEXT_WEEK">Pesan Minggu Depan</TabsTrigger>
+                    <TabsTrigger value="THIS_WEEK">Untuk Minggu Ini</TabsTrigger>
+                    <TabsTrigger value="NEXT_WEEK">Untuk Minggu Depan</TabsTrigger>
                 </TabsList>
             </Tabs>
 
