@@ -72,7 +72,7 @@ export default function VendorRevenuePage() {
             d.refundStatus === 'APPROVED' ? 0 : d.totalPrice,
             d.refundStatus === 'APPROVED' ? 0 : d.adminFee,
             d.refundStatus === 'APPROVED' ? 0 : d.netIncome,
-            d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'MENUNGGU REFUND' : 'SUKSES')
+            d.refundStatus === 'APPROVED' ? 'REFUND' : 'SUKSES'
         ])
     })
 
@@ -108,7 +108,7 @@ export default function VendorRevenuePage() {
       d.quantity, 
       d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.totalPrice), 
       d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.netIncome),
-      d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'REFUND' : 'SUKSES')
+      d.refundStatus === 'APPROVED' ? 'REFUND' : 'SUKSES'
     ])
     autoTable(doc, {
       startY: finalY + 20,
@@ -267,10 +267,9 @@ export default function VendorRevenuePage() {
                 <TableBody>
                   {data.details.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item: any, idx: number) => {
                     const isCancelled = item.refundStatus === 'APPROVED';
-                    const isPending = item.refundStatus === 'PENDING';
 
                     return (
-                      <TableRow key={idx} className={`transition-colors border-b hover:bg-slate-50/50 ${isCancelled ? 'bg-red-50/30 text-slate-400 line-through' : (isPending ? 'bg-orange-50/50' : '')}`}>
+                      <TableRow key={idx} className={`transition-colors border-b hover:bg-slate-50/50 ${isCancelled ? 'bg-red-50/30 text-slate-400 line-through' : ''}`}>
                         <TableCell className="pl-6 py-4 text-[10px] text-muted-foreground whitespace-nowrap">
                             {item.processedAt ? format(new Date(item.processedAt), "dd/MM/yyyy HH:mm") : "-"}
                         </TableCell>
@@ -288,9 +287,7 @@ export default function VendorRevenuePage() {
                         </TableCell>
                         <TableCell className="py-4 text-center pr-6">
                           {isCancelled ? (
-                            <Badge variant="destructive" className="text-[9px] uppercase font-bold py-0 h-5">Dibatalkan</Badge>
-                          ) : isPending ? (
-                            <Badge variant="outline" className="text-[9px] uppercase font-bold text-orange-600 border-orange-200 py-0 h-5 animate-pulse">Menunggu Refund</Badge>
+                            <Badge variant="destructive" className="text-[9px] uppercase font-bold py-0 h-5">Refund</Badge>
                           ) : (
                             <Badge variant="secondary" className="text-[9px] uppercase font-bold text-green-600 bg-green-50 border-green-100 py-0 h-5">Terkirim</Badge>
                           )}

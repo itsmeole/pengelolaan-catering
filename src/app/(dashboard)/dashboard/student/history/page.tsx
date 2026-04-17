@@ -37,14 +37,6 @@ export default function StudentHistoryPage() {
     const [loading, setLoading] = useState(true)
     const [cancelling, setCancelling] = useState(false)
 
-    // Form pembatalan
-    const [isCancelOpen, setIsCancelOpen] = useState(false)
-    const [selectedOrder, setSelectedOrder] = useState<any>(null)
-    const [selectedItems, setSelectedItems] = useState<string[]>([])
-    const [cancelReason, setCancelReason] = useState("VENDOR_LATE")
-    const [otherReason, setOtherReason] = useState("")
-    const [cancelImage, setCancelImage] = useState<string | null>(null)
-
     // Form konfirmasi diterima per-item
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
     const [confirmOrder, setConfirmOrder] = useState<any>(null)
@@ -74,47 +66,6 @@ export default function StudentHistoryPage() {
             const reader = new FileReader()
             reader.onloadend = () => setter(reader.result as string)
             reader.readAsDataURL(file)
-        }
-    }
-
-    const handleCancelSubmit = async () => {
-        if (!selectedOrder) return
-        if (selectedItems.length === 0) {
-            toast.error("Mohon pilih setidaknya satu makanan untuk dibatalkan")
-            return
-        }
-        if (cancelReason === 'OTHER' && !otherReason.trim()) {
-            toast.error("Mohon isi alasan pembatalan Anda")
-            return
-        }
-        if (cancelReason === 'DEFECTIVE_FOOD' && !cancelImage) {
-            toast.error("Foto bukti wajib diunggah untuk keluhan cacat produksi")
-            return
-        }
-
-        setCancelling(true)
-        try {
-            const res = await fetch("/api/order/cancel", {
-                method: "POST",
-                body: JSON.stringify({
-                    orderId: selectedOrder.id,
-                    itemIds: selectedItems,
-                    reason: cancelReason,
-                    otherReason: cancelReason === 'OTHER' ? otherReason : null,
-                    cancelImage
-                })
-            })
-            if (res.ok) {
-                toast.success("Pengajuan pembatalan terkirim. Menunggu konfirmasi Admin.")
-                setIsCancelOpen(false)
-                setSelectedItems([])
-                setOtherReason("")
-                fetchOrders()
-            }
-        } catch (e) {
-            toast.error("Gagal mengirim pengajuan")
-        } finally {
-            setCancelling(false)
         }
     }
 
@@ -276,25 +227,6 @@ export default function StudentHistoryPage() {
                                         </div>
 
                                         <div className="flex gap-2 w-full sm:w-auto mt-2">
-                                            {/* Button Refund */}
-                                            {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (order.cancelStatus === 'NONE' || !order.cancelStatus) && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="text-red-600 border-red-200 hover:bg-red-50 h-9 font-medium"
-                                                    onClick={() => {
-                                                        setSelectedOrder(order)
-                                                        setCancelReason("VENDOR_LATE")
-                                                        setCancelImage(null)
-                                                        setOtherReason("")
-                                                        setSelectedItems(order.items.map((i: any) => i.id))
-                                                        setIsCancelOpen(true)
-                                                    }}
-                                                >
-                                                    Ajukan Refund
-                                                </Button>
-                                            )}
-
                                             {/* Button Konfirmasi Diterima per-item */}
                                             {hasConfirmable && (
                                                 <Button
@@ -325,83 +257,6 @@ export default function StudentHistoryPage() {
                     })}
                 </div>
             )}
-
-            {/* Modal Pembatalan / Refund */}
-            <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Ajukan Pembatalan</DialogTitle>
-                        <DialogDescription>
-                            Pilih makanan yang ingin dibatalkan. Dana akan dikembalikan setelah disetujui Admin.
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-3">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">Pilih Makanan yang Dibatalkan:</Label>
-                            <div className="space-y-2 max-h-48 overflow-auto border rounded-lg p-2">
-                                {selectedOrder?.items?.map((item: any) => (
-                                    <div key={item.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50 transition-colors">
-                                        <input 
-                                            type="checkbox" 
-                                            id={`cancel-item-${item.id}`}
-                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                            checked={selectedItems.includes(item.id)}
-                                            onChange={(e) => {
-                                                if (e.target.checked) {
-                                                    setSelectedItems([...selectedItems, item.id])
-                                                } else {
-                                                    setSelectedItems(selectedItems.filter(id => id !== item.id))
-                                                }
-                                            }}
-                                        />
-                                        <label htmlFor={`cancel-item-${item.id}`} className="flex-1 text-sm font-medium cursor-pointer">
-                                            {item.menuName || "Menu"}
-                                            <span className="block text-[10px] text-muted-foreground font-normal">
-                                                {format(new Date(item.date), "EEEE, dd MMM", { locale: idLocale })}
-                                            </span>
-                                        </label>
-                                        <span className="text-xs font-bold">Rp {(item.price + item.adminFee).toLocaleString("id-ID")}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Alasan Pembatalan</Label>
-                            <Select value={cancelReason} onValueChange={setCancelReason}>
-                                <SelectTrigger><SelectValue placeholder="Pilih alasan..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="VENDOR_LATE">Vendor Terlambat Datang</SelectItem>
-                                    <SelectItem value="DEFECTIVE_FOOD">Makanan Cacat Produksi (Butuh Foto)</SelectItem>
-                                    <SelectItem value="OTHER">Alasan Lainnya</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        {cancelReason === 'OTHER' && (
-                            <div className="space-y-2">
-                                <Label>Detail Alasan</Label>
-                                <Input placeholder="Misal: Rasa makanan kurang segar..." value={otherReason} onChange={(e) => setOtherReason(e.target.value)} />
-                            </div>
-                        )}
-
-                        {cancelReason === 'DEFECTIVE_FOOD' && (
-                            <div className="space-y-2">
-                                <Label>Foto Bukti Cacat Produksi</Label>
-                                <Input type="file" accept="image/*" onChange={(e) => handleImageChange(e, setCancelImage)} />
-                                {cancelImage && <img src={cancelImage} className="mt-2 h-32 w-full object-cover rounded-md" alt="Preview" />}
-                            </div>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsCancelOpen(false)}>Kembali</Button>
-                        <Button variant="destructive" disabled={cancelling} onClick={handleCancelSubmit}>
-                            {cancelling ? "Mengirim..." : "Kirim Pengajuan"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {/* Modal Konfirmasi Diterima per-item */}
             <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>

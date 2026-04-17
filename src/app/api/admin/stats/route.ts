@@ -77,7 +77,7 @@ export async function GET() {
             .in('order.status', ['PAID', 'COMPLETED'])
             .neq('cancelStatus', 'APPROVED')
         
-        const grossRevenue = paidItems?.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0) || 0
+        const grossRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0) || 0
         const netRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.adminFee || 0) * curr.quantity), 0) || 0
 
         // 6. Recent Activity

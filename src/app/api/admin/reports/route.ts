@@ -20,13 +20,12 @@ export async function GET(req: Request) {
             { cookies: { getAll() { return cookieStore.getAll() }, setAll() {} } }
         )
 
-        // Fetch OrderItems within range where parent Order is PAID or COMPLETED
-        // Include items even if they are APPROVED for cancellation (for transparency)
+        // Fetch OrderItems — include vendor owner name (profiles.name)
         const { data: items, error } = await supabase
             .from('OrderItem')
             .select(`
                 id, quantity, price, adminFee, date, cancelStatus, cancelReason,
-                menuName, vendorName,
+                menuName, vendorName, vendorId,
                 order:"Order"!inner(
                     status,
                     createdAt,
@@ -40,38 +39,60 @@ export async function GET(req: Request) {
 
         if (error) throw error
 
+        // Fetch vendor owner names (profiles.name) for all unique vendorIds
+        const vendorIds = [...new Set((items || []).map((i: any) => i.vendorId).filter(Boolean))]
+        let ownerMap: Record<string, string> = {}
+        if (vendorIds.length > 0) {
+            const { data: profiles } = await supabase
+                .from('profiles')
+                .select('id, name, vendorName')
+                .in('id', vendorIds)
+            ;(profiles || []).forEach((p: any) => {
+                ownerMap[p.id] = p.name || p.vendorName || 'Vendor'
+            })
+        }
+
         // Transform for display
+        // refundStatus: admin refund → APPROVED immediately; student request → PENDING
         const details = (items || []).map(item => {
+            const isApproved = item.cancelStatus === 'APPROVED' || (item as any).order?.status === 'CANCELLED'
+            const refundStatus = isApproved ? 'APPROVED' : (item.cancelStatus || 'NONE')
+            const grossPerItem  = (item.price + (item.adminFee || 0)) * item.quantity
+            const netPerItem    = (item.adminFee || 0) * item.quantity
             return {
                 id: item.id,
                 transactionDate: format(new Date((item as any).order?.createdAt), "dd/MM/yyyy HH:mm"),
                 deliveryDate: format(new Date(item.date), "dd/MM/yyyy"),
                 studentName: (item as any).order?.student?.name || 'Siswa',
-                vendorName: item.vendorName || 'Vendor Terhapus',
+                vendorId: item.vendorId,
+                vendorName: item.vendorName || 'Vendor Terhapus',      // nama kantin (PAKET)
+                ownerName: ownerMap[item.vendorId] || item.vendorName || 'Vendor', // nama pemilik (CATERING)
                 itemName: item.menuName || 'Menu Terhapus',
                 price: item.price,
                 quantity: item.quantity,
-                total: item.price * item.quantity,
-                adminFee: (item.adminFee || 0) * item.quantity,
-                refundStatus: (item as any).order?.status === 'CANCELLED' ? 'APPROVED' : (item.cancelStatus || 'NONE'),
+                total: grossPerItem,        // (price + adminFee) * qty
+                adminFee: netPerItem,       // adminFee * qty
+                refundStatus,
                 refundReason: item.cancelReason || null
             }
         })
 
         // Summary: EXCLUDE approved cancellations from money totals
         const filterActive = (d: any) => d.refundStatus !== 'APPROVED'
-        const totalOrders = details.filter(filterActive).length
+        const totalOrders  = details.filter(filterActive).length
         const grossRevenue = details.filter(filterActive).reduce((acc, curr) => acc + curr.total, 0)
-        const netRevenue = details.filter(filterActive).reduce((acc, curr) => acc + curr.adminFee, 0)
+        const netRevenue   = details.filter(filterActive).reduce((acc, curr) => acc + curr.adminFee, 0)
 
-        // Aggregation for chart (Group by day)
+        // Aggregation for chart (Group by delivery date)
         const chartMap: Record<string, { date: string, gross: number, net: number, count: number }> = {}
         details.forEach(d => {
-            if (d.refundStatus === 'APPROVED') return // exclude cancelled
-            const dayKey = d.deliveryDate.split('/').reverse().join('-') // YYYY-MM-DD
+            if (d.refundStatus === 'APPROVED') return
+            // deliveryDate = "dd/MM/yyyy" → convert to YYYY-MM-DD for sorting
+            const [dd, mm, yyyy] = d.deliveryDate.split('/')
+            const dayKey = `${yyyy}-${mm}-${dd}`
             if (!chartMap[dayKey]) chartMap[dayKey] = { date: dayKey, gross: 0, net: 0, count: 0 }
             chartMap[dayKey].gross += d.total
-            chartMap[dayKey].net += d.adminFee
+            chartMap[dayKey].net   += d.adminFee
             chartMap[dayKey].count += 1
         })
         const chart = Object.values(chartMap).sort((a, b) => a.date.localeCompare(b.date))

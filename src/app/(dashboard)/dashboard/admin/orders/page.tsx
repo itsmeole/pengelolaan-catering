@@ -25,7 +25,7 @@ import {
   Loader2, Plus, Search, User, Calendar, 
   ChevronRight, Filter, Eye, XCircle, CheckCircle2,
   Trash2, AlertCircle, FileText, CheckCircle,
-  LayoutGrid, Utensils, CalendarClock, UserPlus
+  LayoutGrid, Utensils, CalendarClock, UserPlus, RotateCcw
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,6 +48,15 @@ export default function AdminOrdersPage() {
   const [selectedProof, setSelectedProof] = useState<string | null>(null)
   const [adminFee, setAdminFee] = useState<number>(1000)
   const [searchName, setSearchName] = useState("")
+
+  // States for Refund (Admin)
+  const [isRefundOpen, setIsRefundOpen]       = useState(false)
+  const [refundOrder, setRefundOrder]         = useState<any>(null)
+  const [refundItems, setRefundItems]         = useState<string[]>([])
+  const [refundReason, setRefundReason]       = useState("VENDOR_LATE")
+  const [refundOther, setRefundOther]         = useState("")
+  const [refundImage, setRefundImage]         = useState<string | null>(null)
+  const [submittingRefund, setSubmittingRefund] = useState(false)
 
   // States for Add Order
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -271,6 +280,57 @@ export default function AdminOrdersPage() {
         fetchOrders()
       }
     } catch (e) { toast.error("Gagal memproses pembatalan") }
+  }
+
+  async function handleAdminRefund() {
+    if (!refundOrder) return
+    if (refundItems.length === 0) return toast.error("Pilih minimal satu item untuk direfund")
+    if (refundReason === 'OTHER' && !refundOther.trim()) return toast.error("Isi alasan pembatalan")
+
+    setSubmittingRefund(true)
+    try {
+      const res = await fetch("/api/order/cancel", {
+        method: "POST",
+        body: JSON.stringify({
+          orderId: refundOrder.id,
+          itemIds: refundItems,
+          reason: refundReason,
+          otherReason: refundReason === 'OTHER' ? refundOther : null,
+          cancelImage: refundImage,
+          adminInitiated: true   // flag admin
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Refund disetujui & pesanan dibatalkan")
+        setIsRefundOpen(false)
+        fetchOrders()
+      } else {
+        toast.error(data.error || "Gagal memproses refund")
+      }
+    } catch {
+      toast.error("Error sistem")
+    } finally {
+      setSubmittingRefund(false)
+    }
+  }
+
+  function openRefundDialog(order: any) {
+    setRefundOrder(order)
+    setRefundItems(order.items?.map((i: any) => i.id) || [])
+    setRefundReason("VENDOR_LATE")
+    setRefundOther("")
+    setRefundImage(null)
+    setIsRefundOpen(true)
+  }
+
+  function handleRefundImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => setRefundImage(reader.result as string)
+      reader.readAsDataURL(file)
+    }
   }
 
   const filteredOrders = orders.filter(order => {
@@ -738,6 +798,18 @@ export default function AdminOrdersPage() {
                           </div>
                         )}
 
+                        {/* Tombol Refund (Admin) */}
+                        {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && order.cancelStatus !== 'PENDING' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 gap-1"
+                            onClick={() => openRefundDialog(order)}
+                          >
+                            <RotateCcw className="h-3 w-3" /> Refund
+                          </Button>
+                        )}
+
                         {order.status === "PENDING" && order.paymentMethod === "CASH_PAY_LATER" && (
                           <ConfirmButton title="Konfirmasi Lunas?" onConfirm={() => confirmPayment(order.id)}>
                             <Button size="sm" className="h-8">Set Lunas</Button>
@@ -900,6 +972,94 @@ export default function AdminOrdersPage() {
           <DialogHeader><DialogTitle>Bukti Transfer</DialogTitle></DialogHeader>
           {selectedProof && <img src={selectedProof} className="w-full rounded-lg border shadow-sm" alt="Bukti" />}
           <Button variant="secondary" className="w-full mt-4" onClick={() => setSelectedProof(null)}>Tutup</Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Refund (Admin) */}
+      <Dialog open={isRefundOpen} onOpenChange={setIsRefundOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <RotateCcw className="h-5 w-5" /> Proses Refund Pesanan
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Info pesanan */}
+            <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
+              <p className="font-bold text-red-700">{refundOrder?.student?.name}</p>
+              <p className="text-xs text-red-500">Invoice #{refundOrder?.id?.slice(-8).toUpperCase()} · Rp {refundOrder?.totalAmount?.toLocaleString("id-ID")}</p>
+            </div>
+
+            {/* Pilih item */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Pilih Item yang Direfund:</Label>
+              <div className="space-y-1.5 max-h-44 overflow-auto border rounded-lg p-2 bg-muted/20">
+                {refundOrder?.items?.map((item: any) => (
+                  <div key={item.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50">
+                    <input
+                      type="checkbox"
+                      id={`ri-${item.id}`}
+                      className="h-4 w-4"
+                      checked={refundItems.includes(item.id)}
+                      onChange={(e) => setRefundItems(e.target.checked
+                        ? [...refundItems, item.id]
+                        : refundItems.filter(id => id !== item.id)
+                      )}
+                    />
+                    <label htmlFor={`ri-${item.id}`} className="flex-1 text-sm cursor-pointer">
+                      {item.menuName || "Menu"}
+                      <span className="block text-[10px] text-muted-foreground">
+                        {item.vendorName} · {format(new Date(item.date), "dd MMM yyyy")}
+                      </span>
+                    </label>
+                    <span className="text-xs font-bold">Rp {(item.price + item.adminFee).toLocaleString("id-ID")}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Alasan */}
+            <div className="space-y-2">
+              <Label>Alasan Refund</Label>
+              <Select value={refundReason} onValueChange={setRefundReason}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VENDOR_LATE">Vendor Terlambat / Tidak Datang</SelectItem>
+                  <SelectItem value="DEFECTIVE_FOOD">Makanan Cacat Produksi</SelectItem>
+                  <SelectItem value="OTHER">Alasan Lainnya</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {refundReason === 'OTHER' && (
+              <div className="space-y-2">
+                <Label>Detail Alasan</Label>
+                <Input placeholder="Tulis alasan..." value={refundOther} onChange={(e) => setRefundOther(e.target.value)} />
+              </div>
+            )}
+
+            {refundReason === 'DEFECTIVE_FOOD' && (
+              <div className="space-y-2">
+                <Label>Foto Bukti (opsional)</Label>
+                <Input type="file" accept="image/*" onChange={handleRefundImageChange} />
+                {refundImage && <img src={refundImage} className="mt-2 h-32 w-full object-cover rounded-md border" alt="Preview" />}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setIsRefundOpen(false)}>Batal</Button>
+            <Button
+              variant="destructive"
+              disabled={submittingRefund || refundItems.length === 0}
+              onClick={handleAdminRefund}
+              className="gap-2"
+            >
+              {submittingRefund ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+              Proses Refund
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

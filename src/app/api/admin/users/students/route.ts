@@ -24,7 +24,7 @@ export async function GET() {
             .from('profiles')
             .select('*')
             .eq('role', 'STUDENT')
-            .order('name', { ascending: true })
+            .order('class', { ascending: true })
 
         if (error) throw error
         return NextResponse.json(data || [])

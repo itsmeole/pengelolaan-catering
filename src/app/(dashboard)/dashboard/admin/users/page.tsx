@@ -53,6 +53,20 @@ function StudentManager() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
+  // Sort state
+  const [sortField, setSortField] = useState<string>('class')
+  const [sortDir, setSortDir]   = useState<'asc' | 'desc'>('asc')
+
+  function handleSort(field: string) {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+    setCurrentPage(1)
+  }
+
   useEffect(() => { fetchStudents() }, [])
 
   async function fetchStudents() {
@@ -198,8 +212,32 @@ function StudentManager() {
     s.class.toLowerCase().includes(search.toLowerCase())
   )
 
-  const totalPages = Math.ceil(filtered.length / pageSize)
-  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const sorted = [...filtered].sort((a, b) => {
+    const va = (a[sortField] ?? '').toString().toLowerCase()
+    const vb = (b[sortField] ?? '').toString().toLowerCase()
+    // Numeric-aware compare for 'class' and 'nis'
+    const numA = parseFloat(va), numB = parseFloat(vb)
+    const cmp = !isNaN(numA) && !isNaN(numB) ? numA - numB : va.localeCompare(vb)
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  const totalPages = Math.ceil(sorted.length / pageSize)
+  const paginated  = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Helper komponen header sortable
+  const SortHead = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
+    <TableHead
+      className={`cursor-pointer select-none hover:bg-muted/50 transition-colors ${className}`}
+      onClick={() => handleSort(field)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {children}
+        <span className="text-[10px] text-muted-foreground">
+          {sortField === field ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+        </span>
+      </span>
+    </TableHead>
+  )
 
   // Reset page when search changes
   useEffect(() => {
@@ -257,16 +295,17 @@ function StudentManager() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>NIS</TableHead>
-              <TableHead>Nama</TableHead>
-              <TableHead>Kelas</TableHead>
-              <TableHead>Email</TableHead>
+              <SortHead field="nis">NIS</SortHead>
+              <SortHead field="name">Nama</SortHead>
+              <SortHead field="class" className="text-primary">Kelas</SortHead>
+              <SortHead field="email">Email</SortHead>
+              <SortHead field="phone">No. Telepon</SortHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginated.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center h-24">Tidak ada data</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center h-24">Tidak ada data</TableCell></TableRow>
             ) : (
               paginated.map(s => (
                 <TableRow key={s.id}>
@@ -274,6 +313,15 @@ function StudentManager() {
                   <TableCell className="font-medium">{s.name}</TableCell>
                   <TableCell>{s.class}</TableCell>
                   <TableCell>{s.email}</TableCell>
+                  <TableCell>
+                    {s.phone ? (
+                      <a href={`https://wa.me/${s.phone.replace(/^0/, '62')}`} target="_blank" rel="noreferrer" className="text-green-600 hover:underline text-sm">
+                        {s.phone}
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground text-xs italic">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right space-x-2">
                     <Dialog>
                       <DialogTrigger asChild>

@@ -87,8 +87,8 @@ export default function VendorDashboard() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-slate-800">{formatCurrency(stats.totalRevenue || 0)}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Total minggu ini</p>
+                        <div className="text-2xl font-bold text-slate-800">{formatCurrency(stats.allTimeNetRevenue || 0)}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Akumulasi seluruh waktu</p>
                     </CardContent>
                 </Card>
 

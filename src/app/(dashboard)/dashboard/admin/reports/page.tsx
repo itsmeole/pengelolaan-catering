@@ -77,38 +77,140 @@ export default function AdminReportsPage() {
 
   function downloadPDF() {
     if (!data) return
-    const doc = new jsPDF()
 
-    doc.setFontSize(18)
-    doc.text("Laporan Keuangan Go Catering", 14, 20)
+    // ── Landscape mode agar cukup untuk banyak kolom ──────────────────
+    const doc = new jsPDF({ orientation: 'landscape' })
+    const pageW = doc.internal.pageSize.getWidth()
 
-    doc.setFontSize(11)
-    doc.text(`Periode: ${startDate} s/d ${endDate}`, 14, 30)
-    doc.text(`Dicetak pada: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 36)
+    // ── Header ────────────────────────────────────────────────────────
+    doc.setFontSize(15)
+    doc.setFont('helvetica', 'bold')
+    doc.text("LAPORAN KEUANGAN GO CATERING", pageW / 2, 16, { align: 'center' })
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Periode: ${startDate}  s/d  ${endDate}`, pageW / 2, 23, { align: 'center' })
+    doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageW / 2, 28, { align: 'center' })
 
-    // Summary
-    doc.setFontSize(14)
-    doc.text("Ringkasan", 14, 50)
-    doc.setFontSize(12)
-    doc.text(`Total Pesanan: ${data.summary.totalOrders}`, 14, 60)
-    doc.text(`Total Pemasukan: ${formatMoney(data.summary.grossRevenue)}`, 14, 68)
-    doc.text(`Pendapatan Bersih: ${formatMoney(data.summary.netRevenue)}`, 14, 76)
+    // ── Ringkasan angka kecil di atas ─────────────────────────────────
+    doc.setFontSize(9)
+    doc.text(`Total Pesanan: ${data.summary.totalOrders}  |  Total Pemasukan: ${formatMoney(data.summary.grossRevenue)}  |  Pendapatan Bersih: ${formatMoney(data.summary.netRevenue)}`, pageW / 2, 34, { align: 'center' })
 
-    // Table
+    // ── BUILD VENDOR SUMMARY ──────────────────────────────────────────
+    const DAYS_ID   = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+    const DAY_JS: Record<number, string> = { 1: 'Senin', 2: 'Selasa', 3: 'Rabu', 4: 'Kamis', 5: 'Jumat', 6: 'Sabtu' }
+    const PAKET_LETTERS = 'ABCDEFGHIJ'.split('')
+
+    type VendorRow = { ownerName: string; kantinName: string; paket: string; days: Record<string, number>; jml: number; dibayarkan: number }
+    const vendorMap: Record<string, VendorRow> = {}
+    let paketIdx = 0
+
+    data.details.forEach((d: any) => {
+      if (d.refundStatus === 'APPROVED') return
+      // group by vendorId if available, else by vendorName
+      const key = d.vendorId || d.vendorName
+      if (!vendorMap[key]) {
+        vendorMap[key] = {
+          ownerName: d.ownerName || d.vendorName,  // nama pemilik → kolom CATERING
+          kantinName: d.vendorName,                 // nama kantin  → kolom PAKET
+          paket: PAKET_LETTERS[paketIdx++] ?? String(paketIdx),
+          days: {},
+          jml: 0,
+          dibayarkan: 0
+        }
+      }
+      // Parse "dd/MM/yyyy" → Date
+      const [dd, mm, yyyy] = d.deliveryDate.split('/')
+      const date = new Date(+yyyy, +mm - 1, +dd)
+      const dayName = DAY_JS[date.getDay()]
+      if (dayName) vendorMap[key].days[dayName] = (vendorMap[key].days[dayName] || 0) + d.quantity
+      vendorMap[key].jml        += d.quantity
+      vendorMap[key].dibayarkan += d.total
+    })
+
+    const vendors    = Object.values(vendorMap)
+    const activeDays = DAYS_ID.filter(day => vendors.some(v => (v.days[day] || 0) > 0))
+
+    // Hitung total per hari untuk baris JUMLAH
+    const dayTotals  = activeDays.map(day => vendors.reduce((s, v) => s + (v.days[day] || 0), 0))
+    const totalJml   = vendors.reduce((s, v) => s + v.jml, 0)
+    const totalDibyr = vendors.reduce((s, v) => s + v.dibayarkan, 0)
+
+    const summaryHead = [['NO', 'CATERING', 'PAKET', ...activeDays, 'JML', 'DIBAYARKAN']]
+    const summaryBody: (string | number)[][] = vendors.map((v, i) => [
+      i + 1,
+      v.ownerName,    // nama pemilik vendor
+      v.kantinName,   // nama kantin
+      ...activeDays.map(d => v.days[d] || 0),
+      v.jml,
+      formatMoney(v.dibayarkan)
+    ])
+    // Baris total
+    summaryBody.push(['', 'J U M L A H', '', ...dayTotals, totalJml, formatMoney(totalDibyr)])
+
+    const dibayarColIdx = 3 + activeDays.length + 1
+    const colStyles: Record<number, any> = {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { halign: 'left' },
+      2: { cellWidth: 16, halign: 'center' },
+      [dibayarColIdx]: { halign: 'right', cellWidth: 38 }
+    }
+    // Hari + JML: center
+    activeDays.forEach((_, i) => { colStyles[3 + i] = { halign: 'center', cellWidth: 22 } })
+    colStyles[3 + activeDays.length] = { halign: 'center', cellWidth: 16 } // JML
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text("Ringkasan Per Vendor", 14, 41)
+
+    autoTable(doc, {
+      startY: 44,
+      head: summaryHead,
+      body: summaryBody,
+      headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8 },
+      bodyStyles: { halign: 'center', fontSize: 8 },
+      columnStyles: colStyles,
+      didParseCell: (hookData) => {
+        // Bold baris JUMLAH (baris terakhir)
+        if (hookData.row.index === summaryBody.length - 1) {
+          hookData.cell.styles.fontStyle = 'bold'
+        }
+      },
+      theme: 'grid'
+    })
+
+    // ── DETAIL TABLE ─────────────────────────────────────────────────
+    const summaryFinalY = (doc as any).lastAutoTable?.finalY ?? 120
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.text("Detail Transaksi", 14, summaryFinalY + 10)
+
     const rows = data.details.map((d: any) => [
       d.transactionDate,
-      d.deliveryDate, 
-      d.vendorName, 
-      d.itemName, 
-      d.quantity, 
-      d.refundStatus === 'APPROVED' ? 'Rp 0 (BATAL)' : formatMoney(d.total), 
-      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.adminFee)
+      d.deliveryDate,
+      d.vendorName,
+      d.itemName,
+      d.quantity,
+      d.refundStatus === 'APPROVED' ? 'Rp 0 (BATAL)' : formatMoney(d.total),
+      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.adminFee),
+      d.refundStatus === 'APPROVED' ? 'REFUND' : 'SUKSES'
     ])
 
     autoTable(doc, {
-      startY: 90,
-      head: [['Tgl Pesan', 'Tgl Antar', 'Vendor', 'Menu', 'Qty', 'Total', 'Fee']],
+      startY: summaryFinalY + 13,
+      head: [['Tgl Pesan', 'Tgl Antar', 'Vendor', 'Menu', 'Qty', 'Total', 'Fee', 'Status']],
       body: rows,
+      headStyles: { fillColor: [22, 101, 52], textColor: 255, fontSize: 8 },
+      bodyStyles: { fontSize: 7.5 },
+      didParseCell: (hookData: any) => {
+        // Warnai baris refund
+        if (hookData.section === 'body') {
+          const statusVal = hookData.row.raw?.[7]
+          if (statusVal === 'REFUND') {
+            hookData.cell.styles.textColor = [185, 28, 28]
+          }
+        }
+      },
+      theme: 'striped'
     })
 
     doc.save(`Laporan_${startDate}_${endDate}.pdf`)
@@ -219,25 +321,20 @@ export default function AdminReportsPage() {
                 <tbody>
                   {data.details.map((item: any, idx: number) => {
                     const isCancelled = item.refundStatus === 'APPROVED';
-                    const isPending = item.refundStatus === 'PENDING';
 
                     return (
-                      <tr key={idx} className={`border-b transition-colors hover:bg-muted/50 ${isCancelled ? 'bg-red-50/30 text-muted-foreground line-through' : (isPending ? 'bg-orange-50/50' : '')}`}>
+                      <tr key={idx} className={`border-b transition-colors hover:bg-muted/50 ${isCancelled ? 'bg-red-50/30 text-muted-foreground line-through' : ''}`}>
                         <td className="p-4 text-[10px] whitespace-nowrap">{item.transactionDate}</td>
                         <td className="p-4 text-[10px] whitespace-nowrap">{item.deliveryDate}</td>
                         <td className="p-4">{item.studentName}</td>
                         <td className="p-4">{item.vendorName}</td>
                         <td className="p-4">{item.itemName}</td>
-                        <td className="p-4 text-right">{formatMoney(item.total)}</td>
-                        <td className="p-4 text-right">{formatMoney(item.adminFee)}</td>
+                        <td className="p-4 text-right">{formatMoney(isCancelled ? 0 : item.total)}</td>
+                        <td className="p-4 text-right">{formatMoney(isCancelled ? 0 : item.adminFee)}</td>
                         <td className="p-4 text-center">
                           {isCancelled ? (
                             <span className="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded-full font-bold uppercase">
-                              Dibatalkan
-                            </span>
-                          ) : isPending ? (
-                            <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-bold uppercase animate-pulse" title={item.refundReason}>
-                              Minta Refund
+                              Refund
                             </span>
                           ) : (
                             <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold uppercase">

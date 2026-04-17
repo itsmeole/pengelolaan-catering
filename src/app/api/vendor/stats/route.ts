@@ -61,6 +61,22 @@ export async function GET(req: Request) {
             .gte('date', fetchStart)
         
         if (itemsErr) throw itemsErr
+
+        // ── All-time net revenue (keseluruhan, tanpa batas tanggal) ──────────
+        const { data: allTimeItems } = await supabase
+            .from('OrderItem')
+            .select(`
+                price, adminFee, quantity, cancelStatus,
+                Order!inner(status)
+            `)
+            .eq('vendorId', vendorId)
+            .in('Order.status', ['PAID', 'COMPLETED'])
+            .neq('cancelStatus', 'APPROVED')
+
+        // Pendapatan bersih = price × qty (harga vendor, setelah admin fee sudah dipotong dari harga jual)
+        const allTimeNetRevenue = (allTimeItems || []).reduce((sum: number, i: any) => {
+            return sum + (i.price * (i.quantity || 1))
+        }, 0)
         
         const validItems = (orderItems || []).filter((item: any) => {
             const status = item.Order?.status
@@ -94,17 +110,6 @@ export async function GET(req: Request) {
             // Stats for this week
             if (item.date >= thisWeekStart && item.date <= thisWeekEnd) {
                 weeklyCount += item.quantity || 1
-
-                if (item.Order?.status === 'PAID' || item.Order?.status === 'COMPLETED') {
-                    const itemTotal = (item.price || 0) * (item.quantity || 1)
-                    totalRevenue += itemTotal
-                    
-                    const itemDate = new Date(item.date)
-                    const dayName = itemDate.toLocaleDateString('id-ID', { weekday: 'short' })
-                    if (chartDataMap[dayName] !== undefined) {
-                        chartDataMap[dayName] += itemTotal
-                    }
-                }
             }
 
             // Stats for next week
@@ -140,6 +145,7 @@ export async function GET(req: Request) {
             nextWeekOrderCount: nextWeekCount,
             weeklyOrderCount: weeklyCount,
             totalRevenue,
+            allTimeNetRevenue,   // ← pendapatan bersih keseluruhan
             cookingList,
             chartData
         })
