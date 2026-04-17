@@ -46,6 +46,7 @@ export default function StudentHistoryPage() {
     // Form re-upload
     const [isReuploadOpen, setIsReuploadOpen] = useState(false)
     const [reuploadImage, setReuploadImage] = useState<string | null>(null)
+    const [reuploadOrder, setReuploadOrder] = useState<any>(null)
 
     const fetchOrders = () => {
         setLoading(true)
@@ -105,7 +106,7 @@ export default function StudentHistoryPage() {
             const res = await fetch("/api/order", {
                 method: "PATCH",
                 body: JSON.stringify({
-                    orderId: selectedOrder.id,
+                    orderId: reuploadOrder.id,
                     proofImage: reuploadImage
                 })
             })
@@ -178,7 +179,7 @@ export default function StudentHistoryPage() {
                                                 Bukti Transfer Ditolak
                                             </div>
                                             <p className="text-xs text-red-600">Alasan: {order.rejectionReason}</p>
-                                            <Button size="sm" variant="destructive" className="w-fit gap-2 h-8 text-xs" onClick={() => { setSelectedOrder(order); setIsReuploadOpen(true) }}>
+                                            <Button size="sm" variant="destructive" className="w-fit gap-2 h-8 text-xs" onClick={() => { setReuploadOrder(order); setIsReuploadOpen(true) }}>
                                                 <Upload className="h-3.5 w-3.5" />
                                                 Kirim Ulang Bukti
                                             </Button>
