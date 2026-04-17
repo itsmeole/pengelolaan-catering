@@ -104,6 +104,7 @@ export default function VendorRevenuePage() {
     const tableData = data.details.map((d: any) => [
       d.processedAt ? format(new Date(d.processedAt), "dd/MM/yy HH:mm") : "-",
       d.date, 
+      d.studentName,
       d.itemName, 
       d.quantity, 
       d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.totalPrice), 
@@ -112,7 +113,7 @@ export default function VendorRevenuePage() {
     ])
     autoTable(doc, {
       startY: finalY + 20,
-      head: [['Tgl Pesan', 'Tgl Antar', 'Menu', 'Qty', 'Kotor', 'Bersih', 'Status']],
+      head: [['Tgl Pesan', 'Tgl Antar', 'Siswa', 'Menu', 'Qty', 'Kotor', 'Bersih', 'Status']],
       body: tableData,
       headStyles: { fillColor: [59, 130, 246] }, // Biru profesional
     })

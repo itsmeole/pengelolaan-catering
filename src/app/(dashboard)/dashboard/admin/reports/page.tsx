@@ -124,7 +124,7 @@ export default function AdminReportsPage() {
       const dayName = DAY_JS[date.getDay()]
       if (dayName) vendorMap[key].days[dayName] = (vendorMap[key].days[dayName] || 0) + d.quantity
       vendorMap[key].jml        += d.quantity
-      vendorMap[key].dibayarkan += d.total
+      vendorMap[key].dibayarkan += (d.total - d.adminFee)
     })
 
     const vendors    = Object.values(vendorMap)
@@ -187,24 +187,26 @@ export default function AdminReportsPage() {
     const rows = data.details.map((d: any) => [
       d.transactionDate,
       d.deliveryDate,
+      d.studentName,
       d.vendorName,
       d.itemName,
       d.quantity,
       d.refundStatus === 'APPROVED' ? 'Rp 0 (BATAL)' : formatMoney(d.total),
       d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.adminFee),
+      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.total - d.adminFee),
       d.refundStatus === 'APPROVED' ? 'REFUND' : 'SUKSES'
     ])
 
     autoTable(doc, {
       startY: summaryFinalY + 13,
-      head: [['Tgl Pesan', 'Tgl Antar', 'Vendor', 'Menu', 'Qty', 'Total', 'Fee', 'Status']],
+      head: [['Tgl Pesan', 'Tgl Antar', 'Siswa', 'Vendor', 'Menu', 'Qty', 'Total', 'Fee', 'Bersih', 'Status']],
       body: rows,
       headStyles: { fillColor: [22, 101, 52], textColor: 255, fontSize: 8 },
       bodyStyles: { fontSize: 7.5 },
       didParseCell: (hookData: any) => {
         // Warnai baris refund
         if (hookData.section === 'body') {
-          const statusVal = hookData.row.raw?.[7]
+          const statusVal = hookData.row.raw?.[9]
           if (statusVal === 'REFUND') {
             hookData.cell.styles.textColor = [185, 28, 28]
           }
