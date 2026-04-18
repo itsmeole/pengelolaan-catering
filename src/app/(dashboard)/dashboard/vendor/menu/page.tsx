@@ -138,7 +138,8 @@ export default function VendorMenuPage() {
                 toast.success("Menu berhasil dihapus")
                 fetchMenus()
             } else {
-                toast.error("Gagal menghapus menu")
+                const data = await res.json()
+                toast.error(data.error || "Gagal menghapus menu")
             }
         } catch (error) {
             console.error(error)

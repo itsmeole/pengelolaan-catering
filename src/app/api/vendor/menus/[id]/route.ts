@@ -28,12 +28,20 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
             .from('MenuItem')
             .delete()
             .eq('id', id)
-            .eq('vendorId', user.id) // Ensure they only delete their own menu
+            .eq('vendorId', user.id)
 
-        if (error) throw error
+        if (error) {
+            console.error('DELETE MENU ERROR:', error)
+            // if it is a foreign key constraint (23503) or not-null violation due to ON DELETE SET NULL (23502), it means menu is already ordered
+            if (error.code === '23503' || error.code === '23502') {
+                return NextResponse.json({ error: "Menu ini sudah pernah dipesan dan tidak bisa dihapus. Silakan nonaktifkan dari daftar ketersediaan hariannya saja." }, { status: 400 })
+            }
+            throw error
+        }
         return NextResponse.json({ success: true })
-    } catch (e) {
-        return NextResponse.json({ error: "System Error" }, { status: 500 })
+    } catch (e: any) {
+        console.error('DELETE SYSTEM ERROR:', e)
+        return NextResponse.json({ error: e.message || "System Error" }, { status: 500 })
     }
 }
 
