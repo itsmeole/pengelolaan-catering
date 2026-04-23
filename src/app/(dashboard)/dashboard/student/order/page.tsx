@@ -243,6 +243,14 @@ export default function StudentOrderPage() {
             })
         }
     })
+    // Urutkan tiap hari berdasarkan nama vendor (A–Z)
+    DAYS_ORDER.forEach(d => {
+        menuByDay[d].sort((a, b) =>
+            (a.vendorName || a.vendor?.vendorName || "").localeCompare(
+                b.vendorName || b.vendor?.vendorName || "", "id", { sensitivity: "base" }
+            )
+        )
+    })
 
     return (
         <div className="space-y-5">

@@ -304,10 +304,16 @@ export default function InstantOrderPage() {
 
                                 {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
                                     .map(day => {
-                                        const dayMenus = menus.filter(m => 
-                                            m.availableDays?.includes(day) || 
-                                            (!m.availableDays && (day !== "Sabtu" && day !== "Minggu"))
-                                        )
+                                        const dayMenus = menus
+                                            .filter(m => 
+                                                m.availableDays?.includes(day) || 
+                                                (!m.availableDays && (day !== "Sabtu" && day !== "Minggu"))
+                                            )
+                                            .sort((a, b) =>
+                                                (a.vendor?.vendorName || "").localeCompare(
+                                                    b.vendor?.vendorName || "", "id", { sensitivity: "base" }
+                                                )
+                                            )
                                         
                                         if (dayMenus.length === 0) return null
 
@@ -326,8 +332,8 @@ export default function InstantOrderPage() {
                                                 
                                                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                                                     {dayMenus.map((menu) => (
-                                                        <Card key={`${day}-${menu.id}`} className="overflow-hidden group hover:ring-2 hover:ring-blue-500 transition-all border-slate-200">
-                                                            <div className="aspect-video relative overflow-hidden bg-slate-100">
+                                                        <Card key={`${day}-${menu.id}`} className="overflow-hidden group hover:ring-2 hover:ring-blue-500 transition-all border-slate-200 flex flex-col h-full">
+                                                            <div className="aspect-video relative overflow-hidden bg-slate-100 shrink-0">
                                                                 <img 
                                                                     src={menu.imageUrl || "/placeholder-food.jpg"} 
                                                                     className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
@@ -343,9 +349,9 @@ export default function InstantOrderPage() {
                                                                     </Badge>
                                                                 </div>
                                                             </div>
-                                                            <CardContent className="p-4 space-y-3">
-                                                                <div>
-                                                                    <h3 className="font-bold text-slate-900 line-clamp-1">{menu.name}</h3>
+                                                            <CardContent className="p-4 flex flex-col flex-grow gap-3">
+                                                                <div className="flex-1">
+                                                                    <h3 className="font-bold text-slate-900 leading-snug">{menu.name}</h3>
                                                                     {menu.description && (
                                                                         <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{menu.description}</p>
                                                                     )}
@@ -353,7 +359,7 @@ export default function InstantOrderPage() {
                                                                         By: <span className="font-semibold text-blue-600">{menu.vendor?.vendorName}</span>
                                                                     </p>
                                                                 </div>
-                                                                <div className="flex items-center justify-between gap-2 pt-2">
+                                                                <div className="flex items-center justify-between gap-2 pt-2 mt-auto">
                                                                     <div className="flex items-center gap-2 border rounded-full px-2 py-1 bg-slate-50">
                                                                         <Button 
                                                                             variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-white"

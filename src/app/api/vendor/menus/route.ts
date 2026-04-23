@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { getSessionUser } from '@/lib/serverSession'
 
 function getClient(cookieStore: any) {
     return createServerClient(
@@ -20,7 +21,8 @@ export async function GET() {
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
         
-        const { data: { user } } = await supabase.auth.getUser()
+        // getSession = baca JWT lokal, tanpa HTTP call ke Supabase Auth
+        const user = await getSessionUser()
         if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
         // Get menus for this vendor

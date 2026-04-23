@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { getSessionUser } from '@/lib/serverSession'
 
 export async function GET() {
     try {
@@ -16,7 +17,8 @@ export async function GET() {
             }
         )
 
-        const { data: { user } } = await supabase.auth.getUser()
+        // getSession = baca JWT lokal, tanpa HTTP call ke Supabase Auth
+        const user = await getSessionUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         // Get OrderItems for menus owned by this vendor
