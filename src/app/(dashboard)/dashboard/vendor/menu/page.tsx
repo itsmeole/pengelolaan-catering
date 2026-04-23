@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, Trash, Pencil } from "lucide-react"
 import { toast } from "sonner"
+import { uploadImage } from "@/lib/uploadImage"
 import {
     Table,
     TableBody,
@@ -68,18 +69,16 @@ export default function VendorMenuPage() {
         }
     }
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        if (file) {
-            if (file.size > 1024 * 1024) {
-                toast.error("File max 1MB")
-                return
-            }
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                form.setValue("imageUrl", reader.result as string)
-            }
-            reader.readAsDataURL(file)
+        if (!file) return
+        try {
+            toast.loading("Mengupload gambar menu...", { id: 'upload-menu' })
+            const url = await uploadImage(file, 'menus')
+            form.setValue("imageUrl", url)
+            toast.success("Gambar menu berhasil diupload", { id: 'upload-menu' })
+        } catch (err: any) {
+            toast.error(err.message || "Gagal upload gambar", { id: 'upload-menu' })
         }
     }
 

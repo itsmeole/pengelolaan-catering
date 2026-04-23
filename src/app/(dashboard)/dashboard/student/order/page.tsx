@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { format, addDays, nextDay } from "date-fns"
 import { id as idLocale } from "date-fns/locale"
 import { ShoppingCart, Loader2, UtensilsCrossed } from "lucide-react"
+import { uploadImage } from "@/lib/uploadImage"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -184,13 +185,16 @@ export default function StudentOrderPage() {
         setCart(prev => prev.filter((_, i) => i !== index))
     }
 
-    const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleProofChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        if (file) {
-            if (file.size > 1024 * 1024) return toast.error("Max 1MB")
-            const reader = new FileReader()
-            reader.onloadend = () => setProofImage(reader.result as string)
-            reader.readAsDataURL(file)
+        if (!file) return
+        try {
+            toast.loading("Mengupload bukti transfer...", { id: 'upload-proof' })
+            const url = await uploadImage(file, 'proofs')
+            setProofImage(url)
+            toast.success("Bukti transfer berhasil diupload", { id: 'upload-proof' })
+        } catch (err: any) {
+            toast.error(err.message || "Gagal upload bukti transfer", { id: 'upload-proof' })
         }
     }
 

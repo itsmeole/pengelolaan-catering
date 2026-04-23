@@ -1,0 +1,509 @@
+================================================================================
+                     DESKRIPSI PROYEK : GO CATERING
+           Sistem Pengelolaan Pemesanan Katering Berbasis Web untuk Sekolah
+================================================================================
+
+Nama Aplikasi  : Go Catering
+Teknologi      : Next.js 16 (App Router), TypeScript, Supabase (PostgreSQL + Auth)
+Deployment     : Vercel (Frontend + API), Supabase Cloud (Database & Authentication)
+URL Produksi   : https://pengelolaan-catering.vercel.app/
+
+
+================================================================================
+1. GAMBARAN UMUM APLIKASI
+================================================================================
+
+Go Catering adalah sistem manajemen pemesanan makanan katering berbasis web yang
+dirancang khusus untuk lingkungan sekolah. Aplikasi ini memfasilitasi pemesanan makanan
+mingguan (bulanan) maupun instan antara siswa dengan vendor (penyedia katering) melalui
+satu platform terpadu yang diawasi oleh admin sekolah.
+
+Tujuan utama:
+- Menghilangkan pencatatan manual pemesanan katering di sekolah
+- Memberikan transparansi keuangan bagi admin, vendor, dan siswa
+- Mempermudah siswa memesan makanan dari berbagai vendor dalam satu checkout
+- Memberikan laporan keuangan otomatis yang dapat dicetak
+
+
+================================================================================
+2. PERAN PENGGUNA (ROLES)
+================================================================================
+
+Aplikasi memiliki 3 peran utama:
+
+A. ADMIN (Pengelola Sekolah)
+   - Mengelola seluruh pengguna (tambah, edit, reset password, hapus)
+   - Memverifikasi pembayaran transfer dari siswa
+   - Mengelola hari operasional kantin dan hari libur nasional
+   - Mengatur biaya layanan (admin fee) per porsi
+   - Melihat laporan keuangan lengkap beserta ekspor PDF/Excel
+   - Memproses refund atas nama siswa
+   - Membuat pesanan langsung (instan) untuk siswa
+
+B. VENDOR (Penyedia Katering / Pemilik Kantin)
+   - Mengelola daftar menu yang dijual (tambah, edit, hapus*)
+   - Melihat daftar masak harian berdasarkan pesanan yang masuk
+   - Melihat riwayat transaksi pesanan yang diterima
+   - Melihat laporan pendapatan (omzet kotor & pendapatan bersih)
+   - Ekspor laporan ke format PDF dan Excel
+
+   *) Menu yang sudah pernah dipesan tidak bisa dihapus untuk menjaga integritas data
+
+C. SISWA (Pemesan)
+   - Memesan menu dari berbagai vendor secara mandiri (per hari dalam seminggu)
+   - Pilih metode pembayaran: Transfer Bank atau Bayar Nanti (Cash Pay Later)
+   - Mengunggah bukti transfer sebagai verifikasi pembayaran
+   - Mengkonfirmasi penerimaan makanan per item
+   - Melihat riwayat pesanan lengkap beserta status
+
+
+================================================================================
+3. STRUKTUR DATA (ENTITAS DATABASE)
+================================================================================
+
+--- Tabel: profiles ---
+Menyimpan data pengguna terdaftar. Linked 1:1 dengan auth.users Supabase.
+
+Kolom:
+  id          UUID (PK, referensi auth.users)
+  name        VARCHAR    - Nama lengkap pengguna
+  email       VARCHAR    - Email (unique, digunakan untuk login)
+  role        ENUM       - Nilai: STUDENT | VENDOR | ADMIN
+  nis         VARCHAR    - Nomor Induk Siswa (khusus role STUDENT, unique, digunakan sebagai password siswa)
+  class       VARCHAR    - Kelas siswa (contoh: "7.1", "7.2", "8.1", "8.2", "9.1", "9.2")
+  vendorName  VARCHAR    - Nama kantin/usaha (khusus role VENDOR)
+  phone       VARCHAR    - Nomor WhatsApp (diisi saat pemesanan instan)
+  createdAt   TIMESTAMP
+  updatedAt   TIMESTAMP
+
+Data Siswa yang dicatat:
+  - Nama Lengkap
+  - Email (unik, untuk login)
+  - NIS (Nomor Induk Siswa, unique, digunakan sebagai password siswa)
+  - Kelas (contoh: "7.1", "7.2", "8.1", "8.2", "9.1", "9.2")
+  - Nomor HP/WhatsApp (opsional, diisi saat memesan secara instan)
+
+Data Vendor yang dicatat:
+  - Nama Pemilik (field: name)
+  - Nama Kantin/Usaha (field: vendorName)
+  - Email (unik, untuk login)
+
+--- Tabel: MenuItem ---
+Menyimpan daftar menu yang ditawarkan oleh masing-masing vendor.
+
+Kolom:
+  id            VARCHAR (PK)
+  vendorId      UUID (FK → profiles.id)
+  name          VARCHAR    - Nama menu (contoh: "Nasi Goreng Spesial")
+  description   TEXT       - Deskripsi singkat menu
+  price         FLOAT      - Harga vendor per porsi (belum termasuk admin fee)
+  imageUrl      TEXT       - URL gambar menu
+  availableDays ARRAY      - Hari tersedia (contoh: ["monday","wednesday","friday"])
+  createdAt     TIMESTAMP
+  updatedAt     TIMESTAMP
+
+--- Tabel: Order ---
+Menyimpan satu transaksi pemesanan per siswa.
+
+Kolom:
+  id              VARCHAR (PK)
+  studentId       UUID (FK → profiles.id)
+  totalAmount     FLOAT      - Total harga termasuk admin fee seluruh item
+  status          ENUM       - PENDING | PAID | COMPLETED | CANCELLED
+  paymentMethod   ENUM       - CASH_PAY_LATER | TRANSFER
+  proofImage      TEXT       - URL bukti transfer (jika metode TRANSFER)
+  transferDate    TIMESTAMP  - Waktu upload bukti transfer
+  cancelStatus    ENUM       - NONE | PENDING | APPROVED (status refund)
+  cancelReason    VARCHAR    - Alasan pembatalan/refund
+  cancelImage     TEXT       - URL bukti refund (jika ada)
+  isProofInvalid  BOOLEAN    - True jika bukti transfer ditolak admin
+  rejectionReason VARCHAR    - Alasan penolakan bukti transfer
+  createdAt       TIMESTAMP
+  updatedAt       TIMESTAMP
+
+--- Tabel: OrderItem ---
+Satu baris = satu porsi menu untuk satu tanggal antar.
+
+Kolom:
+  id            VARCHAR (PK)
+  orderId       VARCHAR (FK → Order.id)
+  menuId        VARCHAR (FK → MenuItem.id, bisa NULL jika menu sudah dihapus)
+  date          TIMESTAMP  - Tanggal pengiriman makanan
+  quantity      INTEGER    - Jumlah porsi
+  note          VARCHAR    - Catatan khusus (contoh: "no spicy")
+  price         FLOAT      - Harga vendor saat transaksi (snapshot)
+  adminFee      FLOAT      - Biaya layanan per porsi (snapshot)
+  cancelStatus  ENUM       - NONE | PENDING | APPROVED (refund per item)
+  cancelReason  VARCHAR    - Alasan refund item
+  cancelImage   TEXT       - Bukti refund item
+  menuName      VARCHAR    - Nama menu saat transaksi (snapshot, antisipasi menu dihapus)
+  vendorName    VARCHAR    - Nama kantin saat transaksi (snapshot)
+  vendorId      UUID       - ID vendor (snapshot)
+  receivedAt    TIMESTAMP  - Waktu konfirmasi diterima oleh siswa
+
+--- Tabel: StudentValidation ---
+Daftar NIS yang diperbolehkan mendaftar (whitelist NIS).
+
+Kolom:
+  id     VARCHAR (PK)
+  nis    VARCHAR (unique)
+  name   VARCHAR
+  class  VARCHAR
+
+--- Tabel: SystemSetting ---
+Pengaturan global sistem berbasis key-value.
+
+Kolom:
+  key       VARCHAR (PK)
+  value     TEXT
+  updatedAt TIMESTAMP
+
+Kunci pengaturan yang tersimpan:
+  - "working_days"  : JSON konfigurasi hari aktif & jam cutoff pemesanan
+  - "admin_fee"     : Nominal biaya layanan per porsi (integer, dalam Rupiah)
+
+--- Tabel: Review ---
+Review/penilaian siswa terhadap item pesanan (fitur opsional).
+
+Kolom:
+  id          VARCHAR (PK)
+  studentId   UUID (FK → profiles.id)
+  orderItemId VARCHAR (FK → OrderItem.id, unique)
+  rating      INTEGER (1-5)
+  comment     VARCHAR
+  createdAt   TIMESTAMP
+
+
+================================================================================
+4. FITUR DAN ALUR PROSES
+================================================================================
+
+--- A. REGISTRASI & LOGIN ---
+
+Alur pendaftaran:
+  1. Siswa/Vendor TIDAK bisa mendaftar sendiri melalui form registrasi.
+  2. Halaman /register hanya menampilkan tombol WhatsApp untuk menghubungi Admin.
+  3. Admin mendaftarkan akun melalui panel "Kelola User" di dashboard admin.
+  4. Admin mengisi: Nama, Email, NIS (untuk siswa), Kelas (untuk siswa),
+     Nama Kantin (untuk vendor).
+  5. Sistem membuat akun di Supabase Auth + profil di tabel profiles secara otomatis.
+  6. Password default dikirimkan admin kepada pengguna.
+
+Alur Login:
+  1. Pengguna akses halaman /login.
+  2. Input email dan password.
+  3. Supabase Auth memverifikasi kredensial.
+  4. Middleware Next.js membaca metadata user (role) dari JWT session Supabase.
+  5. Redirect otomatis ke dashboard sesuai role:
+     - STUDENT → /dashboard/student
+     - VENDOR  → /dashboard/vendor
+     - ADMIN   → /dashboard/admin
+  6. Setiap akses halaman dashboard diproteksi middleware (server-side auth check).
+     Jika role tidak sesuai → redirect ke /unauthorized.
+
+Import Massal Siswa:
+  - Admin dapat mengimpor data siswa melalui file Excel (.xlsx).
+  - Template tersedia untuk didownload langsung dari UI admin.
+  - Kolom yang dibaca: Nama, Email, NIS, Kelas.
+  - Sistem akan membuat akun baru atau memperbarui data yang sudah ada (upsert by NIS).
+
+--- B. PEMESANAN MINGGUAN (SISWA) ---
+
+Halaman: /dashboard/student/order
+
+Alur:
+  1. Siswa membuka halaman Pesan Makanan.
+  2. Sistem menampilkan daftar menu dari semua vendor yang tersedia,
+     difilter otomatis berdasarkan hari aktif pada sistem.
+  3. Siswa bisa berpindah tab hari (Senin - Sabtu) dan memilih menu per hari.
+  4. Menu yang ditampilkan hanya yang tersedia di hari tersebut (availableDays).
+  5. Siswa bisa memesan untuk minggu ini ATAU minggu depan.
+  6. Sistem memeriksa batas waktu pemesanan (jam cutoff) secara real-time.
+     Jika sudah melewati cutoff, orderan dialihkan ke minggu depan.
+  7. Item yang dipilih masuk ke keranjang. Keranjang disimpan di localStorage
+     dengan key unik per user ID untuk mencegah konflik antar akun.
+  8. Saat checkout:
+     a. Pilih metode pembayaran: Transfer Bank atau Bayar Nanti (Cash)
+     b. Jika Transfer: unggah foto bukti transfer (di-encode base64)
+     c. Konfirmasi order
+  9. Sistem membuat satu record Order + banyak record OrderItem (satu per porsi/hari).
+  10. Harga yang dicatat: price (dari vendor) + adminFee (dari system setting).
+  11. totalAmount Order = jumlah (price + adminFee) × quantity untuk semua item.
+
+Status awal pesanan:
+  - Jika TRANSFER  → status = PENDING (menunggu verifikasi admin)
+  - Jika CASH      → status = PAID (langsung dianggap lunas)
+
+--- C. PEMESANAN INSTAN (TANPA LOGIN) ---
+
+Halaman: /instan (publik, tanpa perlu login)
+
+Digunakan untuk: Siswa yang memesan langsung di tempat / via staff kantin.
+
+Alur:
+  1. Cari siswa berdasarkan nama atau NIS.
+  2. (Opsional) Input nomor WhatsApp siswa untuk konfirmasi.
+  3. Pilih menu dan hari pengiriman.
+  4. Pilih metode pembayaran.
+  5. Sistem membuat pesanan atas nama siswa yang dipilih.
+
+--- D. PEMESANAN INSTAN OLEH ADMIN ---
+
+Halaman: /dashboard/admin/orders → tombol "Buat Pesanan"
+
+Alur:
+  1. Admin mencari siswa di panel (by nama).
+  2. Admin menambahkan item per tanggal antar dari daftar menu yang tersedia.
+  3. Admin memilih metode pembayaran dan mengisi bukti transfer (jika ada).
+  4. Sistem membuat Order atas nama siswa yang dipilih.
+
+--- E. VERIFIKASI PEMBAYARAN (ADMIN) ---
+
+Halaman: /dashboard/admin/orders
+
+Alur:
+  1. Pesanan berstatus PENDING (Transfer) masuk ke daftar pesanan admin.
+  2. Admin membuka pesanan, melihat bukti transfer yang diunggah siswa.
+  3. Admin bisa:
+     a. SETUJUI → status Order berubah menjadi PAID
+     b. TOLAK   → status tetap PENDING, field isProofInvalid = true,
+                  rejectionReason diisi, siswa diminta upload ulang
+  4. Siswa dengan bukti ditolak mendapat notifikasi di halaman riwayat
+     dan bisa mengupload ulang bukti transfer.
+
+--- F. KONFIRMASI PENERIMAAN MAKANAN (SISWA) ---
+
+Halaman: /dashboard/student/history
+
+Alur:
+  1. Pesanan yang sudah PAID ditampilkan di riwayat.
+  2. Siswa bisa menandai item yang sudah diterima (checkbox per item).
+  3. Jika semua item dalam Order dikonfirmasi → status Order = COMPLETED.
+  4. Jika tidak dikonfirmasi manual, sistem bisa mengkonfirmasi otomatis
+     setelah 1×24 jam dari tanggal antar (auto-complete via trigger/scheduler).
+
+--- G. PROSES REFUND (ADMIN) ---
+
+Halaman: /dashboard/admin/orders → tombol "Refund"
+
+Aturan penting:
+  - HANYA admin yang bisa mengajukan refund (fitur ini sengaja dikunci dari sisi siswa
+    untuk mencegah penyalahgunaan sistem).
+
+Alur:
+  1. Admin memilih pesanan yang akan direfund.
+  2. Admin memilih item-item spesifik yang akan di-refund (bisa parsial, tidak harus semua).
+  3. Admin memilih alasan: vendor terlambat / makanan tidak sesuai / alasan lain.
+  4. Admin bisa mengunggah bukti refund (opsional).
+  5. Sistem langsung mengubah cancelStatus item → APPROVED (tidak perlu approval lagi).
+  6. totalAmount pada Order otomatis dikurangi sebesar (price + adminFee) × quantity
+     untuk setiap item yang direfund.
+  7. Jika SEMUA item direfund → status Order = CANCELLED.
+  8. Refund tercatat di laporan keuangan dengan kolom Status = "REFUND".
+
+--- H. JADWAL MASAK VENDOR ---
+
+Halaman: /dashboard/vendor (dashboard utama) & /dashboard/vendor/orders
+
+Fitur:
+  - Vendor melihat daftar masak berdasarkan filter tanggal (default: besok).
+  - Data dikelompokkan per menu beserta total porsi yang harus disiapkan.
+  - Catatan khusus (note) dari siswa ditampilkan per menu.
+  - Vendor juga bisa melihat detail riwayat pesanan per periode.
+
+--- I. LAPORAN KEUANGAN ADMIN ---
+
+Halaman: /dashboard/admin/reports
+
+Data yang ditampilkan:
+  - Total Pesanan (jumlah item aktif)
+  - Total Pemasukan Kotor = Σ (price + adminFee) × quantity (item non-refund)
+  - Pendapatan Bersih Admin = Σ adminFee × quantity (item non-refund)
+  - Grafik batang harian (omzet kotor & bersih per tanggal antar)
+
+Tabel Ringkasan Per Vendor (dalam PDF):
+  Kolom: NO | CATERING (nama pemilik vendor) | PAKET (nama kantin) |
+         Senin | Selasa | Rabu | Kamis | Jumat | JML | DIBAYARKAN
+  - Kolom hari berisi jumlah porsi per hari (item refund tidak dihitung)
+  - Kolom DIBAYARKAN = price × JML (harga vendor saja, tanpa admin fee)
+
+Tabel Detail Transaksi (dalam PDF):
+  Kolom: Tgl Pesan | Tgl Antar | Siswa | Vendor | Menu | Qty | Total | Fee | Bersih | Status
+
+Ekspor:
+  - PDF (via jsPDF + jspdf-autotable): landscape, 2 tabel terpisah
+  - Excel (via xlsx): sheet tunggal dengan semua data
+
+--- J. LAPORAN PENDAPATAN VENDOR ---
+
+Halaman: /dashboard/vendor/revenue
+
+Data yang ditampilkan:
+  - Pendapatan Bersih (price × qty, tanpa admin fee) - all-time lifetime
+  - Total Porsi Terjual
+  - Omzet Kotor (price × qty sesuai filter periode)
+  - Grafik batang harian pendapatan bersih
+  - Top 5 Menu paling laris
+
+Tabel Rincian Penjualan (dalam PDF):
+  Kolom: Tgl Pesan | Tgl Antar | Siswa | Menu | Qty | Kotor | Bersih | Status
+
+Ekspor:
+  - PDF (via jsPDF)
+  - Excel (via xlsx)
+
+
+================================================================================
+5. SISTEM KEAMANAN
+================================================================================
+
+A. AUTENTIKASI
+   - Autentikasi menggunakan Supabase Auth (berbasis JWT).
+   - Session dikelola via HttpOnly cookie yang diset oleh Supabase SSR client.
+   - Session diperbarui otomatis di setiap request melalui middleware Next.js.
+   - Password di-hash menggunakan bcrypt oleh Supabase Auth secara otomatis.
+
+B. OTORISASI BERBASIS PERAN (RBAC)
+   - Middleware (`src/middleware.ts`) berjalan di server (Edge Runtime).
+   - Setiap request ke /dashboard/* diperiksa role-nya dari JWT metadata.
+   - Akses /dashboard/student diblokir untuk non-STUDENT.
+   - Akses /dashboard/vendor diblokir untuk non-VENDOR.
+   - Akses /dashboard/admin diblokir untuk non-ADMIN.
+   - Halaman /instan bersifat publik (tidak memerlukan login).
+
+C. VALIDASI DI API LAYER
+   - Setiap API route yang sensitif memanggil supabase.auth.getUser() untuk
+     memvalidasi session sebelum memproses request.
+   - Vendor hanya bisa mengakses/modifikasi data miliknya sendiri
+     (filter .eq('vendorId', user.id) di setiap query).
+   - Siswa hanya bisa mengkonfirmasi/melihat pesanannya sendiri
+     (filter .eq('studentId', user.id)).
+
+D. REGISTRASI TERKONTROL
+   - Tidak ada self-registration. Semua akun dibuat oleh Admin.
+   - Halaman /register hanya menampilkan tautan WhatsApp ke admin.
+   - Proses pembuatan akun dilakukan via Supabase Admin API
+     (menggunakan service_role_key di server-side) agar bisa set custom metadata.
+
+E. KEAMANAN DATA
+   - Field sensitif seperti totalAmount dan price disimpan sebagai snapshot
+     saat transaksi terjadi (OrderItem.price, OrderItem.adminFee, OrderItem.menuName)
+     sehingga perubahan data master tidak mempengaruhi laporan historis.
+   - Row Level Security (RLS) dapat diaktifkan di Supabase untuk proteksi
+     tambahan di level database.
+
+F. VALIDASI INPUT
+   - Semua form menggunakan validasi client-side sebelum dikirim ke server.
+   - API mengembalikan status HTTP yang tepat (400 Bad Request, 401 Unauthorized,
+     500 Internal Server Error) beserta pesan error yang informatif.
+
+
+================================================================================
+6. PENGATURAN SISTEM (ADMIN)
+================================================================================
+
+Halaman: /dashboard/admin/working-days
+
+A. JADWAL MINGGUAN
+   - Admin mengaktifkan/menonaktifkan hari operasional kantin (Senin-Minggu).
+   - Setiap hari aktif memiliki konfigurasi:
+     * Batas Hari: H (hari itu) atau H-1 (sehari sebelumnya)
+     * Jam Cutoff: waktu batas pemesanan (contoh: "08:00")
+   - Contoh: Kamis dengan H-1 cutoff 20:00 → siswa harus pesan Rabu sebelum 20:00
+
+B. KALENDER LIBUR
+   - Admin bisa memilih tanggal-tanggal tertentu sebagai hari libur.
+   - Pada hari libur, menu tidak tersedia untuk dipesan.
+
+C. BIAYA LAYANAN (ADMIN FEE)
+   - Admin menetapkan nominal biaya per porsi yang ditambahkan di atas harga vendor.
+   - Contoh: harga vendor Rp 18.000, admin fee Rp 2.000 → harga siswa Rp 20.000.
+   - Admin fee adalah pendapatan sekolah dari platform ini.
+   - Nilai admin fee disimpan di tabel SystemSetting dengan key "admin_fee".
+
+
+================================================================================
+7. KALKULASI KEUANGAN
+================================================================================
+
+Harga per Porsi (dibayar siswa)    = MenuItem.price + AdminFee
+Total Pesanan                       = Σ (MenuItem.price + AdminFee) × quantity
+Omzet Kotor Admin                  = Σ total seluruh OrderItem aktif (non-refund)
+Pendapatan Bersih Admin            = Σ AdminFee × quantity (item aktif)
+Dibayarkan ke Vendor               = Σ MenuItem.price × quantity (item aktif)
+Pendapatan Bersih Vendor           = Σ MenuItem.price × quantity (semua periode)
+
+Saat Refund:
+  - OrderItem.cancelStatus → APPROVED
+  - Order.totalAmount       → dikurangi (price + adminFee) × quantity item yang direfund
+  - Laporan Keuangan        → item refund diexclude dari semua kalkulasi revenue
+
+
+================================================================================
+8. STACK TEKNOLOGI DETAIL
+================================================================================
+
+Framework    : Next.js 16.1 (App Router, Turbopack)
+Language     : TypeScript
+Database     : PostgreSQL via Supabase
+Auth         : Supabase Auth (JWT + Cookie Session)
+ORM/Query    : Supabase JS Client (direct SQL-like query builder)
+UI Library   : shadcn/ui (Radix UI + Tailwind CSS)
+Charts       : Recharts
+PDF Export   : jsPDF + jspdf-autotable
+Excel Export : xlsx (SheetJS)
+Date Utils   : date-fns + date-fns/locale (id-ID)
+Icons        : Lucide React
+Deployment   : Vercel (Serverless Functions untuk API Routes)
+
+
+================================================================================
+9. STRUKTUR HALAMAN
+================================================================================
+
+PUBLIC (tanpa login):
+  /              → redirect ke /login
+  /login         → halaman login
+  /register      → info pendaftaran + link WhatsApp admin
+  /instan        → pemesanan instan (tanpa login)
+  /unauthorized  → halaman akses ditolak
+
+DASHBOARD SISWA (/dashboard/student/*):
+  /              → redirect ke student
+  /order         → pesan makanan mingguan
+  /history       → riwayat & status pesanan, konfirmasi penerimaan
+  /profile       → edit profil (nama, password)
+
+DASHBOARD VENDOR (/dashboard/vendor/*):
+  /              → dashboard: statistik, jadwal masak, grafik
+  /menu          → kelola menu (tambah, edit, hapus)
+  /all-menus     → lihat semua menu dari semua vendor (read-only)
+  /orders        → detail riwayat pesanan per periode
+  /history       → riwayat transaksi
+  /revenue       → laporan pendapatan + ekspor PDF/Excel
+
+DASHBOARD ADMIN (/dashboard/admin/*):
+  /              → ringkasan sistem: statistik, aktivitas terbaru
+  /orders        → kelola semua pesanan, verifikasi pembayaran, refund
+  /users         → kelola siswa dan vendor (CRUD + import Excel)
+  /menus         → lihat semua menu dari semua vendor
+  /working-days  → atur jadwal operasional & admin fee
+  /reports       → laporan keuangan lengkap + ekspor PDF/Excel
+
+API ROUTES (/api/*):
+  Auth    : /api/auth/logout
+  Order   : /api/order (GET/POST/PATCH), /api/order/cancel (POST)
+  Student : /api/student/history, /api/student/profile
+  Admin   : /api/admin/stats, /api/admin/orders, /api/admin/orders/create
+            /api/admin/users/students, /api/admin/users/vendors
+            /api/admin/menus, /api/admin/reports
+            /api/admin/settings/working-days, /api/admin/settings/admin-fee
+  Vendor  : /api/vendor/stats, /api/vendor/menus, /api/vendor/menus/[id]
+            /api/vendor/history, /api/vendor/reports
+  Public  : /api/public/menus, /api/public/settings/admin-fee
+            /api/public/students/search, /api/register
+
+
+================================================================================
+                              END OF DESCRIPTION
+================================================================================

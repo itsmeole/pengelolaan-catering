@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { addDays, nextDay } from "date-fns"
+import { uploadImage } from "@/lib/uploadImage"
 
 export default function InstantOrderPage() {
     const [step, setStep] = useState(1)
@@ -421,12 +422,16 @@ export default function InstantOrderPage() {
                                                         <p className="text-sm text-slate-500">Klik untuk pilih gambar bukti bayar</p>
                                                         <Input 
                                                             type="file" accept="image/*" 
-                                                            onChange={(e) => {
+                                                            onChange={async (e) => {
                                                                 const file = e.target.files?.[0]
-                                                                if (file) {
-                                                                    const reader = new FileReader()
-                                                                    reader.onloadend = () => setProofImage(reader.result as string)
-                                                                    reader.readAsDataURL(file)
+                                                                if (!file) return
+                                                                try {
+                                                                    toast.loading("Mengupload bukti transfer...", { id: 'upload-instan' })
+                                                                    const url = await uploadImage(file, 'proofs')
+                                                                    setProofImage(url)
+                                                                    toast.success("Bukti transfer diupload", { id: 'upload-instan' })
+                                                                } catch (err: any) {
+                                                                    toast.error(err.message || "Gagal upload", { id: 'upload-instan' })
                                                                 }
                                                             }}
                                                         />

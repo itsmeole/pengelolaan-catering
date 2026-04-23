@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Receipt, Clock, CheckCircle, XCircle, Loader2, AlertTriangle, Upload, CheckCircle2, PackageCheck } from "lucide-react"
 import { toast } from "sonner"
+import { uploadImage } from "@/lib/uploadImage"
 import {
     Dialog,
     DialogContent,
@@ -61,12 +62,16 @@ export default function StudentHistoryPage() {
         fetchOrders()
     }, [])
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
         const file = e.target.files?.[0]
-        if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => setter(reader.result as string)
-            reader.readAsDataURL(file)
+        if (!file) return
+        try {
+            toast.loading("Mengupload gambar...", { id: 'upload-img' })
+            const url = await uploadImage(file, 'proofs')
+            setter(url)
+            toast.success("Gambar berhasil diupload", { id: 'upload-img' })
+        } catch (err: any) {
+            toast.error(err.message || "Gagal upload", { id: 'upload-img' })
         }
     }
 

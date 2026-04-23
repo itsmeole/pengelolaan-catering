@@ -1,0 +1,334 @@
+================================================================================
+              SECURITY ASSESSMENT : GO CATERING
+       Penilaian Keamanan Berbasis Zero Trust Framework (18 Item)
+================================================================================
+
+Aplikasi   : Go Catering - Sistem Pengelolaan Pemesanan Katering Sekolah
+Tanggal    : April 2026
+Assessor   : Tim Pengembang
+Framework  : Zero Trust Architecture (ZTA) - NIST SP 800-207
+
+Skala Penilaian:
+  YES      = Sudah diimplementasikan sepenuhnya
+  PARTIAL  = Sudah ada sebagian, namun belum lengkap
+  NO       = Belum diimplementasikan
+  N/A      = Tidak relevan untuk konteks aplikasi ini
+
+CATATAN PENILAIAN:
+  Penilaian ini mencakup kontrol keamanan yang diimplementasikan secara eksplisit
+  oleh aplikasi (application-level) MAUPUN kontrol yang diberikan secara default
+  oleh platform infrastruktur yang digunakan (Supabase Auth & Vercel).
+
+================================================================================
+HASIL PENILAIAN
+================================================================================
+
+No | ITEM                                              | STATUS  | KETERANGAN
+---|---------------------------------------------------|---------|------------------------------------------
+ 1 | Inventarisasi semua aset IT                       | PARTIAL | Aset DATA sudah terdefinisi dalam skema
+   | (perangkat, aplikasi, data)                       |         | database (7 tabel: profiles, MenuItem,
+   | [Identity pillar - fondasi ZT]                   |         | Order, OrderItem, SystemSetting, Review,
+   |                                                   |         | StudentValidation). Aset APLIKASI
+   |                                                   |         | terdokumentasi dalam project_description.txt
+   |                                                   |         | (API routes, halaman, library).
+   |                                                   |         | BELUM ADA: inventaris aset perangkat
+   |                                                   |         | fisik, dependency library (pacakge.json),
+   |                                                   |         | dan aset infrastruktur (Vercel, Supabase).
+---|---------------------------------------------------|---------|------------------------------------------
+ 2 | MFA diaktifkan untuk semua akun pengguna          | NO      | Autentikasi hanya email + password
+   | (Identity pillar - wajib sebagai langkah pertama)|         | (single factor). Supabase Auth mendukung
+   |                                                   |         | MFA/TOTP namun belum dikonfigurasi.
+   |                                                   |         | MITIGASI PARSIAL: Supabase memiliki
+   |                                                   |         | rate limiting bawaan pada endpoint auth:
+   |                                                   |         | - /auth/v1/token: 1800 req/jam per IP,
+   |                                                   |         |   burst up to 30
+   |                                                   |         | - /auth/v1/signup: 60 detik window
+   |                                                   |         |   antar request per user
+   |                                                   |         | RISIKO: Siswa menggunakan NIS sebagai
+   |                                                   |         | password default (nilai NIS diketahui
+   |                                                   |         | oleh teman sekelas dan guru).
+---|---------------------------------------------------|---------|------------------------------------------
+ 3 | MFA diaktifkan untuk akun privileged/admin        | NO      | Tidak ada MFA untuk akun Admin.
+   | (Identity pillar - Privileged Account Management)|         | Admin memiliki akses penuh ke seluruh
+   |                                                   |         | data keuangan, data siswa, dan kendali
+   |                                                   |         | sistem (refund, reset password, dll).
+   |                                                   |         | MITIGASI PARSIAL: Supabase rate limit
+   |                                                   |         | login dan verifikasi email aktif secara
+   |                                                   |         | default. Akun Admin dibuat secara
+   |                                                   |         | terpusat (tidak self-registration).
+---|---------------------------------------------------|---------|------------------------------------------
+ 4 | Single Sign-On (SSO) diimplementasikan            | NO      | Tidak ada SSO (Google, Microsoft, dll).
+   | (Identity pillar - mengurangi password fatigue)  |         | Setiap pengguna login dengan email dan
+   |                                                   |         | password yang dikelola oleh Supabase Auth.
+   |                                                   |         | CATATAN: Supabase mendukung OAuth
+   |                                                   |         | provider natively, namun belum diaktifkan.
+---|---------------------------------------------------|---------|------------------------------------------
+ 5 | Device compliance policy diterapkan               | NO      | Tidak ada pemeriksaan kondisi perangkat.
+   | (patch, EDR, enkripsi)                            |         | Aplikasi bisa diakses dari perangkat
+   | (Devices pillar - endpoint health check)         |         | apapun tanpa validasi keamanan device.
+   |                                                   |         | Ini wajar untuk aplikasi web sekolah
+   |                                                   |         | publik berbasis browser.
+---|---------------------------------------------------|---------|------------------------------------------
+ 6 | Certificate-based device authentication aktif     | N/A     | Tidak ada autentikasi berbasis sertifikat
+   | (Devices pillar - hanya perangkat terdaftar       |         | perangkat — tidak relevan untuk web app
+   |  yang bisa akses)                                |         | berbasis sekolah yang diakses oleh banyak
+   |                                                   |         | siswa dari berbagai perangkat pribadi.
+---|---------------------------------------------------|---------|------------------------------------------
+ 7 | Micro-segmentation jaringan sudah diterapkan      | PARTIAL | Tidak ada micro-segmentation eksplisit,
+   | (Networks pillar - membatasi lateral movement)   |         | namun Vercel Serverless Functions secara
+   |                                                   |         | arsitektur sudah terisolasi per-function.
+   |                                                   |         | Supabase memiliki isolasi instance DB
+   |                                                   |         | per project. Tidak ada akses jaringan
+   |                                                   |         | internal yang bisa di-lateral-move.
+---|---------------------------------------------------|---------|------------------------------------------
+ 8 | VPN legacy sudah/sedang diganti dengan ZTNA       | N/A     | Tidak menggunakan VPN sama sekali.
+   | (Networks pillar - akses granular berbasis        |         | Akses granular dikontrol via RBAC
+   |  identitas)                                       |         | (Middleware Next.js + JWT Role Check).
+   |                                                   |         | Ini adalah model Zero Trust natively
+   |                                                   |         | karena akses dikontrol per-request
+   |                                                   |         | berdasarkan identitas, bukan tunnel jaringan.
+---|---------------------------------------------------|---------|------------------------------------------
+ 9 | Enkripsi traffic internal                         | YES     | Semua traffic client ↔ Vercel via HTTPS
+   | (TLS 1.3 / mTLS antar service)                   |         | (TLS). Vercel menerapkan TLS 1.2 minimum,
+   | (Networks pillar - assume breach, enkripsi semua)|         | dengan TLS 1.3 sebagai default modern.
+   |                                                   |         | Komunikasi Vercel Functions ↔ Supabase
+   |                                                   |         | juga via HTTPS terenkripsi.
+   |                                                   |         | HTTP Strict Transport Security (HSTS)
+   |                                                   |         | diaktifkan secara default oleh Vercel.
+---|---------------------------------------------------|---------|------------------------------------------
+10 | Prinsip least privilege diterapkan pada semua     | YES     | RBAC 3 peran diimplementasikan secara
+   | akun                                              |         | konsisten di dua lapisan:
+   | (Applications pillar - JIT / JEA access)        |         | 1) MIDDLEWARE (server-side, Edge Runtime):
+   |                                                   |         |    - /dashboard/student → blokir non-STUDENT
+   |                                                   |         |    - /dashboard/vendor  → blokir non-VENDOR
+   |                                                   |         |    - /dashboard/admin   → blokir non-ADMIN
+   |                                                   |         | 2) API ROUTES (per-request check):
+   |                                                   |         |    - Vendor query difilter .eq('vendorId',
+   |                                                   |         |      user.id) → hanya data miliknya
+   |                                                   |         |    - Siswa query difilter .eq('studentId',
+   |                                                   |         |      user.id) → hanya pesanannya sendiri
+   |                                                   |         |    - Admin menggunakan service_role_key
+   |                                                   |         |      (server-side only, tidak expose ke client)
+   |                                                   |         | KONTROL BISNIS TAMBAHAN:
+   |                                                   |         |    - Siswa tidak bisa refund sendiri (only admin)
+   |                                                   |         |    - Siswa tidak bisa pesan jika masih ada
+   |                                                   |         |      pesanan PENDING/PAID yang aktif
+   |                                                   |         |      (anti-spam, dicek di server-side API)
+---|---------------------------------------------------|---------|------------------------------------------
+11 | Aplikasi diautentikasi berbasis identitas,        | YES     | Autentikasi berbasis JWT dari Supabase Auth.
+   | bukan IP                                          |         | Setiap API request sensitif memvalidasi
+   | (Applications pillar - Zero Trust app access)   |         | sesi via supabase.auth.getUser() yang
+   |                                                   |         | membaca JWT dari HttpOnly cookie.
+   |                                                   |         | Tidak ada whitelist IP atau network ACL.
+   |                                                   |         | Identitas selalu diverifikasi per-request.
+   |                                                   |         | TAMBAHAN (Identity Binding):
+   |                                                   |         | Endpoint /api/public/order/instan memiliki
+   |                                                   |         | SESSION-IDENTITY BINDING: jika pengguna
+   |                                                   |         | sedang login, sistem memverifikasi bahwa
+   |                                                   |         | studentId di request = user yang login.
+   |                                                   |         | Ini mencegah user terotentikasi memesan
+   |                                                   |         | atas nama siswa lain (HTTP 403 Forbidden).
+---|---------------------------------------------------|---------|------------------------------------------
+12 | Klasifikasi data (publik, internal, rahasia,      | PARTIAL | Tidak ada dokumen klasifikasi formal,
+   | terbatas)                                         |         | namun secara arsitektur sudah terbagi:
+   | (Data pillar - dasar kebijakan DLP)              |         | - PUBLIK: /api/public/menus,
+   |                                                   |         |   /api/public/settings/admin-fee
+   |                                                   |         | - INTERNAL (autentikasi required):
+   |                                                   |         |   data pesanan, riwayat, laporan
+   |                                                   |         | - PRIVILEGED (admin-only):
+   |                                                   |         |   laporan keuangan, data semua pengguna,
+   |                                                   |         |   refund, verifikasi pembayaran
+   |                                                   |         | BELUM ADA: dokumen kebijakan data formal.
+---|---------------------------------------------------|---------|------------------------------------------
+13 | Data Loss Prevention (DLP) solution aktif         | NO      | Tidak ada solusi DLP yang aktif.
+   | (Data pillar - cegah kebocoran data sensitif)    |         | Tidak ada field-level enkripsi, masking
+   |                                                   |         | output, atau pencegahan export massal
+   |                                                   |         | data sensitif (misal: nomor HP, NIS siswa).
+---|---------------------------------------------------|---------|------------------------------------------
+14 | Enkripsi data at-rest dan in-transit              | YES     | IN-TRANSIT: HTTPS/TLS diaktifkan secara
+   | (Data pillar - AES-256 / TLS minimum)            |         | default di seluruh jalur komunikasi
+   |                                                   |         | (Vercel + Supabase).
+   |                                                   |         | AT-REST: Supabase mengenkripsi data
+   |                                                   |         | di disk menggunakan AES-256 (infrastruktur
+   |                                                   |         | AWS/GCP yang dikelola Supabase).
+   |                                                   |         | PASSWORD: Di-hash dengan bcrypt oleh
+   |                                                   |         | Supabase Auth (tidak pernah disimpan
+   |                                                   |         | dalam bentuk plaintext).
+   |                                                   |         | CATATAN: Tidak ada enkripsi di level
+   |                                                   |         | aplikasi untuk field individual (misal NIS).
+---|---------------------------------------------------|---------|------------------------------------------
+15 | SIEM/SOC aktif dengan monitoring 24/7             | NO      | Tidak ada SIEM atau SOC aktif.
+   | (Visibility - deteksi ancaman real-time)         |         | Log error tersedia di Vercel Dashboard
+   |                                                   |         | dan Supabase Dashboard namun hanya
+   |                                                   |         | bisa dipantau secara manual.
+   |                                                   |         | MITIGASI PARSIAL:
+   |                                                   |         | - Supabase Auth Log mencatat semua
+   |                                                   |         |   aktivitas login/logout/signup secara
+   |                                                   |         |   otomatis (bisa diakses via Dashboard).
+   |                                                   |         | - Vercel Function Logs mencatat semua
+   |                                                   |         |   request dan error API.
+---|---------------------------------------------------|---------|------------------------------------------
+16 | Threat intelligence feed terintegrasi             | PARTIAL | Tidak ada integrasi threat intelligence
+   | (Automation - IOC sharing dan enrichment)        |         | eksternal (AbuseIPDB, VirusTotal, dll).
+   |                                                   |         | NAMUN, kontrol anti-abuse sudah ada:
+   |                                                   |         | 1) CUSTOM IP RATE LIMITER (in-memory):
+   |                                                   |         |    - Max 1 instan order per IP per 3 menit
+   |                                                   |         |    - Implementasi: src/lib/rateLimiter.ts
+   |                                                   |         |    - Mengembalikan HTTP 429 + Retry-After
+   |                                                   |         | 2) SUPABASE AUTH RATE LIMITS (built-in):
+   |                                                   |         |    - /auth/v1/token: 1800 req/jam per IP,
+   |                                                   |         |      burst 30 req
+   |                                                   |         |    - /auth/v1/verify: 360 req/jam per IP,
+   |                                                   |         |      burst 30 req
+   |                                                   |         |    - /auth/v1/signup: window 60 detik
+   |                                                   |         |      antar request per user
+   |                                                   |         |    - /auth/v1/recover (password reset):
+   |                                                   |         |      window 60 detik antar request
+   |                                                   |         |    - /auth/v1/otp: max 360 OTP/jam
+   |                                                   |         |    - Anonymous sign-in: 30 req/jam per IP
+---|---------------------------------------------------|---------|------------------------------------------
+17 | Incident Response Plan terdokumentasi dan diuji   | NO      | Tidak ada Incident Response Plan (IRP)
+   | (Assume breach - siap ketika terjadi insiden)    |         | yang formal dan teruji.
+   |                                                   |         | Tidak ada prosedur terdokumentasi untuk:
+   |                                                   |         | - Penanganan kebocoran data
+   |                                                   |         | - Eskalasi insiden keamanan
+   |                                                   |         | - Recovery & rollback database
+   |                                                   |         | - Notifikasi kepada pengguna terdampak
+---|---------------------------------------------------|---------|------------------------------------------
+18 | Security awareness training rutin untuk karyawan  | NO      | Tidak ada program security awareness
+   | (People pillar - manusia adalah layer terlemah)  |         | training yang terjadwal untuk operator
+   |                                                   |         | (Admin sekolah) maupun vendor katering.
+
+================================================================================
+RINGKASAN EKSEKUTIF
+================================================================================
+
+Total item      : 18
+YES             :  4  (22.2%)  - item 9, 10, 11, 14
+PARTIAL         :  5  (27.8%)  - item 1, 7, 12, 15, 16
+NO              :  7  (38.9%)  - item 2, 3, 4, 5, 13, 17, 18
+N/A             :  2  (11.1%)  - item 6, 8
+
+Skor Kepatuhan ZT (YES + PARTIAL / Total applicable = 16):
+  9 / 16 = 56.3%  ← REVISI dari 29.4% (setelah fitur aplikasi + infrastruktur Supabase diperhitungkan)
+
+================================================================================
+KONTROL KEAMANAN APLIKASI YANG PERLU DICATAT
+================================================================================
+
+Berikut adalah fitur keamanan yang diimplementasikan di level aplikasi dan belum
+tercermin di item Zero Trust checklist standar, namun penting untuk dokumentasi:
+
+A. ANTI-SPAM: BLOKIR PESANAN SAAT ADA ORDER AKTIF
+   - Implementasi: /api/order/route.ts (POST - checkout siswa)
+     dan /api/public/order/instan/route.ts (POST - instan order)
+   - Logika: Sebelum memproses checkout baru, sistem SELECT dari tabel Order
+     dengan filter studentId = user.id dan status IN ('PENDING', 'PAID').
+   - Jika ada → tolak dengan HTTP 400 dan pesan eksplisit.
+   - Efek: Satu siswa hanya bisa memiliki SATU pesanan aktif sekaligus.
+   - Mencegah: double-order, manipulasi saldo, dan abuse sistem pesanan.
+
+B. IP RATE LIMITING: INSTAN ORDER
+   - Implementasi: src/lib/rateLimiter.ts (custom in-memory store)
+   - Diaplikasikan di: /api/public/order/instan/route.ts (Layer 1)
+   - Aturan: Max 1 request order per IP dalam window 3 menit.
+   - Jika terlampaui → HTTP 429 dengan header Retry-After (dalam detik & menit).
+   - IP diekstrak dari x-forwarded-for (Vercel proxy-aware) atau x-real-ip.
+   - IP baru dicatat (recordRequest()) SETELAH validasi dasar lolos, bukan
+     sebelumnya (mencegah IP exhaustion oleh request garbage).
+
+C. SESSION-IDENTITY BINDING: CEGAH IMPERSONASI
+   - Implementasi: /api/public/order/instan/route.ts (Layer 2)
+   - Logika: Jika ada sesi login aktif, studentId dalam request body harus
+     sama persis dengan user.id dari JWT session.
+   - Jika berbeda → HTTP 403 Forbidden dengan pesan eksplisit:
+     "Anda tidak dapat memesan atas nama orang lain saat sedang masuk (login)."
+   - Efek: User yang sudah login tidak bisa memanfaatkan halaman /instan
+     untuk memesan atas nama siswa lain.
+   - Mode publik (tanpa login) tetap berjalan normal — bergantung pada
+     kepercayaan operator fisik di kantin.
+
+D. DATA SNAPSHOT INTEGRITY (IMMUTABLE TRANSACTION RECORD)
+   - Implementasi: OrderItem menyimpan data snapshot saat transaksi:
+     menuName, vendorName, vendorId, price, adminFee
+   - Data ini tidak berubah meskipun menu/vendor data master diupdate.
+   - Memastikan laporan historis akurat dan tidak bisa dimanipulasi
+     dengan mengubah data master setelah transaksi.
+
+E. REFUND LOCK: HANYA ADMIN YANG BISA REFUND
+   - Siswa tidak memiliki endpoint atau UI untuk mengajukan refund sendiri.
+   - Seluruh logika refund ada di /api/order/cancel yang hanya dapat
+     dipanggil oleh Admin (diverifikasi via session role).
+   - Mencegah: Penyalahgunaan sistem refund oleh siswa.
+
+F. KONTROL INTEGRITAS MENU
+   - Menu yang sudah pernah dipesan tidak bisa dihapus (cek FK constraint
+     23502/23503 ditangkap dengan pesan error yang jelas ke vendor).
+   - Mencegah hilangnya referensi data pada laporan historis.
+
+G. SUPABASE AUTH BUILT-IN RATE LIMITS (PLATFORM LEVEL)
+   - Aktif secara default tanpa konfigurasi tambahan:
+     * /auth/v1/token    : 1800 req/jam per IP, burst 30
+     * /auth/v1/verify   : 360 req/jam per IP, burst 30
+     * /auth/v1/signup   : 60 detik window per user
+     * /auth/v1/recover  : 60 detik window per user
+     * /auth/v1/otp      : 360 OTP/jam
+     * Anonymous sign-in : 30 req/jam per IP, burst 30
+   - Melindungi dari brute force, credential stuffing, dan OTP abuse.
+
+================================================================================
+TEMUAN KRITIS (HIGH RISK) — YANG PERLU DIPERBAIKI
+================================================================================
+
+1. [KRITIS] Siswa Menggunakan NIS sebagai Password Default
+   - NIS bersifat semi-publik (diketahui teman sekelas, guru, staf sekolah).
+   - Jika NIS bocor, akun siswa dapat diakses oleh pihak yang tidak berwenang.
+   - REKOMENDASI: Paksa siswa ganti password saat login pertama (forced change).
+     Tambahkan kebijakan minimum password (min. 8 karakter, bukan hanya angka).
+
+2. [KRITIS] Tidak Ada MFA untuk Akun Admin
+   - Admin memiliki akses ke seluruh data keuangan, data pribadi, dan dapat
+     mereset password semua pengguna. Kompromi akun admin = kompromi sistem penuh.
+   - REKOMENDASI: Aktifkan TOTP MFA di Supabase Auth Dashboard untuk role ADMIN.
+
+3. [SEDANG] IP Rate Limiter Instan Order Menggunakan In-Memory Store
+   - Rate limiter saat ini menggunakan Map JavaScript yang tersimpan dalam
+     memori process Node.js. Data hilang saat server restart atau cold start.
+   - Di Vercel Serverless, setiap function instance punya memori sendiri,
+     sehingga rate limit tidak efektif jika ada multiple instances.
+   - REKOMENDASI: Migrasi ke persistent store (misalnya Upstash Redis via
+     @upstash/ratelimit) untuk rate limiting yang benar di serverless.
+
+4. [SEDANG] Halaman /instan Dapat Diakses dan Digunakan Tanpa Login
+   - Siapapun yang mengetahui URL dapat memesan atas nama siapapun
+     (kecuali jika sedang login — sudah ada binding check).
+   - Bergantung pada kontrol fisik operator di kantin.
+   - REKOMENDASI: Tambahkan PIN operator atau kode akses terbatas waktu
+     untuk endpoint /instan.
+
+================================================================================
+REKOMENDASI PRIORITAS PERBAIKAN
+================================================================================
+
+PRIORITAS 1 - Segera (High Impact, Low Effort):
+  a. Aktifkan MFA/TOTP untuk akun Admin di Supabase Dashboard (gratis, built-in).
+  b. Tambahkan forced password change saat login pertama siswa.
+  c. Migrasi IP rate limiter ke Upstash Redis untuk efektivitas di Vercel serverless.
+
+PRIORITAS 2 - Jangka Pendek (1-3 bulan):
+  a. Dokumentasikan klasifikasi data secara formal.
+  b. Tambahkan audit log minimal untuk aksi kritis: login, refund, verifikasi bayar,
+     perubahan data pengguna.
+  c. Aktifkan Row Level Security (RLS) di Supabase sebagai defense-in-depth.
+  d. Tambahkan proteksi akses /instan (PIN operator atau pembatasan origin).
+
+PRIORITAS 3 - Jangka Menengah (3-6 bulan):
+  a. Buat Incident Response Plan yang terdokumentasi (minimal: prosedur breach,
+     eskalasi, notifikasi pengguna, rollback DB).
+  b. Lakukan security briefing kepada Admin sekolah (phishing, password hygiene).
+  c. Pertimbangkan enkripsi field-level untuk data PII sensitif (NIS, nomor HP).
+  d. Integrasikan log monitoring terpusat (Sentry/Logtail) dengan alerting otomatis.
+
+================================================================================
+                          END OF SECURITY ASSESSMENT
+================================================================================

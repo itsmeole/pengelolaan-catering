@@ -29,6 +29,7 @@ import {
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { uploadImage } from "@/lib/uploadImage"
 import {
   Dialog,
   DialogContent,
@@ -120,13 +121,16 @@ export default function AdminOrdersPage() {
       ).slice(0, 5)
     : []
 
-  const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProofChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 1024 * 1024) return toast.error("File terlalu besar (Maks 1MB)")
-      const reader = new FileReader()
-      reader.onloadend = () => setProofImage(reader.result as string)
-      reader.readAsDataURL(file)
+    if (!file) return
+    try {
+      toast.loading("Mengupload bukti transfer...", { id: 'upload-proof' })
+      const url = await uploadImage(file, 'proofs')
+      setProofImage(url)
+      toast.success("Bukti transfer berhasil diupload", { id: 'upload-proof' })
+    } catch (err: any) {
+      toast.error(err.message || "Gagal upload bukti transfer", { id: 'upload-proof' })
     }
   }
 
@@ -326,11 +330,14 @@ export default function AdminOrdersPage() {
 
   function handleRefundImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => setRefundImage(reader.result as string)
-      reader.readAsDataURL(file)
-    }
+    if (!file) return
+    toast.loading("Mengupload bukti refund...", { id: 'upload-refund' })
+    uploadImage(file, 'refunds')
+      .then(url => {
+        setRefundImage(url)
+        toast.success("Bukti refund diupload", { id: 'upload-refund' })
+      })
+      .catch((err: any) => toast.error(err.message || "Gagal upload", { id: 'upload-refund' }))
   }
 
   const filteredOrders = orders.filter(order => {
