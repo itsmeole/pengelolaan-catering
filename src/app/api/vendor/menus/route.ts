@@ -42,7 +42,7 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { name, description, price, imageUrl, availableDays } = body
+        const { name, description, price, imageUrl, availableDays, expiredDate } = body
 
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
@@ -58,7 +58,8 @@ export async function POST(req: Request) {
                 description: description || "",
                 price: parseFloat(price),
                 imageUrl: imageUrl || null,
-                availableDays: availableDays || []
+                availableDays: availableDays || [],
+                expiredDate: expiredDate,
             })
             .select()
 

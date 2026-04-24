@@ -304,8 +304,16 @@ export default function StudentOrderPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                    {menuByDay[activeDay].map((menu) => (
-                        <Card key={menu.id} className="overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                    {menuByDay[activeDay].map((menu) => {
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        const expDate = menu.expiredDate ? new Date(menu.expiredDate) : null
+                        if (expDate) expDate.setHours(0, 0, 0, 0)
+                        const isExpired = expDate ? expDate.getTime() < today.getTime() : false
+                        const isAvailableTime = checkIsAvailable(getDeliveryDate(activeDay, orderWeek))
+
+                        return (
+                        <Card key={menu.id} className={`overflow-hidden hover:shadow-md transition-shadow flex flex-col ${isExpired ? 'opacity-70 grayscale' : ''}`}>
                             {/* Gambar */}
                             <div className="h-24 w-full bg-muted relative flex-shrink-0">
                                 {menu.imageUrl ? (
@@ -327,17 +335,18 @@ export default function StudentOrderPage() {
                                 <Button 
                                     size="sm" 
                                     className="w-full mt-2 text-xs h-7" 
-                                    disabled={!checkIsAvailable(getDeliveryDate(activeDay, orderWeek)) && userRole === 'STUDENT'}
+                                    disabled={isExpired || (!isAvailableTime && userRole === 'STUDENT')}
                                     onClick={() => {
                                         setSelectedMenu(menu)
                                         setIsAddOpen(true)
                                     }}
                                 >
-                                    {checkIsAvailable(getDeliveryDate(activeDay, orderWeek)) || userRole === 'ADMIN' ? "Pilih" : "Batas Waktu Habis"}
+                                    {isExpired ? "Expired" : (isAvailableTime || userRole === 'ADMIN' ? "Pilih" : "Batas Waktu Habis")}
                                 </Button>
                             </div>
                         </Card>
-                    ))}
+                        )
+                    })}
                 </div>
             )}
 

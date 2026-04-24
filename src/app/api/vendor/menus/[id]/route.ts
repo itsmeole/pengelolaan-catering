@@ -49,7 +49,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     try {
         const { id } = await params
         const body = await req.json()
-        const { name, description, price, imageUrl, availableDays } = body
+        const { name, description, price, imageUrl, availableDays, expiredDate } = body
 
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
@@ -62,6 +62,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             description: description || "",
             price: parseFloat(price),
             availableDays: availableDays || [],
+            expiredDate: expiredDate,
             updatedAt: new Date().toISOString()
         }
         

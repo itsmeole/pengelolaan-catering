@@ -34,6 +34,7 @@ const formSchema = z.object({
     price: z.string().min(1, "Harga wajib"),
     imageUrl: z.string().optional(),
     availableDays: z.array(z.string()).min(1, "Pilih minimal 1 hari"),
+    expiredDate: z.string().min(1, "Tanggal expired wajib"),
 })
 
 const DAYS_OF_WEEK = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
@@ -52,6 +53,7 @@ export default function VendorMenuPage() {
             price: "",
             imageUrl: "",
             availableDays: [],
+            expiredDate: "",
         },
     })
 
@@ -115,6 +117,7 @@ export default function VendorMenuPage() {
             price: "",
             imageUrl: "",
             availableDays: [],
+            expiredDate: "",
         })
     }
 
@@ -126,6 +129,7 @@ export default function VendorMenuPage() {
             price: String(menu.price),
             imageUrl: menu.imageUrl || "",
             availableDays: menu.availableDays || [],
+            expiredDate: menu.expiredDate || "",
         })
         setOpen(true)
     }
@@ -179,6 +183,13 @@ export default function VendorMenuPage() {
                                 <Input type="file" accept="image/*" onChange={handleImageChange} />
                             </div>
                             <div className="grid w-full gap-2">
+                                <Label>Tanggal Expired *</Label>
+                                <Input type="date" {...form.register("expiredDate")} />
+                                {form.formState.errors.expiredDate && (
+                                    <p className="text-red-500 text-xs mt-1">{form.formState.errors.expiredDate.message}</p>
+                                )}
+                            </div>
+                            <div className="grid w-full gap-2">
                                 <Label>Jadwal Hari Tersedia *</Label>
                                 <div className="grid grid-cols-3 gap-2 mt-1">
                                     {DAYS_OF_WEEK.map((day) => (
@@ -213,6 +224,7 @@ export default function VendorMenuPage() {
                             <TableHead>Harga</TableHead>
                             <TableHead>Deskripsi</TableHead>
                             <TableHead>Jadwal</TableHead>
+                            <TableHead>Expired</TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -243,6 +255,9 @@ export default function VendorMenuPage() {
                                             <span className="text-xs text-muted-foreground">Semua hari</span>
                                         )}
                                     </div>
+                                </TableCell>
+                                <TableCell className="text-sm font-medium text-red-600 whitespace-nowrap">
+                                    {menu.expiredDate ? new Date(menu.expiredDate).toLocaleDateString('id-ID') : '-'}
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex items-center justify-end gap-1">

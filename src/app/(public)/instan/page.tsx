@@ -331,8 +331,15 @@ export default function InstantOrderPage() {
                                                 </div>
                                                 
                                                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                                                    {dayMenus.map((menu) => (
-                                                        <Card key={`${day}-${menu.id}`} className="overflow-hidden group hover:ring-2 hover:ring-blue-500 transition-all border-slate-200 flex flex-col h-full">
+                                                    {dayMenus.map((menu) => {
+                                                        const today = new Date()
+                                                        today.setHours(0, 0, 0, 0)
+                                                        const expDate = menu.expiredDate ? new Date(menu.expiredDate) : null
+                                                        if (expDate) expDate.setHours(0, 0, 0, 0)
+                                                        const isExpired = expDate ? expDate.getTime() < today.getTime() : false
+
+                                                        return (
+                                                        <Card key={`${day}-${menu.id}`} className={`overflow-hidden group hover:ring-2 hover:ring-blue-500 transition-all border-slate-200 flex flex-col h-full ${isExpired ? 'opacity-70 grayscale' : ''}`}>
                                                             <div className="aspect-video relative overflow-hidden bg-slate-100 shrink-0">
                                                                 <img 
                                                                     src={menu.imageUrl || "/placeholder-food.jpg"} 
@@ -363,6 +370,7 @@ export default function InstantOrderPage() {
                                                                     <div className="flex items-center gap-2 border rounded-full px-2 py-1 bg-slate-50">
                                                                         <Button 
                                                                             variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-white"
+                                                                            disabled={isExpired}
                                                                             onClick={() => {
                                                                                 const cur = selectedMenus[menu.id] || 0
                                                                                 if (cur > 0) setSelectedMenus({...selectedMenus, [menu.id]: cur - 1})
@@ -371,6 +379,7 @@ export default function InstantOrderPage() {
                                                                         <span className="w-6 text-center font-bold text-slate-700">{selectedMenus[menu.id] || 0}</span>
                                                                         <Button 
                                                                             variant="ghost" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-white"
+                                                                            disabled={isExpired}
                                                                             onClick={() => setSelectedMenus({...selectedMenus, [menu.id]: (selectedMenus[menu.id] || 0) + 1})}
                                                                         >+</Button>
                                                                     </div>
@@ -378,7 +387,8 @@ export default function InstantOrderPage() {
                                                                 </div>
                                                             </CardContent>
                                                         </Card>
-                                                    ))}
+                                                        )
+                                                    })}
                                                 </div>
                                             </div>
                                         )
