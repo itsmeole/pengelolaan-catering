@@ -111,17 +111,22 @@ export async function POST(req: Request) {
             return d
         }
         
-        let startDate = new Date()
-        let endDate = new Date()
-        const now = new Date()
+        // Ensure we work with Jakarta time
+        const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }))
+        
+        let startDate = new Date(now)
+        let endDate = new Date(now)
 
         if (orderWeek === 'THIS_WEEK') {
-            startDate = new Date()
-            endDate = new Date()
+            // Start from today
+            startDate = new Date(now)
+            // End on the coming Sunday
+            endDate = new Date(now)
             endDate.setDate(startDate.getDate() + ((7 - startDate.getDay()) % 7))
             if (startDate.getDay() === 0) endDate = new Date(startDate) // Minggu
         } else {
-            startDate = addDays(startOfWeek(addWeeks(new Date(), 1), { weekStartsOn: 1 }), 0)
+            // Start from next Monday
+            startDate = addDays(startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 }), 0)
             endDate = addDays(startDate, 6)
         }
 
@@ -151,7 +156,7 @@ export async function POST(req: Request) {
         }
 
         if (orderDates.length === 0) {
-            return NextResponse.json({ error: "Batas pemesanan hari kerja untuk pilihan waktu tersebut sudah habis." }, { status: 400 })
+            return NextResponse.json({ error: "Batas waktu pemesanan untuk pilihan periode tersebut sudah berakhir." }, { status: 400 })
         }
 
         // 3. Kalkulasi Total Harga & Distribusi Item per Hari

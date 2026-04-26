@@ -83,14 +83,20 @@ export default function InstantOrderPage() {
                 const parts = (raw.time || deadlineInfo || "08:00").split(":")
                 dHour = parseInt(parts[0])
                 dMin = parseInt(parts[1])
-                dayOffset = raw.dayOffset || 0
+                dayOffset = raw.dayOffset ?? 0
             } else {
                 const parts = (raw || deadlineInfo || "08:00").split(":")
                 dHour = parseInt(parts[0])
                 dMin = parseInt(parts[1])
+                dayOffset = systemConfig.dayOffset ?? 0
             }
-        } else {
+        } else if (systemConfig) {
             const parts = (deadlineInfo || "08:00").split(":")
+            dHour = parseInt(parts[0])
+            dMin = parseInt(parts[1])
+            dayOffset = systemConfig.dayOffset ?? 0
+        } else {
+            const parts = (deadlineInfo || "20:00").split(":")
             dHour = parseInt(parts[0])
             dMin = parseInt(parts[1])
         }
@@ -359,11 +365,13 @@ export default function InstantOrderPage() {
                                                 
                                                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                                                     {dayMenus.map((menu) => {
-                                                        const today = new Date()
-                                                        today.setHours(0, 0, 0, 0)
                                                         const expDate = menu.expiredDate ? new Date(menu.expiredDate) : null
                                                         if (expDate) expDate.setHours(0, 0, 0, 0)
-                                                        const isExpired = expDate ? expDate.getTime() < today.getTime() : false
+                                                        
+                                                        // Bandingkan dengan tanggal pengiriman (cDate), bukan hari ini
+                                                        const deliveryDateOnly = new Date(cDate)
+                                                        deliveryDateOnly.setHours(0,0,0,0)
+                                                        const isExpired = expDate ? expDate.getTime() < deliveryDateOnly.getTime() : false
 
                                                         return (
                                                         <Card key={`${day}-${menu.id}`} className={`overflow-hidden group hover:ring-2 hover:ring-blue-500 transition-all border-slate-200 flex flex-col h-full ${(isExpired || !isAvailable) ? 'opacity-70 grayscale' : ''}`}>
