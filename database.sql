@@ -41,6 +41,7 @@ CREATE TABLE "profiles" (
     -- Student specific
     "nis" VARCHAR UNIQUE,
     "class" VARCHAR,
+    "phone" VARCHAR,
     
     -- Vendor specific
     "vendorName" VARCHAR,
@@ -85,6 +86,8 @@ CREATE TABLE "MenuItem" (
     "description" TEXT NOT NULL,
     "price" DOUBLE PRECISION NOT NULL,
     "imageUrl" TEXT,
+    "expiredDate" DATE NOT NULL DEFAULT CURRENT_DATE + INTERVAL '7 days',
+    "availableDays" JSONB DEFAULT '[]'::jsonb,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -96,6 +99,11 @@ CREATE TABLE "Order" (
     "status" "OrderStatus" NOT NULL DEFAULT 'PENDING'::"OrderStatus",
     "paymentMethod" "PaymentMethod" NOT NULL,
     "proofImage" TEXT,
+    "isProofInvalid" BOOLEAN DEFAULT FALSE,
+    "rejectionReason" TEXT,
+    "cancelStatus" TEXT DEFAULT 'NONE',
+    "cancelReason" TEXT,
+    "cancelImage" TEXT,
     "transferDate" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -109,7 +117,14 @@ CREATE TABLE "OrderItem" (
     "quantity" INTEGER NOT NULL DEFAULT 1,
     "note" VARCHAR,
     "price" DOUBLE PRECISION NOT NULL,
-    "adminFee" DOUBLE PRECISION NOT NULL DEFAULT 1000
+    "adminFee" DOUBLE PRECISION NOT NULL DEFAULT 1000,
+    "menuName" VARCHAR,
+    "vendorName" VARCHAR,
+    "vendorId" UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+    "cancelStatus" VARCHAR DEFAULT 'NONE',
+    "cancelReason" TEXT,
+    "cancelImage" TEXT,
+    "receivedAt" TIMESTAMP(3)
 );
 
 CREATE TABLE "Review" (

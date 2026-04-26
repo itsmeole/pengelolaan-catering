@@ -788,13 +788,16 @@ export default function AdminOrdersPage() {
                           </Dialog>
                         )}
 
+                        {/* Tombol Lihat Bukti (Tersedia untuk semua status asalkan metode TRANSFER dan ada bukti) */}
+                        {order.paymentMethod === "TRANSFER" && order.proofImage && (
+                          <Button size="icon" variant="outline" className="h-8 w-8 text-blue-600 mr-1" onClick={() => setSelectedProof(order.proofImage)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         {/* Aksi Pembayaran */}
                         {order.status === "PENDING" && order.paymentMethod === "TRANSFER" && order.proofImage && !order.isProofInvalid && (
                           <div className="flex gap-1">
-                            <Button size="icon" variant="outline" className="h-8 w-8 text-blue-600" onClick={() => setSelectedProof(order.proofImage)}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            
                             <ConfirmButton title="Tolak Bukti Transfer?" description="Siswa akan diminta mengunggah ulang bukti transfer." onConfirm={() => handleRejectProof(order.id, "Bukti transfer tidak valid/salah foto")} variant="destructive">
                               <Button size="icon" variant="outline" className="h-8 w-8 text-red-600"><XCircle className="h-4 w-4" /></Button>
                             </ConfirmButton>

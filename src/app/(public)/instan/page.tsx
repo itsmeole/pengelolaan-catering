@@ -31,6 +31,7 @@ export default function InstantOrderPage() {
     const [adminFee, setAdminFee] = useState<number>(1000)
     const [orderWeek, setOrderWeek] = useState<'THIS_WEEK' | 'NEXT_WEEK'>('THIS_WEEK')
     const [deadlineInfo, setDeadlineInfo] = useState("20:00")
+    const [systemConfig, setSystemConfig] = useState<any>(null)
 
     // Fetch Menus and Admin Fee on Load
     useEffect(() => {
@@ -48,6 +49,7 @@ export default function InstantOrderPage() {
             .then(res => res.json())
             .then(data => {
                 if(data.deadlineTime) setDeadlineInfo(data.deadlineTime)
+                setSystemConfig(data)
             }).catch(() => {})
     }, [])
 
@@ -56,23 +58,45 @@ export default function InstantOrderPage() {
         const targetWeekday = dayMap[dayName] ?? 1
         const today = new Date()
         
+        // Convert JS getDay() (Sunday=0) to Monday-start (Monday=0, ..., Sunday=6)
+        let currentDay = today.getDay() === 0 ? 6 : today.getDay() - 1;
+        let target = targetWeekday === 0 ? 6 : targetWeekday - 1;
+        let diff = target - currentDay;
+        
         if (week === 'THIS_WEEK') {
-            const currentDay = today.getDay()
-            let diff = targetWeekday - currentDay
             return addDays(today, diff)
         } else {
-            let deliveryDate = nextDay(today, targetWeekday as 0|1|2|3|4|5|6)
-            if (today.getDay() === targetWeekday) {
-                deliveryDate = addDays(today, 7)
-            }
-            return deliveryDate
+            return addDays(today, diff + 7)
         }
     }
 
     const checkIsAvailable = (deliveryDate: Date) => {
         const now = new Date()
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        const dayKey = dayNames[deliveryDate.getDay()]
+        
+        let dHour = 8, dMin = 0, dayOffset = 0;
+        
+        if (systemConfig && systemConfig.dailyDeadlines && systemConfig.dailyDeadlines[dayKey]) {
+            const raw = systemConfig.dailyDeadlines[dayKey]
+            if (typeof raw === 'object' && raw !== null) {
+                const parts = (raw.time || deadlineInfo || "08:00").split(":")
+                dHour = parseInt(parts[0])
+                dMin = parseInt(parts[1])
+                dayOffset = raw.dayOffset || 0
+            } else {
+                const parts = (raw || deadlineInfo || "08:00").split(":")
+                dHour = parseInt(parts[0])
+                dMin = parseInt(parts[1])
+            }
+        } else {
+            const parts = (deadlineInfo || "08:00").split(":")
+            dHour = parseInt(parts[0])
+            dMin = parseInt(parts[1])
+        }
+
         const deadline = new Date(deliveryDate)
-        const [dHour, dMin] = deadlineInfo.split(":").map(Number)
+        deadline.setDate(deadline.getDate() + dayOffset)
         deadline.setHours(dHour, dMin, 0, 0)
         return now <= deadline
     }
@@ -295,7 +319,10 @@ export default function InstantOrderPage() {
 
                         {step === 2 && (
                             <div className="space-y-12">
-                                <Tabs value={orderWeek} onValueChange={(v) => setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')} className="w-full">
+                                <Tabs value={orderWeek} onValueChange={(v) => {
+                                    setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')
+                                    setSelectedMenus({}) // Reset cart when switching weeks
+                                }} className="w-full">
                                     <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
                                         <TabsTrigger value="THIS_WEEK">Untuk Minggu Ini</TabsTrigger>
                                         <TabsTrigger value="NEXT_WEEK">Untuk Minggu Depan</TabsTrigger>
@@ -339,7 +366,7 @@ export default function InstantOrderPage() {
                                                         const isExpired = expDate ? expDate.getTime() < today.getTime() : false
 
                                                         return (
-                                                        <Card key={`${day}-${menu.id}`} className={`overflow-hidden group hover:ring-2 hover:ring-blue-500 transition-all border-slate-200 flex flex-col h-full ${isExpired ? 'opacity-70 grayscale' : ''}`}>
+                                                        <Card key={`${day}-${menu.id}`} className={`overflow-hidden group hover:ring-2 hover:ring-blue-500 transition-all border-slate-200 flex flex-col h-full ${(isExpired || !isAvailable) ? 'opacity-70 grayscale' : ''}`}>
                                                             <div className="aspect-video relative overflow-hidden bg-slate-100 shrink-0">
                                                                 <img 
                                                                     src={menu.imageUrl || "/placeholder-food.jpg"} 
@@ -370,7 +397,7 @@ export default function InstantOrderPage() {
                                                                     <div className="flex items-center gap-2 border rounded-full px-2 py-1 bg-slate-50">
                                                                         <Button 
                                                                             variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-white"
-                                                                            disabled={isExpired}
+                                                                            disabled={isExpired || !isAvailable}
                                                                             onClick={() => {
                                                                                 const cur = selectedMenus[menu.id] || 0
                                                                                 if (cur > 0) setSelectedMenus({...selectedMenus, [menu.id]: cur - 1})
@@ -379,7 +406,7 @@ export default function InstantOrderPage() {
                                                                         <span className="w-6 text-center font-bold text-slate-700">{selectedMenus[menu.id] || 0}</span>
                                                                         <Button 
                                                                             variant="ghost" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-white"
-                                                                            disabled={isExpired}
+                                                                            disabled={isExpired || !isAvailable}
                                                                             onClick={() => setSelectedMenus({...selectedMenus, [menu.id]: (selectedMenus[menu.id] || 0) + 1})}
                                                                         >+</Button>
                                                                     </div>
