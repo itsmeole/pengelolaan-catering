@@ -13,7 +13,7 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>()
 
 const WINDOW_MS = 3 * 60 * 1000 // 3 minutes
-const MAX_REQUESTS = 10          // Max 10 orders per window per IP (mengakomodasi WiFi sekolah/NAT)
+const MAX_REQUESTS = 3          // Max 10 orders per window per IP (mengakomodasi WiFi sekolah/NAT)
 
 /** Clean up entries older than 2x the window to prevent memory leaks */
 function cleanup() {
