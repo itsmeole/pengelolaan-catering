@@ -16,20 +16,21 @@ export async function GET() {
             }
         )
 
-        // 1. Future Date Range (Tomorrow until 7 days from now)
-        const tomorrow = new Date()
-        tomorrow.setDate(tomorrow.getDate() + 1)
-        tomorrow.setHours(0,0,0,0)
+        // 1. Future Date Range (Today until 7 days from now)
+        const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }))
+        
+        const today = new Date(nowJakarta)
+        today.setHours(0,0,0,0)
 
-        const sevenDaysLater = new Date()
-        sevenDaysLater.setDate(tomorrow.getDate() + 7)
+        const sevenDaysLater = new Date(nowJakarta)
+        sevenDaysLater.setDate(today.getDate() + 7)
         sevenDaysLater.setHours(23,59,59,999)
 
-        // 2. Fetch OrderItems for Future 7 Days (Aggregating Top 5)
+        // 2. Fetch OrderItems for Today + 7 Days (Aggregating Top 5)
         const { data: futureItems, error: itemsError } = await supabase
             .from('OrderItem')
             .select('menuId, menuName, vendorName, quantity')
-            .gte('date', tomorrow.toISOString())
+            .gte('date', today.toISOString())
             .lte('date', sevenDaysLater.toISOString())
             .neq('cancelStatus', 'APPROVED')
 
@@ -68,14 +69,22 @@ export async function GET() {
             .eq('status', 'PENDING')
 
         // 5. Revenue
-        const { data: paidItems } = await supabase
+        const { data: rawPaidItems } = await supabase
             .from('OrderItem')
             .select(`
                 price, quantity, adminFee, cancelStatus,
-                order:Order!inner(status)
+                order:Order!inner(status, paymentMethod)
             `)
-            .in('order.status', ['PAID', 'COMPLETED'])
             .neq('cancelStatus', 'APPROVED')
+            
+        // Filter in JS for revenue (PAID/COMPLETED or CASH_PAY_LATER)
+        const paidItems = (rawPaidItems || []).filter(item => {
+            const o = (item as any).order;
+            if (!o) return false;
+            if (['PAID', 'COMPLETED'].includes(o.status)) return true;
+            if (o.status === 'PENDING' && o.paymentMethod === 'CASH_PAY_LATER') return true;
+            return false;
+        })
         
         const grossRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0) || 0
         const netRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.adminFee || 0) * curr.quantity), 0) || 0

@@ -52,20 +52,51 @@ export default function AdminReportsPage() {
     ]
     const wsSummary = XLSX.utils.aoa_to_sheet(summary)
 
+    // Helper to group details by student
+    const groupDetailsByStudent = () => {
+      const DAY_JS: Record<number, string> = { 1: 'SENIN', 2: 'SELASA', 3: 'RABU', 4: 'KAMIS', 5: 'JUMAT', 6: 'SABTU' }
+      type StudentRow = { studentName: string; studentClass: string; paymentMethod: string; days: Record<string, string> }
+      const studentMap: Record<string, StudentRow> = {}
+      
+      data.details.forEach((d: any) => {
+        if (d.refundStatus === 'APPROVED') return
+        const key = d.studentName
+        if (!studentMap[key]) {
+          studentMap[key] = {
+            studentName: d.studentName,
+            studentClass: d.studentClass || '-',
+            paymentMethod: d.paymentMethod === 'TRANSFER' ? 'TF' : (d.paymentMethod === 'CASH_PAY_LATER' ? 'CASH' : d.paymentMethod),
+            days: {}
+          }
+        }
+        
+        const [dd, mm, yyyy] = d.deliveryDate.split('/')
+        const date = new Date(+yyyy, +mm - 1, +dd)
+        const dayName = DAY_JS[date.getDay()]
+        if (dayName) {
+          if (studentMap[key].days[dayName]) {
+            studentMap[key].days[dayName] += `, ${d.vendorName}`
+          } else {
+            studentMap[key].days[dayName] = d.vendorName
+          }
+        }
+      })
+      return Object.values(studentMap)
+    }
+
     // 2. Details Sheet
-    const details = data.details.map((d: any) => ({
-      "Tgl Pesan": d.transactionDate,
-      "Tgl Antar": d.deliveryDate,
-      Siswa: d.studentName,
-      Vendor: d.vendorName,
-      Menu: d.itemName,
-      Harga: d.price,
-      Qty: d.quantity,
-      Total: d.refundStatus === 'APPROVED' ? 0 : d.total,
-      FeeAdmin: d.refundStatus === 'APPROVED' ? 0 : d.adminFee,
-      Status: d.refundStatus === 'APPROVED' ? 'DIBATALKAN' : (d.refundStatus === 'PENDING' ? 'MINTA REFUND' : 'SUKSES')
+    const studentRowsExcel = groupDetailsByStudent()
+    const detailsExcel = studentRowsExcel.map((s: any) => ({
+      "SISWA/SISWI PEMESAN": s.studentName,
+      "KELAS": s.studentClass,
+      "SENIN": s.days['SENIN'] || '',
+      "SELASA": s.days['SELASA'] || '',
+      "RABU": s.days['RABU'] || '',
+      "KAMIS": s.days['KAMIS'] || '',
+      "JUMAT": s.days['JUMAT'] || '',
+      "METODE BAYAR": s.paymentMethod
     }))
-    const wsDetails = XLSX.utils.json_to_sheet(details)
+    const wsDetails = XLSX.utils.json_to_sheet(detailsExcel)
 
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan")
@@ -178,41 +209,63 @@ export default function AdminReportsPage() {
       theme: 'grid'
     })
 
-    // ── DETAIL TABLE ─────────────────────────────────────────────────
+    // ── DETAIL TABLE (GROUPED BY STUDENT) ──────────────────────────────
     const summaryFinalY = (doc as any).lastAutoTable?.finalY ?? 120
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text("Detail Transaksi", 14, summaryFinalY + 10)
+    doc.text("Detail Transaksi (Per Siswa)", 14, summaryFinalY + 10)
 
-    const rows = data.details.map((d: any) => [
-      d.transactionDate,
-      d.deliveryDate,
-      d.studentName,
-      d.vendorName,
-      d.itemName,
-      d.quantity,
-      d.refundStatus === 'APPROVED' ? 'Rp 0 (BATAL)' : formatMoney(d.total),
-      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.adminFee),
-      d.refundStatus === 'APPROVED' ? 'Rp 0' : formatMoney(d.total - d.adminFee),
-      d.refundStatus === 'APPROVED' ? 'REFUND' : 'SUKSES'
+    const DAY_JS_UPPER: Record<number, string> = { 1: 'SENIN', 2: 'SELASA', 3: 'RABU', 4: 'KAMIS', 5: 'JUMAT', 6: 'SABTU' }
+    type StudentRow = { studentName: string; studentClass: string; paymentMethod: string; days: Record<string, string> }
+    const studentMap: Record<string, StudentRow> = {}
+    
+    data.details.forEach((d: any) => {
+      if (d.refundStatus === 'APPROVED') return
+      const key = d.studentName
+      if (!studentMap[key]) {
+        studentMap[key] = {
+          studentName: d.studentName,
+          studentClass: d.studentClass || '-',
+          paymentMethod: d.paymentMethod === 'TRANSFER' ? 'TF' : (d.paymentMethod === 'CASH_PAY_LATER' ? 'CASH' : d.paymentMethod),
+          days: {}
+        }
+      }
+      
+      const [dd, mm, yyyy] = d.deliveryDate.split('/')
+      const date = new Date(+yyyy, +mm - 1, +dd)
+      const dayName = DAY_JS_UPPER[date.getDay()]
+      if (dayName) {
+        if (studentMap[key].days[dayName]) {
+          studentMap[key].days[dayName] += `, ${d.vendorName}`
+        } else {
+          studentMap[key].days[dayName] = d.vendorName
+        }
+      }
+    })
+
+    const studentRows = Object.values(studentMap)
+    const studentTableHead = [['SISWA/SISWI PEMESAN', 'KELAS', 'SENIN', 'SELASA', 'RABU', 'KAMIS', 'JUMAT', 'METODE BAYAR']]
+    const studentTableBody = studentRows.map(s => [
+      s.studentName,
+      s.studentClass,
+      s.days['SENIN'] || '',
+      s.days['SELASA'] || '',
+      s.days['RABU'] || '',
+      s.days['KAMIS'] || '',
+      s.days['JUMAT'] || '',
+      s.paymentMethod
     ])
 
     autoTable(doc, {
       startY: summaryFinalY + 13,
-      head: [['Tgl Pesan', 'Tgl Antar', 'Siswa', 'Vendor', 'Menu', 'Qty', 'Total', 'Fee', 'Bersih', 'Status']],
-      body: rows,
-      headStyles: { fillColor: [22, 101, 52], textColor: 255, fontSize: 8 },
-      bodyStyles: { fontSize: 7.5 },
-      didParseCell: (hookData: any) => {
-        // Warnai baris refund
-        if (hookData.section === 'body') {
-          const statusVal = hookData.row.raw?.[9]
-          if (statusVal === 'REFUND') {
-            hookData.cell.styles.textColor = [185, 28, 28]
-          }
-        }
+      head: studentTableHead,
+      body: studentTableBody,
+      headStyles: { fillColor: [255, 255, 0], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center', fontSize: 8 },
+      bodyStyles: { fontSize: 7.5, halign: 'center' },
+      columnStyles: {
+        0: { halign: 'left' }
       },
-      theme: 'striped'
+      theme: 'grid'
     })
 
     doc.save(`Laporan_${startDate}_${endDate}.pdf`)

@@ -21,7 +21,7 @@ export async function GET(req: Request) {
         )
 
         // Fetch OrderItems — include vendor owner name (profiles.name)
-        const { data: items, error } = await supabase
+        const { data: rawItems, error } = await supabase
             .from('OrderItem')
             .select(`
                 id, quantity, price, adminFee, date, cancelStatus, cancelReason,
@@ -29,15 +29,24 @@ export async function GET(req: Request) {
                 order:"Order"!inner(
                     status,
                     createdAt,
-                    student:profiles!studentId(name)
+                    paymentMethod,
+                    student:profiles!studentId(name, class)
                 )
             `)
             .gte('date', startOfDay(new Date(start)).toISOString())
             .lte('date', endOfDay(new Date(end)).toISOString())
-            .in('order.status', ['PAID', 'COMPLETED', 'CANCELLED'])
             .order('createdAt', { referencedTable: 'Order', ascending: false })
 
         if (error) throw error
+
+        // Filter items in JS: include PAID, COMPLETED, CANCELLED, and PENDING if CASH_PAY_LATER
+        const items = (rawItems || []).filter(item => {
+            const o = (item as any).order;
+            if (!o) return false;
+            if (['PAID', 'COMPLETED', 'CANCELLED'].includes(o.status)) return true;
+            if (o.status === 'PENDING' && o.paymentMethod === 'CASH_PAY_LATER') return true;
+            return false;
+        });
 
         // Fetch vendor owner names (profiles.name) for all unique vendorIds
         const vendorIds = [...new Set((items || []).map((i: any) => i.vendorId).filter(Boolean))]
@@ -64,6 +73,8 @@ export async function GET(req: Request) {
                 transactionDate: format(new Date((item as any).order?.createdAt), "dd/MM/yyyy HH:mm"),
                 deliveryDate: format(new Date(item.date), "dd/MM/yyyy"),
                 studentName: (item as any).order?.student?.name || 'Siswa',
+                studentClass: (item as any).order?.student?.class || '-',
+                paymentMethod: (item as any).order?.paymentMethod || 'UNKNOWN',
                 vendorId: item.vendorId,
                 vendorName: item.vendorName || 'Vendor Terhapus',      // nama kantin (PAKET)
                 ownerName: ownerMap[item.vendorId] || item.vendorName || 'Vendor', // nama pemilik (CATERING)
