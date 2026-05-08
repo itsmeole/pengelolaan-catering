@@ -42,13 +42,23 @@ export default function AdminReportsPage() {
     if (!data) return
 
     // 1. Summary Sheet
+    // Hitung TF & Cash dari details
+    const grossTF = data.details
+      .filter((d: any) => d.refundStatus !== 'APPROVED' && d.paymentMethod === 'TRANSFER')
+      .reduce((s: number, d: any) => s + (d.total || 0), 0)
+    const grossCash = data.details
+      .filter((d: any) => d.refundStatus !== 'APPROVED' && d.paymentMethod === 'CASH_PAY_LATER')
+      .reduce((s: number, d: any) => s + (d.total || 0), 0)
+
     const summary = [
       ["Laporan Keuangan Catering"],
       ["Periode", `${startDate} s/d ${endDate}`],
       [""],
       ["Total Pesanan", data.summary.totalOrders],
       ["Total Pemasukan (Kotor)", data.summary.grossRevenue],
-      ["Pendapatan Bersih (Admin)", data.summary.netRevenue]
+      ["Pendapatan Bersih (Admin)", data.summary.netRevenue],
+      ["Uang Masuk via Transfer", grossTF],
+      ["Uang Masuk via Cash", grossCash]
     ]
     const wsSummary = XLSX.utils.aoa_to_sheet(summary)
 
@@ -122,9 +132,18 @@ export default function AdminReportsPage() {
     doc.text(`Periode: ${startDate}  s/d  ${endDate}`, pageW / 2, 23, { align: 'center' })
     doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, pageW / 2, 28, { align: 'center' })
 
+    // Hitung TF & Cash dari details
+    const grossTFPdf = data.details
+      .filter((d: any) => d.refundStatus !== 'APPROVED' && d.paymentMethod === 'TRANSFER')
+      .reduce((s: number, d: any) => s + (d.total || 0), 0)
+    const grossCashPdf = data.details
+      .filter((d: any) => d.refundStatus !== 'APPROVED' && d.paymentMethod === 'CASH_PAY_LATER')
+      .reduce((s: number, d: any) => s + (d.total || 0), 0)
+
     // ── Ringkasan angka kecil di atas ─────────────────────────────────
     doc.setFontSize(9)
     doc.text(`Total Pesanan: ${data.summary.totalOrders}  |  Total Pemasukan: ${formatMoney(data.summary.grossRevenue)}  |  Pendapatan Bersih: ${formatMoney(data.summary.netRevenue)}`, pageW / 2, 34, { align: 'center' })
+    doc.text(`Uang Masuk (TF): ${formatMoney(grossTFPdf)}  |  Uang Masuk (Cash): ${formatMoney(grossCashPdf)}`, pageW / 2, 39, { align: 'center' })
 
     // ── BUILD VENDOR SUMMARY ──────────────────────────────────────────
     const DAYS_ID   = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
@@ -191,10 +210,10 @@ export default function AdminReportsPage() {
 
     doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
-    doc.text("Ringkasan Per Vendor", 14, 41)
+    doc.text("Ringkasan Per Vendor", 14, 47)
 
     autoTable(doc, {
-      startY: 44,
+      startY: 50,
       head: summaryHead,
       body: summaryBody,
       headStyles: { fillColor: [22, 101, 52], textColor: 255, fontStyle: 'bold', halign: 'center', fontSize: 8 },
@@ -295,22 +314,42 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Summary Cards */}
-      {data && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Pemasukan</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-green-600">{formatMoney(data.summary.grossRevenue)}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Pendapatan Bersih</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold text-primary">{formatMoney(data.summary.netRevenue)}</div></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Volume Pesanan</CardTitle></CardHeader>
-            <CardContent><div className="text-2xl font-bold">{data.summary.totalOrders} Transaksi</div></CardContent>
-          </Card>
-        </div>
-      )}
+      {data && (() => {
+        const grossTFUi = data.details
+          .filter((d: any) => d.refundStatus !== 'APPROVED' && d.paymentMethod === 'TRANSFER')
+          .reduce((s: number, d: any) => s + (d.total || 0), 0)
+        const grossCashUi = data.details
+          .filter((d: any) => d.refundStatus !== 'APPROVED' && d.paymentMethod === 'CASH_PAY_LATER')
+          .reduce((s: number, d: any) => s + (d.total || 0), 0)
+        return (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <Card className="border-l-4 border-l-green-500">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Pemasukan</CardTitle></CardHeader>
+              <CardContent><div className="text-2xl font-bold text-green-600">{formatMoney(data.summary.grossRevenue)}</div></CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-blue-500">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Pendapatan Bersih</CardTitle></CardHeader>
+              <CardContent><div className="text-2xl font-bold text-primary">{formatMoney(data.summary.netRevenue)}</div></CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-slate-400">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Volume Pesanan</CardTitle></CardHeader>
+              <CardContent><div className="text-2xl font-bold">{data.summary.totalOrders} Transaksi</div></CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-indigo-500">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Uang Masuk (TF)</CardTitle></CardHeader>
+              <CardContent><div className="text-2xl font-bold text-indigo-600">{formatMoney(grossTFUi)}</div>
+                <p className="text-xs text-slate-400 mt-1">Via Transfer Bank</p>
+              </CardContent>
+            </Card>
+            <Card className="border-l-4 border-l-orange-500">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Uang Masuk (Cash)</CardTitle></CardHeader>
+              <CardContent><div className="text-2xl font-bold text-orange-600">{formatMoney(grossCashUi)}</div>
+                <p className="text-xs text-slate-400 mt-1">Via Bayar di Sekolah</p>
+              </CardContent>
+            </Card>
+          </div>
+        )
+      })()}
 
       {/* Chart */}
       {data && (

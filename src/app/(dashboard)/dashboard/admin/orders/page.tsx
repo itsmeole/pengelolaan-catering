@@ -903,10 +903,10 @@ export default function AdminOrdersPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selectedOrderForDetail} onOpenChange={(open) => !open && setSelectedOrderForDetail(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl w-[95vw] overflow-y-auto overflow-x-hidden max-h-[90vh] [&>button]:hidden">
           <DialogHeader>
-            <DialogTitle className="flex justify-between items-center pr-8">
-              <span>Detail Transaksi #{selectedOrderForDetail?.id.slice(-8).toUpperCase()}</span>
+            <DialogTitle className="flex justify-between items-center">
+              <span className="text-base font-bold">Detail Transaksi #{selectedOrderForDetail?.id.slice(-8).toUpperCase()}</span>
               {selectedOrderForDetail && (
                 <Badge variant={selectedOrderForDetail.status === 'PAID' ? 'default' : 'secondary'}>
                     {selectedOrderForDetail.status}
@@ -917,7 +917,7 @@ export default function AdminOrdersPage() {
           
           {selectedOrderForDetail && (
             <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <div>
                         <Label className="text-[10px] uppercase font-bold text-slate-500">Pemesan</Label>
                         <p className="font-bold text-slate-900">{selectedOrderForDetail.student?.name}</p>
@@ -932,7 +932,7 @@ export default function AdminOrdersPage() {
 
                 <div className="space-y-3">
                     <Label className="text-xs font-bold uppercase text-blue-600">Rincian Menu</Label>
-                    <div className="border rounded-xl overflow-hidden shadow-sm">
+                    <div className="border rounded-xl overflow-hidden shadow-sm overflow-x-auto">
                         <Table>
                             <TableHeader className="bg-slate-50">
                                 <TableRow>
@@ -940,7 +940,7 @@ export default function AdminOrdersPage() {
                                     <TableHead className="text-[10px]">Item</TableHead>
                                     <TableHead className="text-[10px] text-center">Qty</TableHead>
                                     <TableHead className="text-[10px] text-right">Harga</TableHead>
-                                    <TableHead className="text-[10px] text-right">Total</TableHead>
+                                    <TableHead className="text-[10px] text-right hidden sm:table-cell">Total</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -955,7 +955,7 @@ export default function AdminOrdersPage() {
                                         </TableCell>
                                         <TableCell className="text-center text-xs font-bold">{item.quantity}</TableCell>
                                         <TableCell className="text-right text-xs">Rp {(item.price + item.adminFee).toLocaleString()}</TableCell>
-                                        <TableCell className="text-right text-xs font-bold">Rp {((item.price + item.adminFee) * item.quantity).toLocaleString()}</TableCell>
+                                        <TableCell className="text-right text-xs font-bold hidden sm:table-cell">Rp {((item.price + item.adminFee) * item.quantity).toLocaleString()}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -969,6 +969,14 @@ export default function AdminOrdersPage() {
                         <p className="text-2xl font-black text-blue-600">Rp {selectedOrderForDetail.totalAmount.toLocaleString()}</p>
                     </div>
                 </div>
+
+                {/* Admin Note */}
+                {selectedOrderForDetail.adminNote && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
+                        <p className="text-[10px] font-bold uppercase text-amber-600 tracking-wider">Catatan untuk Admin</p>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedOrderForDetail.adminNote}</p>
+                    </div>
+                )}
             </div>
           )}
           <DialogFooter>

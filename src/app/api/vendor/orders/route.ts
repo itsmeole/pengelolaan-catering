@@ -29,13 +29,14 @@ export async function GET() {
             .select(`
                 *,
                 order:"Order"!inner(
-                    id, status, paymentMethod, studentId,
+                    id, status, paymentMethod, studentId, createdAt,
                     student:profiles!studentId(name, class)
                 )
             `)
             .eq('vendorId', user.id)
             .or('status.in.("PAID","COMPLETED"),and(status.eq.PENDING,paymentMethod.eq.CASH_PAY_LATER)', { foreignTable: 'order' })
             .order('date', { ascending: true })
+            .order('createdAt', { ascending: false, foreignTable: 'order' })
 
         if (error) throw error
 

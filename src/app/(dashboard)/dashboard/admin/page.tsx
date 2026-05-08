@@ -72,31 +72,37 @@ export default function AdminDashboard() {
 
                 <Card className="border-l-4 border-l-orange-500 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500">Uang Masuk (Kotor)</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-500">Keseluruhan Uang Masuk (Kotor)</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
                             <DollarSign className="h-4 w-4" />
                         </div>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-slate-800">{formatCurrency(stats.revenue.gross)}</div>
-                        <p className="text-xs text-slate-400 mt-1">
-                            Perlu verifikasi: {stats.unverifiedCount || 0}
-                        </p>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <p className="text-xs text-slate-400">Pendapatan Bersih</p>
+                            <p className="text-sm font-bold text-green-600">{formatCurrency(stats.revenue.net)}</p>
+                        </div>
                     </CardContent>
                 </Card>
 
                 <Card className="border-l-4 border-l-green-500 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500">Pendapatan Bersih</CardTitle>
+                        <CardTitle className="text-sm font-medium text-slate-500">Keseluruhan Rincian Metode Bayar</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-green-50 flex items-center justify-center text-green-600">
-                            <TrendingUp className="h-4 w-4" />
+                            <CreditCard className="h-4 w-4" />
                         </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-slate-800">{formatCurrency(stats.revenue.net)}</div>
-                        <p className="text-xs text-slate-400 mt-1">
-                            Akumulasi seluruh akun
-                        </p>
+                    <CardContent className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs text-slate-500">Uang Masuk (TF)</p>
+                            <p className="text-sm font-bold text-blue-600">{formatCurrency(stats.revenue.grossTF || 0)}</p>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs text-slate-500">Uang Masuk (Cash)</p>
+                            <p className="text-sm font-bold text-orange-600">{formatCurrency(stats.revenue.grossCash || 0)}</p>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">Berdasarkan metode pembayaran</p>
                     </CardContent>
                 </Card>
                 {/* System Status Integration */}

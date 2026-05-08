@@ -52,6 +52,15 @@ export default function VendorOrdersPage() {
       return isWithinInterval(itemDate, { start: nextWeekStart, end: nextWeekEnd })
     }
     return true
+  }).sort((a, b) => {
+    // Sort utama: tanggal antar ascending
+    const dateA = new Date(a.date).getTime()
+    const dateB = new Date(b.date).getTime()
+    if (dateA !== dateB) return dateA - dateB
+    // Sort sekunder: waktu order descending (terbaru di atas)
+    const createdA = new Date(a.order?.createdAt || 0).getTime()
+    const createdB = new Date(b.order?.createdAt || 0).getTime()
+    return createdB - createdA
   })
 
   // Get unique dates from filtered items

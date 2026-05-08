@@ -89,6 +89,14 @@ export async function GET() {
         const grossRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0) || 0
         const netRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.adminFee || 0) * curr.quantity), 0) || 0
 
+        const grossTF = paidItems
+            .filter(item => (item as any).order?.paymentMethod === 'TRANSFER')
+            .reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0)
+        
+        const grossCash = paidItems
+            .filter(item => (item as any).order?.paymentMethod === 'CASH_PAY_LATER')
+            .reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0)
+
         // 6. Recent Activity
         const { data: recentOrders } = await supabase
             .from('Order')
@@ -110,7 +118,7 @@ export async function GET() {
 
         return NextResponse.json({
             weeklyOrders: { count: totalItemsWeekly, trend: 0 },
-            revenue: { gross: grossRevenue, net: netRevenue, trend: 0 },
+            revenue: { gross: grossRevenue, net: netRevenue, grossTF, grossCash, trend: 0 },
             unverifiedCount: unverifiedCount || 0,
             recentActivity: recentActivity,
             topWeeklyMenus: topWeeklyMenus

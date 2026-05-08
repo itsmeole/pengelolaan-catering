@@ -32,6 +32,7 @@ export default function InstantOrderPage() {
     const [orderWeek, setOrderWeek] = useState<'THIS_WEEK' | 'NEXT_WEEK'>('THIS_WEEK')
     const [deadlineInfo, setDeadlineInfo] = useState("20:00")
     const [systemConfig, setSystemConfig] = useState<any>(null)
+    const [adminNote, setAdminNote] = useState("")
 
     // Fetch Menus and Admin Fee on Load
     useEffect(() => {
@@ -170,7 +171,8 @@ export default function InstantOrderPage() {
                     orderWeek,
                     items,
                     paymentMethod,
-                    proofImage
+                    proofImage,
+                    adminNote: adminNote.trim() || null
                 })
             })
             
@@ -324,16 +326,33 @@ export default function InstantOrderPage() {
                         )}
 
                         {step === 2 && (
-                            <div className="space-y-12">
-                                <Tabs value={orderWeek} onValueChange={(v) => {
-                                    setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')
-                                    setSelectedMenus({}) // Reset cart when switching weeks
-                                }} className="w-full">
-                                    <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-                                        <TabsTrigger value="THIS_WEEK">Untuk Minggu Ini</TabsTrigger>
-                                        <TabsTrigger value="NEXT_WEEK">Untuk Minggu Depan</TabsTrigger>
-                                    </TabsList>
-                                </Tabs>
+                            <div className="space-y-10">
+                                {/* Week toggle — styled like payment method */}
+                                <div className="space-y-2 max-w-md mx-auto">
+                                    <p className="text-sm font-semibold text-slate-600 text-center">Pilih Minggu Pemesanan</p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div
+                                            onClick={() => { setOrderWeek('THIS_WEEK'); setSelectedMenus({}); }}
+                                            className={`cursor-pointer p-4 border-2 rounded-xl transition-all text-center ${
+                                                orderWeek === 'THIS_WEEK'
+                                                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20'
+                                                    : 'border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <p className="font-bold text-sm">Untuk Minggu Ini</p>
+                                        </div>
+                                        <div
+                                            onClick={() => { setOrderWeek('NEXT_WEEK'); setSelectedMenus({}); }}
+                                            className={`cursor-pointer p-4 border-2 rounded-xl transition-all text-center ${
+                                                orderWeek === 'NEXT_WEEK'
+                                                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20'
+                                                    : 'border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <p className="font-bold text-sm">Untuk Minggu Depan</p>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 {["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
                                     .map(day => {
@@ -441,13 +460,13 @@ export default function InstantOrderPage() {
                                             onClick={() => setPaymentMethod("CASH_PAY_LATER")}
                                             className={`cursor-pointer p-4 border-2 rounded-xl transition-all ${paymentMethod === 'CASH_PAY_LATER' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20' : 'border-slate-100'}`}
                                         >
-                                            <p className="font-bold text-center">Bayar di Sekolah</p>
+                                            <p className="font-bold text-center text-sm">Bayar di Sekolah</p>
                                         </div>
                                         <div 
                                             onClick={() => setPaymentMethod("TRANSFER")}
                                             className={`cursor-pointer p-4 border-2 rounded-xl transition-all ${paymentMethod === 'TRANSFER' ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20' : 'border-slate-100'}`}
                                         >
-                                            <p className="font-bold text-center">Transfer Bank</p>
+                                            <p className="font-bold text-center text-sm">Transfer Bank</p>
                                         </div>
                                     </div>
                                 </div>
@@ -456,7 +475,7 @@ export default function InstantOrderPage() {
                                     <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-300">
                                         <div className="space-y-1">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tujuan Transfer</p>
-                                            <p className="font-bold text-lg text-slate-900">BANK BRI -  1249 0100 4332 503</p>
+                                            <p className="font-bold text-l text-slate-900">BANK BRI -  1249 0100 4332 503</p>
                                             <p className="text-sm font-semibold text-slate-600">A/N TAMA MUHAWA</p>
                                         </div>
                                         <Separator />
@@ -470,7 +489,7 @@ export default function InstantOrderPage() {
                                                     </div>
                                                 ) : (
                                                     <div className="space-y-2">
-                                                        <p className="text-sm text-slate-500">Klik untuk pilih gambar bukti bayar</p>
+                                                        <p className="text-xs text-slate-500">Klik untuk pilih gambar bukti bayar</p>
                                                         <Input 
                                                             type="file" accept="image/*" 
                                                             onChange={async (e) => {
@@ -495,15 +514,37 @@ export default function InstantOrderPage() {
 
                                 <div className="bg-blue-600 text-white p-6 rounded-xl space-y-4 shadow-lg shadow-blue-200">
                                     <h4 className="font-bold text-center opacity-90">Ringkasan Pesanan</h4>
+                                    {/* Nama & Kelas siswa di dalam kotak ringkasan */}
+                                    {selectedStudent && (
+                                        <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
+                                            <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                                {selectedStudent.name?.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold leading-tight">{selectedStudent.name}</p>
+                                                <p className="text-[10px] opacity-75">Kelas {selectedStudent.class}</p>
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         {Object.entries(selectedMenus)
                                             .filter(([_, qty]) => Number(qty) > 0)
                                             .map(([menuId, qty]) => {
                                             const menu = menus.find(m => m.id === menuId)
+                                            // Cari tanggal antar dari availableDays menu
+                                            const dayName = menu?.availableDays?.[0]
+                                            const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6, Minggu: 0 }
+                                            const deliveryDate = dayName ? getDeliveryDate(dayName, orderWeek) : null
+                                            const deliveryStr = deliveryDate
+                                                ? deliveryDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })
+                                                : null
                                             return (
-                                                <div key={menuId} className="flex justify-between text-sm">
-                                                    <span>{menu?.name} (x{qty})</span>
-                                                    <span className="font-bold">Rp {((menu?.price + adminFee) * Number(qty)).toLocaleString("id-ID")}</span>
+                                                <div key={menuId} className="flex justify-between text-xs">
+                                                    <div>
+                                                        <span>{menu?.name} (x{qty})</span>
+                                                        {deliveryStr && <p className="text-[10px] opacity-70 mt-0.5">Antar: {deliveryStr}</p>}
+                                                    </div>
+                                                    <span className="font-bold shrink-0 ml-2">Rp {((menu?.price + adminFee) * Number(qty)).toLocaleString("id-ID")}</span>
                                                 </div>
                                             )
                                         })}
@@ -513,6 +554,22 @@ export default function InstantOrderPage() {
                                         <p className="font-bold text-lg">Total Bayar</p>
                                         <p className="text-lg font-extrabold">Rp {totalAmount.toLocaleString("id-ID")}</p>
                                     </div>
+                                </div>
+
+                                {/* Catatan untuk Admin — opsional, setelah ringkasan */}
+                                <div className="space-y-2">
+                                    <label className="font-semibold text-slate-700 flex items-center gap-2 text-sm">
+                                        <MessageSquare className="h-4 w-4" />
+                                        Catatan untuk Admin
+                                        <span className="text-xs font-normal text-slate-400">(opsional)</span>
+                                    </label>
+                                    <textarea
+                                        value={adminNote}
+                                        onChange={(e) => setAdminNote(e.target.value)}
+                                        placeholder="Contoh: alergi tertentu, permintaan khusus, dll."
+                                        rows={3}
+                                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                    />
                                 </div>
                             </div>
                         )}

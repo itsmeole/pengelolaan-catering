@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json()
-        const { studentId, phone, items, paymentMethod, proofImage, orderWeek } = body
+        const { studentId, phone, items, paymentMethod, proofImage, orderWeek, adminNote } = body
 
         if (!studentId || !items || items.length === 0) {
             return NextResponse.json({ error: "Data tidak lengkap" }, { status: 400 })
@@ -230,7 +230,8 @@ export async function POST(req: Request) {
                 paymentMethod,
                 proofImage: proofImage || null,
                 status: 'PENDING',
-                transferDate: paymentMethod === 'TRANSFER' ? new Date().toISOString() : null
+                transferDate: paymentMethod === 'TRANSFER' ? new Date().toISOString() : null,
+                adminNote: adminNote || null
             })
             .select()
             .single()
