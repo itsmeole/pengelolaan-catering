@@ -46,6 +46,8 @@ export default function AdminOrdersPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [filterStatus, setFilterStatus] = useState("ALL")
   const [filterPayment, setFilterPayment] = useState("ALL")
+  const [filterDateFrom, setFilterDateFrom] = useState("")
+  const [filterDateTo, setFilterDateTo] = useState("")
   const [selectedProof, setSelectedProof] = useState<string | null>(null)
   const [adminFee, setAdminFee] = useState<number>(1000)
   const [searchName, setSearchName] = useState("")
@@ -350,6 +352,18 @@ export default function AdminOrdersPage() {
       const kelas = (order.student?.class || "").toLowerCase()
       if (!name.includes(q) && !kelas.includes(q)) return false;
     }
+    if (filterDateFrom) {
+      const orderDate = new Date(order.createdAt)
+      const from = new Date(filterDateFrom)
+      from.setHours(0, 0, 0, 0)
+      if (orderDate < from) return false;
+    }
+    if (filterDateTo) {
+      const orderDate = new Date(order.createdAt)
+      const to = new Date(filterDateTo)
+      to.setHours(23, 59, 59, 999)
+      if (orderDate > to) return false;
+    }
     return true;
   })
 
@@ -359,7 +373,7 @@ export default function AdminOrdersPage() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [filterStatus, filterPayment, searchName])
+  }, [filterStatus, filterPayment, searchName, filterDateFrom, filterDateTo])
 
   return (
     <div className="space-y-6">
@@ -668,15 +682,48 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Cari nama siswa atau kelas..."
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
-          className="pl-9 h-10 bg-white"
-        />
+      {/* Search Bar + Date Filter */}
+      <div className="space-y-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="Cari nama siswa atau kelas..."
+            value={searchName}
+            onChange={(e) => setSearchName(e.target.value)}
+            className="pl-9 h-10 bg-white"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 bg-white border rounded-lg px-3 py-2">
+          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Filter Tanggal Order:</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400">Dari</span>
+              <Input
+                type="date"
+                value={filterDateFrom}
+                onChange={e => setFilterDateFrom(e.target.value)}
+                className="h-8 text-xs w-[135px] bg-slate-50"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-400">Sampai</span>
+              <Input
+                type="date"
+                value={filterDateTo}
+                onChange={e => setFilterDateTo(e.target.value)}
+                className="h-8 text-xs w-[135px] bg-slate-50"
+              />
+            </div>
+            {(filterDateFrom || filterDateTo) && (
+              <button
+                onClick={() => { setFilterDateFrom(""); setFilterDateTo("") }}
+                className="text-xs text-red-500 hover:text-red-700 underline"
+              >
+                Reset Tanggal
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="border rounded-md">
@@ -903,7 +950,7 @@ export default function AdminOrdersPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selectedOrderForDetail} onOpenChange={(open) => !open && setSelectedOrderForDetail(null)}>
-        <DialogContent className="max-w-3xl w-[95vw] overflow-y-auto overflow-x-hidden max-h-[90vh] [&>button]:hidden">
+        <DialogContent className="max-w-3xl w-[95vw] overflow-y-auto max-h-[90vh] [&>button]:hidden">
           <DialogHeader>
             <DialogTitle className="flex justify-between items-center">
               <span className="text-base font-bold">Detail Transaksi #{selectedOrderForDetail?.id.slice(-8).toUpperCase()}</span>
@@ -926,7 +973,7 @@ export default function AdminOrdersPage() {
                     <div>
                         <Label className="text-[10px] uppercase font-bold text-slate-500">Metode Pembayaran</Label>
                         <p className="font-bold text-slate-900">{selectedOrderForDetail.paymentMethod === 'TRANSFER' ? 'Transfer Bank' : 'Bayar di Sekolah'}</p>
-                        <p className="text-xs text-slate-600">Waktu Order: {format(new Date(selectedOrderForDetail.createdAt), "dd MMM yyyy HH:mm")}</p>
+                        <p className="text-xs text-slate-600">Waktu Order: {new Date(selectedOrderForDetail.createdAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}</p>
                     </div>
                 </div>
 
