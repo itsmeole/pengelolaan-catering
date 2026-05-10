@@ -117,7 +117,7 @@ export default function LoginPage() {
                         rel="noreferrer"
                         className="text-primary font-bold hover:underline"
                     >
-                        Hubungi Admin untuk Daftar
+                        Hubungi Admin
                     </a>
                 </div>
             </CardFooter>

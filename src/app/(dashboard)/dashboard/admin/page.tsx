@@ -67,6 +67,10 @@ export default function AdminDashboard() {
                         <p className="text-xs text-slate-400 font-medium mt-1">
                             Akumulasi porsi mingguan
                         </p>
+                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                            <p className="text-xs text-slate-400">Jumlah Siswa Pemesan</p>
+                            <p className="text-sm font-bold text-blue-600">{stats.weeklyOrders.uniqueStudents ?? '-'} siswa</p>
+                        </div>
                     </CardContent>
                 </Card>
 

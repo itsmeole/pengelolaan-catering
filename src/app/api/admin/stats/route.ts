@@ -29,7 +29,7 @@ export async function GET() {
         // 2. Fetch OrderItems for Today + 7 Days (Aggregating Top 5)
         const { data: futureItems, error: itemsError } = await supabase
             .from('OrderItem')
-            .select('menuId, menuName, vendorName, quantity')
+            .select('menuId, menuName, vendorName, quantity, order:Order!inner(studentId)')
             .gte('date', today.toISOString())
             .lte('date', sevenDaysLater.toISOString())
             .neq('cancelStatus', 'APPROVED')
@@ -61,6 +61,9 @@ export async function GET() {
         }
 
         const totalItemsWeekly = futureItems?.reduce((acc, curr) => acc + (curr.quantity || 1), 0) || 0
+        const uniqueStudentsWeekly = new Set(
+            (futureItems || []).map(i => (i.order as any)?.studentId).filter(Boolean)
+        ).size
 
         // 4. Calculate Unverified Orders (PENDING)
         const { count: unverifiedCount } = await supabase
@@ -117,7 +120,7 @@ export async function GET() {
         }))
 
         return NextResponse.json({
-            weeklyOrders: { count: totalItemsWeekly, trend: 0 },
+            weeklyOrders: { count: totalItemsWeekly, uniqueStudents: uniqueStudentsWeekly, trend: 0 },
             revenue: { gross: grossRevenue, net: netRevenue, grossTF, grossCash, trend: 0 },
             unverifiedCount: unverifiedCount || 0,
             recentActivity: recentActivity,
