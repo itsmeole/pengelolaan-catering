@@ -42,7 +42,7 @@ export async function GET(req: Request) {
         // This week (Monday to Sunday)
         const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 }).toISOString()
         const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 }).toISOString()
-        
+
         // Next week (Monday to Sunday)
         const nextWeek = addWeeks(now, 1)
         const nextWeekStart = startOfWeek(nextWeek, { weekStartsOn: 1 }).toISOString()
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
             `)
             .eq('vendorId', vendorId)
             .gte('date', fetchStart)
-        
+
         if (itemsErr) throw itemsErr
 
         // ── All-time net revenue (keseluruhan, tanpa batas tanggal) ──────────
@@ -77,18 +77,18 @@ export async function GET(req: Request) {
         const allTimeNetRevenue = (allTimeItems || []).reduce((sum: number, i: any) => {
             return sum + (i.price * (i.quantity || 1))
         }, 0)
-        
+
         const validItems = (orderItems || []).filter((item: any) => {
             const status = item.Order?.status
             const method = item.Order?.paymentMethod
             const cStatus = item.cancelStatus || 'NONE'
-            
+
             // Kecualikan yang sudah DISETUJUI batal
             if (cStatus === 'APPROVED') return false
 
             // Masuk daftar masak jika: Sudah Lunas/Selesai OR (Pending tapi Pay Later)
-            return status === 'PAID' || status === 'COMPLETED' || 
-                   (status === 'PENDING' && method === 'CASH_PAY_LATER')
+            return status === 'PAID' || status === 'COMPLETED' ||
+                (status === 'PENDING' && method === 'CASH_PAY_LATER')
         })
 
         let tomorrowCount = 0
@@ -96,7 +96,7 @@ export async function GET(req: Request) {
         let weeklyCount = 0
         let totalRevenue = 0
         const cookingMap: Record<string, { name: string, qty: number, notes: string[] }> = {}
-        
+
         // Setup Chart Data (Last 7 Days)
         const chartDataMap: Record<string, number> = {}
         for (let i = 6; i >= 0; i--) {
@@ -126,7 +126,7 @@ export async function GET(req: Request) {
                     cookingMap[mId] = { name: item.menuName || 'Menu Terhapus', qty: 0, notes: [] }
                 }
                 cookingMap[mId].qty += item.quantity || 1
-                
+
                 if (item.note && item.note.trim() !== "") {
                     cookingMap[mId].notes.push(item.note)
                 }
@@ -134,7 +134,7 @@ export async function GET(req: Request) {
         })
 
         const cookingList = Object.values(cookingMap)
-        
+
         const chartData = Object.keys(chartDataMap).map(key => ({
             name: key,
             total: chartDataMap[key]

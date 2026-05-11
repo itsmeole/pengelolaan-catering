@@ -40,6 +40,20 @@ import {
 } from "@/components/ui/dialog"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 
+// Helper: konversi UTC timestamp ke WIB (UTC+7) secara manual
+// Tidak bergantung pada timezone browser/OS — 100% reliable
+function formatWIB(isoString: string) {
+  const WIB_OFFSET = 7 * 60 * 60 * 1000
+  const wib = new Date(new Date(isoString).getTime() + WIB_OFFSET)
+  const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']
+  const d = String(wib.getUTCDate()).padStart(2, '0')
+  const m = MONTHS[wib.getUTCMonth()]
+  const y = wib.getUTCFullYear()
+  const h = String(wib.getUTCHours()).padStart(2, '0')
+  const min = String(wib.getUTCMinutes()).padStart(2, '0')
+  return `${d} ${m} ${y}, ${h}:${min} WIB`
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -910,28 +924,24 @@ export default function AdminOrdersPage() {
                 Prev
             </Button>
             <div className="flex items-center gap-1 mx-2">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    // Simple page numbers logic
-                    let pageNum = i + 1;
-                    if (totalPages > 5 && currentPage > 3) {
-                        pageNum = currentPage - 2 + i;
-                        if (pageNum > totalPages) pageNum = totalPages - (4 - i);
-                    }
-                    if (pageNum <= 0) return null;
-                    if (pageNum > totalPages) return null;
-
-                    return (
-                        <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={cn("h-9 w-9 p-0", currentPage === pageNum ? "bg-blue-600" : "")}
-                        >
-                            {pageNum}
-                        </Button>
-                    );
-                })}
+                {(() => {
+                    // Compute unique page range: clamp start/end so no duplicates
+                    const maxShow = 5
+                    let start = Math.max(1, currentPage - Math.floor(maxShow / 2))
+                    let end = start + maxShow - 1
+                    if (end > totalPages) { end = totalPages; start = Math.max(1, end - maxShow + 1) }
+                    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+                })().map(pageNum => (
+                    <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={cn("h-9 w-9 p-0", currentPage === pageNum ? "bg-blue-600" : "")}
+                    >
+                        {pageNum}
+                    </Button>
+                ))}
             </div>
             <Button 
                 variant="outline" size="sm" 
@@ -973,7 +983,7 @@ export default function AdminOrdersPage() {
                     <div>
                         <Label className="text-[10px] uppercase font-bold text-slate-500">Metode Pembayaran</Label>
                         <p className="font-bold text-slate-900">{selectedOrderForDetail.paymentMethod === 'TRANSFER' ? 'Transfer Bank' : 'Bayar di Sekolah'}</p>
-                        <p className="text-xs text-slate-600">Waktu Order: {new Date(selectedOrderForDetail.createdAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}</p>
+                        <p className="text-xs text-slate-600">Waktu Order: {formatWIB(selectedOrderForDetail.createdAt)}</p>
                     </div>
                 </div>
 
