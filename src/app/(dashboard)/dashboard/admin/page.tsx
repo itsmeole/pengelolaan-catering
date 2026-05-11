@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { DollarSign, ShoppingBag, TrendingUp, Users, CreditCard, Activity } from "lucide-react"
-import { format } from "date-fns"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DollarSign, ShoppingBag, TrendingUp, CreditCard, Plus, Pencil, Trash2, Check, X, StickyNote } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { SystemStatus } from "@/components/dashboard/system-status"
+import { toast } from "sonner"
 import {
     Table,
     TableBody,
@@ -18,21 +18,201 @@ import {
     TableRow,
 } from "@/components/ui/table"
 
+const WIB_MONTHS_SHORT: Record<string,string> = {
+  January:'Jan', February:'Feb', March:'Mar', April:'Apr', May:'Mei',
+  June:'Jun', July:'Jul', August:'Ags', September:'Sep',
+  October:'Okt', November:'Nov', December:'Des'
+}
+function formatWIBShort(isoString: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit', month: 'long',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(new Date(isoString))
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? ''
+  const month = WIB_MONTHS_SHORT[get('month')] ?? get('month')
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('day')} ${month}, ${hour}:${get('minute')}`
+}
+
+// ── Catatan Pribadi Widget ──────────────────────────────────────────────────
+function PersonalNotes() {
+    const [notes, setNotes] = useState<any[]>([])
+    const [newText, setNewText] = useState("")
+    const [adding, setAdding] = useState(false)
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const [editText, setEditText] = useState("")
+    const [saving, setSaving] = useState(false)
+    const inputRef = useRef<HTMLTextAreaElement>(null)
+
+    useEffect(() => { fetchNotes() }, [])
+
+    async function fetchNotes() {
+        try {
+            const res = await fetch("/api/admin/notes")
+            if (res.ok) setNotes(await res.json())
+        } catch {}
+    }
+
+    async function handleAdd() {
+        if (!newText.trim()) return
+        setSaving(true)
+        try {
+            const res = await fetch("/api/admin/notes", {
+                method: "POST",
+                body: JSON.stringify({ content: newText })
+            })
+            if (res.ok) {
+                setNewText("")
+                setAdding(false)
+                fetchNotes()
+            } else {
+                toast.error("Gagal menyimpan catatan")
+            }
+        } finally { setSaving(false) }
+    }
+
+    async function handleEdit(id: string) {
+        if (!editText.trim()) return
+        setSaving(true)
+        try {
+            const res = await fetch(`/api/admin/notes/${id}`, {
+                method: "PUT",
+                body: JSON.stringify({ content: editText })
+            })
+            if (res.ok) {
+                setEditingId(null)
+                fetchNotes()
+            } else {
+                toast.error("Gagal mengupdate catatan")
+            }
+        } finally { setSaving(false) }
+    }
+
+    async function handleDelete(id: string) {
+        try {
+            const res = await fetch(`/api/admin/notes/${id}`, { method: "DELETE" })
+            if (res.ok) fetchNotes()
+            else toast.error("Gagal menghapus catatan")
+        } catch {}
+    }
+
+    function startEdit(note: any) {
+        setEditingId(note.id)
+        setEditText(note.content)
+        setAdding(false)
+    }
+
+    return (
+        <Card className="shadow-sm border-none bg-amber-50/60 flex flex-col h-full">
+            <CardHeader className="flex flex-row items-center justify-between px-5 pt-5 pb-3">
+                <div className="flex items-center gap-2">
+                    <StickyNote className="h-4 w-4 text-amber-500" />
+                    <CardTitle className="text-sm font-bold text-slate-700">Catatan Pribadi</CardTitle>
+                </div>
+                {!adding && (
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-700"
+                        onClick={() => { setAdding(true); setEditingId(null); setTimeout(() => inputRef.current?.focus(), 50) }}
+                    >
+                        <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                )}
+            </CardHeader>
+
+            <CardContent className="px-4 pb-4 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[340px]">
+                {/* Add form */}
+                {adding && (
+                    <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-2 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                        <textarea
+                            ref={inputRef}
+                            value={newText}
+                            onChange={e => setNewText(e.target.value)}
+                            placeholder="Tulis catatan..."
+                            rows={3}
+                            className="w-full text-xs text-slate-700 resize-none bg-transparent focus:outline-none placeholder:text-slate-400"
+                            onKeyDown={e => { if (e.key === 'Enter' && e.ctrlKey) handleAdd() }}
+                        />
+                        <div className="flex gap-1.5 justify-end">
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-slate-500"
+                                onClick={() => { setAdding(false); setNewText("") }}>
+                                <X className="h-3 w-3 mr-1" /> Batal
+                            </Button>
+                            <Button size="sm" className="h-6 px-2 text-xs bg-amber-500 hover:bg-amber-600"
+                                onClick={handleAdd} disabled={saving || !newText.trim()}>
+                                <Check className="h-3 w-3 mr-1" /> Simpan
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Notes list */}
+                {notes.length === 0 && !adding ? (
+                    <div className="flex flex-col items-center justify-center flex-1 py-8 text-center text-slate-400">
+                        <StickyNote className="h-8 w-8 mb-2 opacity-30" />
+                        <p className="text-xs">Belum ada catatan.<br />Klik + untuk mulai menulis.</p>
+                    </div>
+                ) : (
+                    notes.map(note => (
+                        <div key={note.id} className="group bg-white border border-amber-100 rounded-xl p-3 shadow-sm relative hover:shadow-md transition-shadow">
+                            {editingId === note.id ? (
+                                <div className="space-y-2">
+                                    <textarea
+                                        value={editText}
+                                        onChange={e => setEditText(e.target.value)}
+                                        rows={3}
+                                        autoFocus
+                                        className="w-full text-xs text-slate-700 resize-none bg-transparent focus:outline-none"
+                                        onKeyDown={e => { if (e.key === 'Escape') setEditingId(null) }}
+                                    />
+                                    <div className="flex gap-1.5 justify-end">
+                                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs text-slate-500"
+                                            onClick={() => setEditingId(null)}>
+                                            <X className="h-3 w-3 mr-1" /> Batal
+                                        </Button>
+                                        <Button size="sm" className="h-6 px-2 text-xs bg-amber-500 hover:bg-amber-600"
+                                            onClick={() => handleEdit(note.id)} disabled={saving}>
+                                            <Check className="h-3 w-3 mr-1" /> Simpan
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed pr-12">{note.content}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1.5">{formatWIBShort(note.updatedAt)}</p>
+                                    <div className="absolute top-2.5 right-2.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => startEdit(note)}
+                                            className="p-1 rounded-md hover:bg-amber-50 text-slate-400 hover:text-amber-600 transition-colors">
+                                            <Pencil className="h-3 w-3" />
+                                        </button>
+                                        <button onClick={() => handleDelete(note.id)}
+                                            className="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                                            <Trash2 className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    ))
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
+// ── Main Dashboard ──────────────────────────────────────────────────────────
 export default function AdminDashboard() {
     const [stats, setStats] = useState<any>(null)
     const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
-        fetchStats()
-    }, [])
+    useEffect(() => { fetchStats() }, [])
 
     async function fetchStats() {
         try {
             const res = await fetch("/api/admin/stats")
-            if (res.ok) {
-                const data = await res.json()
-                setStats(data)
-            }
+            if (res.ok) setStats(await res.json())
         } catch (e) {
             console.error(e)
         } finally {
@@ -41,7 +221,6 @@ export default function AdminDashboard() {
     }
 
     if (loading) return <div className="p-8">Loading dashboard...</div>
-
     if (!stats) return <div className="p-8 text-red-500">Gagal memuat data statistik.</div>
 
     const formatCurrency = (val: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(val)
@@ -50,10 +229,9 @@ export default function AdminDashboard() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold tracking-tight text-slate-800">Ringkasan Sistem</h2>
-                {/* Placeholder Notification Icon */}
             </div>
 
-            {/* Stats Cards - Colorful Borders */}
+            {/* Stats Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card className="border-l-4 border-l-blue-500 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -64,9 +242,7 @@ export default function AdminDashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-slate-800">{stats.weeklyOrders.count}</div>
-                        <p className="text-xs text-slate-400 font-medium mt-1">
-                            Akumulasi porsi mingguan
-                        </p>
+                        <p className="text-xs text-slate-400 font-medium mt-1">Akumulasi porsi mingguan</p>
                         <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
                             <p className="text-xs text-slate-400">Jumlah Siswa Pemesan</p>
                             <p className="text-sm font-bold text-blue-600">{stats.weeklyOrders.uniqueStudents ?? '-'} siswa</p>
@@ -109,15 +285,18 @@ export default function AdminDashboard() {
                         <p className="text-[10px] text-slate-400 mt-1">Berdasarkan metode pembayaran</p>
                     </CardContent>
                 </Card>
-                {/* System Status Integration */}
+
                 <SystemStatus />
             </div>
 
-            {/* Split Content: Activity & Menu Preview */}
-            <div className="grid gap-6 md:grid-cols-3">
+            {/* Bottom Section: Notes | Activity (2 cols) | Top 5 */}
+            <div className="grid gap-6 lg:grid-cols-4">
 
-                {/* Activity Feed (2/3 width) */}
-                <Card className="md:col-span-2 shadow-sm border-none">
+                {/* Catatan Pribadi — 1 col */}
+                <PersonalNotes />
+
+                {/* Activity Feed — 2 cols */}
+                <Card className="lg:col-span-2 shadow-sm border-none">
                     <CardHeader className="flex flex-row items-center justify-between bg-transparent px-6 pt-6 pb-2">
                         <CardTitle className="text-lg font-bold text-slate-800">Aktivitas Terbaru</CardTitle>
                         <Link href="/dashboard/admin/orders" className="text-blue-600 text-sm font-medium hover:underline">Lihat Semua</Link>
@@ -149,8 +328,8 @@ export default function AdminDashboard() {
                                                 : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
                                         )}
                                     >
-                                        {activity.status === 'PAID' || activity.status === 'COMPLETED' ? 'Lunas' 
-                                        : activity.status === 'CANCELLED' ? 'Dibatalkan' 
+                                        {activity.status === 'PAID' || activity.status === 'COMPLETED' ? 'Lunas'
+                                        : activity.status === 'CANCELLED' ? 'Dibatalkan'
                                         : 'Menunggu'}
                                     </Badge>
                                 </div>
@@ -159,6 +338,7 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
 
+                {/* Top 5 Menu — 1 col */}
                 <Card className="shadow-sm border-none bg-white">
                     <CardHeader className="flex flex-row items-center justify-between px-6 pt-6 pb-2">
                         <CardTitle className="text-sm font-bold text-slate-800">Top 5 Menu Terlaris (7 Hari ke Depan)</CardTitle>
@@ -203,7 +383,6 @@ export default function AdminDashboard() {
                 </Card>
 
             </div>
-
         </div>
     )
 }

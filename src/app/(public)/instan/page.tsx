@@ -8,10 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Search, Utensils, CreditCard, ChevronRight, ChevronLeft, CheckCircle2, MessageSquare, Phone, Info } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { addDays, nextDay } from "date-fns"
+import { addDays } from "date-fns"
 import { uploadImage } from "@/lib/uploadImage"
 
 export default function InstantOrderPage() {
@@ -262,7 +260,7 @@ export default function InstantOrderPage() {
                         </CardTitle>
                         <CardDescription className="text-xs sm:text-sm">
                             {step === 1 && "Cari nama lengkap siswa untuk memulai."}
-                            {step === 2 && "Pilih menu untuk jadwal minggu depan."}
+                            {step === 2 && "Pilih menu dan minggu pengirimannya."}
                             {step === 3 && "Pilih cara Anda ingin membayar."}
                         </CardDescription>
                     </CardHeader>
@@ -453,6 +451,50 @@ export default function InstantOrderPage() {
 
                         {step === 3 && (
                             <div className="max-w-xl mx-auto space-y-8">
+                                <div className="bg-blue-600 text-white p-6 rounded-xl space-y-4 shadow-lg shadow-blue-200 -mt-8">
+                                    <h4 className="font-bold text-center opacity-90 text-xl">Ringkasan Pesanan</h4>
+                                    {/* Nama & Kelas siswa di dalam kotak ringkasan */}
+                                    {selectedStudent && (
+                                        <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
+                                            <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                                                {selectedStudent.name?.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-bold leading-tight">{selectedStudent.name}</p>
+                                                <p className="text-[10px] opacity-75">Kelas {selectedStudent.class}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="space-y-2">
+                                        {Object.entries(selectedMenus)
+                                            .filter(([_, qty]) => Number(qty) > 0)
+                                            .map(([menuId, qty]) => {
+                                            const menu = menus.find(m => m.id === menuId)
+                                            // Cari tanggal antar dari availableDays menu
+                                            const dayName = menu?.availableDays?.[0]
+                                            const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6, Minggu: 0 }
+                                            const deliveryDate = dayName ? getDeliveryDate(dayName, orderWeek) : null
+                                            const deliveryStr = deliveryDate
+                                                ? deliveryDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })
+                                                : null
+                                            return (
+                                                <div key={menuId} className="flex justify-between text-xs">
+                                                    <div>
+                                                        <span>{menu?.name} (x{qty})</span>
+                                                        {deliveryStr && <p className="text-[10px] opacity-70 mt-0.5">Antar: {deliveryStr}</p>}
+                                                    </div>
+                                                    <span className="font-bold shrink-0 ml-2">Rp {((menu?.price + adminFee) * Number(qty)).toLocaleString("id-ID")}</span>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    <Separator className="bg-white/20" />
+                                    <div className="flex justify-between items-center bg-white/10 p-3 rounded-lg">
+                                        <p className="font-bold text-lg">Total Bayar</p>
+                                        <p className="text-lg font-extrabold">Rp {totalAmount.toLocaleString("id-ID")}</p>
+                                    </div>
+                                </div>
+
                                 <div className="space-y-4">
                                     <Label className="text-lg font-bold">Pilih Metode Pembayaran</Label>
                                     <div className="grid grid-cols-2 gap-4">
@@ -511,50 +553,6 @@ export default function InstantOrderPage() {
                                         </div>
                                     </div>
                                 )}
-
-                                <div className="bg-blue-600 text-white p-6 rounded-xl space-y-4 shadow-lg shadow-blue-200">
-                                    <h4 className="font-bold text-center opacity-90">Ringkasan Pesanan</h4>
-                                    {/* Nama & Kelas siswa di dalam kotak ringkasan */}
-                                    {selectedStudent && (
-                                        <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2">
-                                            <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                                                {selectedStudent.name?.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold leading-tight">{selectedStudent.name}</p>
-                                                <p className="text-[10px] opacity-75">Kelas {selectedStudent.class}</p>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="space-y-2">
-                                        {Object.entries(selectedMenus)
-                                            .filter(([_, qty]) => Number(qty) > 0)
-                                            .map(([menuId, qty]) => {
-                                            const menu = menus.find(m => m.id === menuId)
-                                            // Cari tanggal antar dari availableDays menu
-                                            const dayName = menu?.availableDays?.[0]
-                                            const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6, Minggu: 0 }
-                                            const deliveryDate = dayName ? getDeliveryDate(dayName, orderWeek) : null
-                                            const deliveryStr = deliveryDate
-                                                ? deliveryDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })
-                                                : null
-                                            return (
-                                                <div key={menuId} className="flex justify-between text-xs">
-                                                    <div>
-                                                        <span>{menu?.name} (x{qty})</span>
-                                                        {deliveryStr && <p className="text-[10px] opacity-70 mt-0.5">Antar: {deliveryStr}</p>}
-                                                    </div>
-                                                    <span className="font-bold shrink-0 ml-2">Rp {((menu?.price + adminFee) * Number(qty)).toLocaleString("id-ID")}</span>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                    <Separator className="bg-white/20" />
-                                    <div className="flex justify-between items-center bg-white/10 p-3 rounded-lg">
-                                        <p className="font-bold text-lg">Total Bayar</p>
-                                        <p className="text-lg font-extrabold">Rp {totalAmount.toLocaleString("id-ID")}</p>
-                                    </div>
-                                </div>
 
                                 {/* Catatan untuk Admin — opsional, setelah ringkasan */}
                                 <div className="space-y-2">

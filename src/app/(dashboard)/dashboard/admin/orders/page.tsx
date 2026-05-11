@@ -40,18 +40,24 @@ import {
 } from "@/components/ui/dialog"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 
-// Helper: konversi UTC timestamp ke WIB (UTC+7) secara manual
-// Tidak bergantung pada timezone browser/OS — 100% reliable
+// Helper: format timestamp ke WIB menggunakan Intl.DateTimeFormat.formatToParts
+// Paling reliable — timezone eksplisit, tidak bergantung pada browser/OS
+const WIB_MONTHS: Record<string,string> = {
+  January:'Jan', February:'Feb', March:'Mar', April:'Apr', May:'Mei',
+  June:'Jun', July:'Jul', August:'Ags', September:'Sep',
+  October:'Okt', November:'Nov', December:'Des'
+}
 function formatWIB(isoString: string) {
-  const WIB_OFFSET = 7 * 60 * 60 * 1000
-  const wib = new Date(new Date(isoString).getTime() + WIB_OFFSET)
-  const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']
-  const d = String(wib.getUTCDate()).padStart(2, '0')
-  const m = MONTHS[wib.getUTCMonth()]
-  const y = wib.getUTCFullYear()
-  const h = String(wib.getUTCHours()).padStart(2, '0')
-  const min = String(wib.getUTCMinutes()).padStart(2, '0')
-  return `${d} ${m} ${y}, ${h}:${min} WIB`
+  const d = new Date(isoString)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(d)
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? ''
+  const month = WIB_MONTHS[get('month')] ?? get('month')
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('day')} ${month} ${get('year')}, ${hour}:${get('minute')} WIB`
 }
 
 export default function AdminOrdersPage() {
