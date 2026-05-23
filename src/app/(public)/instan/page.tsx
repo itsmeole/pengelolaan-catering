@@ -69,6 +69,26 @@ export default function InstantOrderPage() {
         }
     }
 
+    // Cek apakah hari (key: 'monday','tuesday',...) diaktifkan admin
+    const checkIsDayEnabled = (dayName: string): boolean => {
+        if (!systemConfig) return true
+        const dayKeyMap: Record<string, string> = {
+            Senin: 'monday', Selasa: 'tuesday', Rabu: 'wednesday',
+            Kamis: 'thursday', Jumat: 'friday', Sabtu: 'saturday', Minggu: 'sunday'
+        }
+        const key = dayKeyMap[dayName]
+        if (!key) return true
+        // Jika field tidak ada di config, anggap aktif
+        return systemConfig[key] !== false
+    }
+
+    // Cek apakah tanggal delivery adalah hari libur yang ditetapkan admin
+    const checkIsHoliday = (deliveryDate: Date): boolean => {
+        if (!systemConfig || !systemConfig.holidays || systemConfig.holidays.length === 0) return false
+        const deliveryStr = deliveryDate.toISOString().slice(0, 10) // "yyyy-MM-dd"
+        return (systemConfig.holidays as string[]).includes(deliveryStr)
+    }
+
     const checkIsAvailable = (deliveryDate: Date) => {
         const now = new Date()
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -367,8 +387,12 @@ export default function InstantOrderPage() {
                                         
                                         if (dayMenus.length === 0) return null
 
-                                        // Tambahan: cek ketersediaan berdasarkan Hari H
                                         const cDate = getDeliveryDate(day, orderWeek)
+
+                                        // Sembunyikan jika hari dinonaktifkan admin atau tanggal adalah hari libur
+                                        if (!checkIsDayEnabled(day) || checkIsHoliday(cDate)) return null
+
+                                        // Cek ketersediaan berdasarkan deadline pemesanan
                                         const isAvailable = checkIsAvailable(cDate)
 
                                         return (

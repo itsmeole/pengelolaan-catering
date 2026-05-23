@@ -15,12 +15,15 @@ export async function GET() {
             .from('MenuItem')
             .select(`
                 *,
-                vendor:profiles!vendorId(name, "vendorName")
+                vendor:profiles!vendorId(name, "vendorName", "isActive")
             `)
             .order('name', { ascending: true })
 
         if (error) throw error
-        return NextResponse.json(data || [])
+
+        // Hanya tampilkan menu dari vendor yang aktif (isActive = true atau null/belum di-set)
+        const filtered = (data || []).filter(m => m.vendor?.isActive !== false)
+        return NextResponse.json(filtered)
     } catch (e) {
         return NextResponse.json({ error: "System Error" }, { status: 500 })
     }

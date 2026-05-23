@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { FileUp, Plus, Trash2, KeyRound, Pencil, Download } from "lucide-react"
+import { FileUp, Plus, Trash2, KeyRound, Pencil, Download, Power } from "lucide-react"
 import * as XLSX from 'xlsx'
 import { ConfirmButton } from "@/components/ui/confirm-button"
+import { Switch } from "@/components/ui/switch"
+import { Badge } from "@/components/ui/badge"
 
 export default function AdminUsersPage() {
   return (
@@ -489,6 +491,29 @@ function VendorManager() {
     }
   }
 
+  async function handleToggleActive(id: string, currentStatus: boolean) {
+    const newStatus = !currentStatus
+    const vendorName = vendors.find(v => v.id === id)?.vendorName || "Vendor"
+    // Optimistic update di UI
+    setVendors(prev => prev.map(v => v.id === id ? { ...v, isActive: newStatus } : v))
+    try {
+      const res = await fetch("/api/admin/users/vendors", {
+        method: "PUT",
+        body: JSON.stringify({ id, isActive: newStatus })
+      })
+      if (res.ok) {
+        toast.success(newStatus ? `${vendorName} kembali aktif` : `${vendorName} sedang libur — menu disembunyikan dari siswa`)
+      } else {
+        // Rollback jika gagal
+        setVendors(prev => prev.map(v => v.id === id ? { ...v, isActive: currentStatus } : v))
+        toast.error("Gagal mengubah status vendor")
+      }
+    } catch (e) {
+      setVendors(prev => prev.map(v => v.id === id ? { ...v, isActive: currentStatus } : v))
+      toast.error("Error sistem")
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -526,15 +551,33 @@ function VendorManager() {
               <TableHead>Nama Kantin</TableHead>
               <TableHead>Pemilik</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {vendors.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(v => (
-              <TableRow key={v.id}>
+              <TableRow key={v.id} className={v.isActive === false ? 'opacity-60 bg-amber-50/40' : ''}>
                 <TableCell className="font-medium">{v.vendorName}</TableCell>
                 <TableCell>{v.name}</TableCell>
                 <TableCell>{v.email}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={v.isActive !== false}
+                      onCheckedChange={() => handleToggleActive(v.id, v.isActive !== false)}
+                      title={v.isActive !== false ? "Klik untuk set libur" : "Klik untuk aktifkan"}
+                    />
+                    <Badge variant={v.isActive !== false ? "default" : "outline"}
+                      className={v.isActive !== false
+                        ? "bg-green-100 text-green-700 border-green-200 hover:bg-green-100"
+                        : "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100"
+                      }
+                    >
+                      {v.isActive !== false ? "Aktif" : "Libur"}
+                    </Badge>
+                  </div>
+                </TableCell>
                 <TableCell className="text-right space-x-2">
                   <Dialog>
                     <DialogTrigger asChild>

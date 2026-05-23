@@ -75,11 +75,21 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
     try {
         const body = await req.json()
-        const { id, name, email, vendorName, password } = body
+        const { id, name, email, vendorName, password, isActive } = body
 
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
         const admin = createAdminClient()
+
+        // Jika hanya toggle isActive (tanpa ubah info lain)
+        if (isActive !== undefined && !name && !email && !vendorName) {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ isActive })
+                .eq('id', id)
+            if (error) throw error
+            return NextResponse.json({ success: true })
+        }
 
         // 1. Sync with Supabase Auth (including Display Name in metadata)
         const updateData: any = { 
@@ -92,9 +102,12 @@ export async function PUT(req: Request) {
         if (authError) throw authError
 
         // 2. Update Profile Table
+        const profileUpdate: any = { name, email, vendorName }
+        if (isActive !== undefined) profileUpdate.isActive = isActive
+
         const { error } = await supabase
             .from('profiles')
-            .update({ name, email, vendorName })
+            .update(profileUpdate)
             .eq('id', id)
 
         if (error) throw error

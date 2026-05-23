@@ -108,8 +108,68 @@ export default function AdminReportsPage() {
     }))
     const wsDetails = XLSX.utils.json_to_sheet(detailsExcel)
 
+    // 3. Ringkasan Per Vendor
+    const DAYS_ID   = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+    const DAY_JS: Record<number, string> = { 1: 'Senin', 2: 'Selasa', 3: 'Rabu', 4: 'Kamis', 5: 'Jumat', 6: 'Sabtu' }
+    const PAKET_LETTERS = 'ABCDEFGHIJ'.split('')
+
+    type VendorRow = { ownerName: string; kantinName: string; paket: string; days: Record<string, number>; jml: number; dibayarkan: number }
+    const vendorMap: Record<string, VendorRow> = {}
+    let paketIdx = 0
+
+    data.details.forEach((d: any) => {
+      if (d.refundStatus === 'APPROVED') return
+      const key = d.vendorId || d.vendorName
+      if (!vendorMap[key]) {
+        vendorMap[key] = {
+          ownerName: d.ownerName || d.vendorName,
+          kantinName: d.vendorName,
+          paket: PAKET_LETTERS[paketIdx++] ?? String(paketIdx),
+          days: {},
+          jml: 0,
+          dibayarkan: 0
+        }
+      }
+      const [dd, mm, yyyy] = d.deliveryDate.split('/')
+      const date = new Date(+yyyy, +mm - 1, +dd)
+      const dayName = DAY_JS[date.getDay()]
+      if (dayName) vendorMap[key].days[dayName] = (vendorMap[key].days[dayName] || 0) + d.quantity
+      vendorMap[key].jml        += d.quantity
+      vendorMap[key].dibayarkan += (d.total - d.adminFee)
+    })
+
+    const vendors    = Object.values(vendorMap)
+    const activeDays = DAYS_ID.filter(day => vendors.some(v => (v.days[day] || 0) > 0))
+
+    const dayTotals  = activeDays.map(day => vendors.reduce((s, v) => s + (v.days[day] || 0), 0))
+    const totalJml   = vendors.reduce((s, v) => s + v.jml, 0)
+    const totalDibyr = vendors.reduce((s, v) => s + v.dibayarkan, 0)
+
+    const vendorSummaryData = [
+      ['NO', 'CATERING', 'PAKET', ...activeDays, 'JML', 'DIBAYARKAN'],
+      ...vendors.map((v, i) => [
+        i + 1,
+        v.ownerName,
+        v.kantinName,
+        ...activeDays.map(d => v.days[d] || 0),
+        v.jml,
+        formatMoney(v.dibayarkan)
+      ]),
+      ['', 'J U M L A H', '', ...dayTotals, totalJml, formatMoney(totalDibyr)]
+    ]
+    const wsVendorSummary = XLSX.utils.aoa_to_sheet(vendorSummaryData)
+    wsVendorSummary['!cols'] = [
+      { wch: 5 },
+      { wch: 25 },
+      { wch: 15 },
+      ...activeDays.map(() => ({ wch: 10 })),
+      { wch: 10 },
+      { wch: 20 }
+    ]
+
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan")
+    XLSX.utils.book_append_sheet(wb, wsSummary, "Ringkasan Umum")
+    XLSX.utils.book_append_sheet(wb, wsVendorSummary, "Ringkasan Per Vendor")
     XLSX.utils.book_append_sheet(wb, wsDetails, "Detail Transaksi")
 
     XLSX.writeFile(wb, `Laporan_${startDate}_${endDate}.xlsx`)
