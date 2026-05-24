@@ -137,6 +137,7 @@ export default function StudentOrderPage() {
         const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6, Minggu: 0 }
         const targetWeekday = dayMap[dayName] ?? 1
         const today = new Date()
+        today.setHours(12, 0, 0, 0) // Fix Timezone Shift: Set ke jam 12 siang agar tidak bergeser hari saat konversi ke UTC
         
         if (week === 'THIS_WEEK') {
             const currentDay = today.getDay()

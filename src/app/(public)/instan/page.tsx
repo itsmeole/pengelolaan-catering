@@ -56,6 +56,8 @@ export default function InstantOrderPage() {
         const dayMap: Record<string, number> = { Senin: 1, Selasa: 2, Rabu: 3, Kamis: 4, Jumat: 5, Sabtu: 6, Minggu: 0 }
         const targetWeekday = dayMap[dayName] ?? 1
         const today = new Date()
+        today.setHours(12, 0, 0, 0) // Set ke jam 12 siang agar tidak bergeser hari saat konversi ke UTC
+
         
         // Convert JS getDay() (Sunday=0) to Monday-start (Monday=0, ..., Sunday=6)
         let currentDay = today.getDay() === 0 ? 6 : today.getDay() - 1;

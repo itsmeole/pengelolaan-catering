@@ -46,8 +46,8 @@ CREATE TABLE "profiles" (
     -- Vendor specific
     "vendorName" VARCHAR,
     
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Triggers for profiles
@@ -76,7 +76,7 @@ CREATE TABLE "StudentValidation" (
 CREATE TABLE "SystemSetting" (
     "key" VARCHAR PRIMARY KEY,
     "value" TEXT NOT NULL,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE "MenuItem" (
@@ -88,8 +88,8 @@ CREATE TABLE "MenuItem" (
     "imageUrl" TEXT,
     "expiredDate" DATE NOT NULL DEFAULT CURRENT_DATE + INTERVAL '7 days',
     "availableDays" JSONB DEFAULT '[]'::jsonb,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE "Order" (
@@ -104,16 +104,16 @@ CREATE TABLE "Order" (
     "cancelStatus" TEXT DEFAULT 'NONE',
     "cancelReason" TEXT,
     "cancelImage" TEXT,
-    "transferDate" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "transferDate" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE "OrderItem" (
     "id" VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
     "orderId" VARCHAR NOT NULL REFERENCES "Order"(id) ON DELETE CASCADE,
     "menuId" VARCHAR NOT NULL REFERENCES "MenuItem"(id) ON DELETE CASCADE,
-    "date" TIMESTAMP(3) NOT NULL,
+    "date" TIMESTAMPTZ(3) NOT NULL,
     "quantity" INTEGER NOT NULL DEFAULT 1,
     "note" VARCHAR,
     "price" DOUBLE PRECISION NOT NULL,
@@ -124,7 +124,7 @@ CREATE TABLE "OrderItem" (
     "cancelStatus" VARCHAR DEFAULT 'NONE',
     "cancelReason" TEXT,
     "cancelImage" TEXT,
-    "receivedAt" TIMESTAMP(3)
+    "receivedAt" TIMESTAMPTZ(3)
 );
 
 CREATE TABLE "Review" (
@@ -133,7 +133,7 @@ CREATE TABLE "Review" (
     "orderItemId" VARCHAR UNIQUE NOT NULL REFERENCES "OrderItem"(id) ON DELETE CASCADE,
     "rating" INTEGER NOT NULL,
     "comment" VARCHAR,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Delete existing auth users if needed (optional safety for reset)
