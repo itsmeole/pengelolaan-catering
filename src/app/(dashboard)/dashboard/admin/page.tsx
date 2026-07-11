@@ -125,7 +125,7 @@ function PersonalNotes() {
             <CardContent className="px-4 pb-4 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[340px]">
                 {/* Add form */}
                 {adding && (
-                    <div className="bg-white border border-amber-200 rounded-xl p-3 space-y-2 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="bg-white border border-slate-100 rounded-lg p-3 space-y-2 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
                         <textarea
                             ref={inputRef}
                             value={newText}
@@ -156,7 +156,7 @@ function PersonalNotes() {
                     </div>
                 ) : (
                     notes.map(note => (
-                        <div key={note.id} className="group bg-white border border-amber-100 rounded-xl p-3 shadow-sm relative hover:shadow-md transition-shadow">
+                        <div key={note.id} className="group bg-white border border-slate-100 rounded-lg p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] relative hover:shadow-md transition-all duration-200">
                             {editingId === note.id ? (
                                 <div className="space-y-2">
                                     <textarea
