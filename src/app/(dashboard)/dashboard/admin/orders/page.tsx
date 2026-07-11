@@ -143,6 +143,34 @@ export default function AdminOrdersPage() {
       ).slice(0, 5)
     : []
 
+  const DAY_ORDER: Record<string, number> = {
+    "Senin": 1,
+    "Selasa": 2,
+    "Rabu": 3,
+    "Kamis": 4,
+    "Jumat": 5,
+    "Sabtu": 6,
+    "Minggu": 7
+  }
+
+  const sortedMenus = [...availableMenus].sort((a, b) => {
+    const getMinDayOrder = (menu: any) => {
+      if (!menu.availableDays || menu.availableDays.length === 0) {
+        return 0; // "Semua Hari" at the top
+      }
+      const indexes = menu.availableDays.map((day: string) => DAY_ORDER[day] ?? 99)
+      return Math.min(...indexes)
+    }
+
+    const orderA = getMinDayOrder(a)
+    const orderB = getMinDayOrder(b)
+
+    if (orderA !== orderB) {
+      return orderA - orderB
+    }
+    return (a.name || "").localeCompare(b.name || "", "id", { sensitivity: "base" })
+  })
+
   const handleProofChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -485,7 +513,7 @@ export default function AdminOrdersPage() {
                             <Select value={itemForm.menuId} onValueChange={(val) => setItemForm({ ...itemForm, menuId: val })}>
                               <SelectTrigger className="bg-white"><SelectValue placeholder="Pilih menu..." /></SelectTrigger>
                               <SelectContent>
-                                {availableMenus.map(m => (
+                                {sortedMenus.map(m => (
                                   <SelectItem key={m.id} value={m.id}>
                                     <div className="flex flex-col gap-0.5">
                                       <span className="font-semibold">{m.name} (Rp {(m.price + adminFee).toLocaleString()})</span>

@@ -191,6 +191,7 @@ export default function SettingsPage() {
 
                         <div className="pt-3 mt-2 border-t">
                             <p className="text-xs text-muted-foreground">
+                                <strong>Keterangan</strong>:<br/>
                                 💡 <strong>H (Hari Itu)</strong>: Siswa harus pesan sebelum jam cutoff di hari yang sama.<br/>
                                 💡 <strong>H-1</strong>: Siswa harus pesan sebelum jam cutoff di hari sebelumnya.
                             </p>
