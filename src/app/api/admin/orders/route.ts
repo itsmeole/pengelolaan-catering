@@ -75,11 +75,73 @@ export async function GET(req: Request) {
 // PUT: Update status pesanan (konfirmasi bayar, penolakan bukti, pembatalan, dll)
 export async function PUT(req: Request) {
     try {
-        const { orderId, status, type, rejectionReason } = await req.json()
+        const { orderId, status, type, rejectionReason, paymentMethod, items } = await req.json()
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
 
         let updateData: any = { updatedAt: new Date().toISOString() }
+
+        if (type === 'EDIT_ORDER') {
+            // 1. Fetch Admin Fee
+            const { data: feeData } = await supabase.from('SystemSetting').select('value').eq('key', 'admin_fee_config').single()
+            const adminFee = feeData && feeData.value ? JSON.parse(feeData.value).fee : 1000
+
+            // 2. Calculate new totalAmount
+            const totalAmount = items.reduce((acc: number, item: any) => acc + ((item.price + adminFee) * item.quantity), 0)
+
+            // 3. Update Order
+            const { error: orderError } = await supabase
+                .from('Order')
+                .update({
+                    paymentMethod: paymentMethod,
+                    totalAmount: totalAmount,
+                    updatedAt: new Date().toISOString()
+                })
+                .eq('id', orderId)
+
+            if (orderError) throw orderError
+
+            // 4. Delete old OrderItems
+            const { error: deleteError } = await supabase
+                .from('OrderItem')
+                .delete()
+                .eq('orderId', orderId)
+
+            if (deleteError) throw deleteError
+
+            // 5. Insert new OrderItems with snapshotting
+            const menuIds = items.map((i: any) => i.menuId)
+            const { data: menuDetails } = await supabase
+                .from('MenuItem')
+                .select('id, name, vendor:profiles!vendorId(id, "vendorName", name)')
+                .in('id', menuIds)
+
+            const orderItems = items.map((item: any) => {
+                const detail = menuDetails?.find(m => m.id === item.menuId)
+                const vendor: any = Array.isArray(detail?.vendor) ? detail?.vendor[0] : detail?.vendor
+                
+                return {
+                    orderId: orderId,
+                    menuId: item.menuId,
+                    date: new Date(item.date).toISOString(),
+                    quantity: item.quantity,
+                    note: item.note || null,
+                    price: item.price, // Harga vendor
+                    adminFee: adminFee,
+                    menuName: detail?.name || item.menuName || 'Menu Terhapus',
+                    vendorName: vendor?.vendorName || vendor?.name || item.vendorName || 'Vendor Terhapus',
+                    vendorId: vendor?.id || item.vendorId
+                }
+            })
+
+            const { error: itemsError } = await supabase
+                .from('OrderItem')
+                .insert(orderItems)
+
+            if (itemsError) throw itemsError
+
+            return NextResponse.json({ success: true })
+        }
 
         if (type === 'REJECT_PROOF') {
             updateData = {

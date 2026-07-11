@@ -107,6 +107,27 @@ export default function AdminOrdersPage() {
   const [pageSize, setPageSize] = useState(10)
   const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<any>(null)
 
+  // States for Edit Order
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editPaymentMethod, setEditPaymentMethod] = useState("CASH_PAY_LATER")
+  const [editOrderItems, setEditOrderItems] = useState<any[]>([])
+  const [editItemForm, setEditItemForm] = useState({
+    menuId: "",
+    date: "",
+    quantity: 1,
+    note: ""
+  })
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  useEffect(() => {
+    if (selectedOrderForDetail) {
+      setEditPaymentMethod(selectedOrderForDetail.paymentMethod)
+      setEditOrderItems(selectedOrderForDetail.items || [])
+      setIsEditMode(false)
+      setEditItemForm({ menuId: "", date: "", quantity: 1, note: "" })
+    }
+  }, [selectedOrderForDetail])
+
   useEffect(() => {
     fetchOrders()
     fetchStudents()
@@ -205,6 +226,76 @@ export default function AdminOrdersPage() {
 
   function removeItemFromOrder(id: string) {
     setOrderItems(orderItems.filter(item => item.id !== id))
+  }
+
+  function addEditItem() {
+    if (!editItemForm.menuId || !editItemForm.date) {
+      return toast.error("Pilih menu dan tanggal terlebih dahulu")
+    }
+    const menu = availableMenus.find(m => m.id === editItemForm.menuId)
+    if (!menu) return
+
+    const newItem = {
+      menuId: editItemForm.menuId,
+      date: editItemForm.date,
+      quantity: editItemForm.quantity,
+      note: editItemForm.note || null,
+      menuName: menu.name,
+      price: menu.price, // Harga vendor
+      vendorName: menu.vendor?.vendorName || menu.vendor?.name || "Anonim",
+      vendorId: menu.vendorId,
+      id: Math.random().toString(36).substr(2, 9)
+    }
+
+    setEditOrderItems([...editOrderItems, newItem])
+    setEditItemForm({ ...editItemForm, menuId: "", note: "" })
+    toast.success("Ditambahkan ke daftar edit")
+  }
+
+  function removeEditItem(id: string) {
+    setEditOrderItems(editOrderItems.filter(item => item.id !== id))
+  }
+
+  async function handleSaveEdit() {
+    if (editOrderItems.length === 0) {
+      return toast.error("Daftar pesanan tidak boleh kosong")
+    }
+
+    setSavingEdit(true)
+    try {
+      const res = await fetch("/api/admin/orders", {
+        method: "PUT",
+        body: JSON.stringify({
+          orderId: selectedOrderForDetail.id,
+          type: "EDIT_ORDER",
+          paymentMethod: editPaymentMethod,
+          items: editOrderItems.map(item => ({
+            menuId: item.menuId,
+            date: item.date,
+            quantity: item.quantity,
+            note: item.note,
+            price: item.price,
+            menuName: item.menuName,
+            vendorName: item.vendorName,
+            vendorId: item.vendorId
+          }))
+        })
+      })
+
+      if (res.ok) {
+        toast.success("Pesanan berhasil diperbarui")
+        setIsEditMode(false)
+        setSelectedOrderForDetail(null)
+        fetchOrders()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Gagal memperbarui pesanan")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan sistem")
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   async function handleAddOrder() {
@@ -1007,7 +1098,192 @@ export default function AdminOrdersPage() {
           </DialogHeader>
           
           {selectedOrderForDetail && (
-            <div className="space-y-6">
+            isEditMode ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <div>
+                        <Label className="text-[10px] uppercase font-bold text-slate-500">Pemesan</Label>
+                        <p className="font-bold text-slate-900">{selectedOrderForDetail.student?.name}</p>
+                        <p className="text-xs text-slate-600 uppercase">{selectedOrderForDetail.student?.class}</p>
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold text-blue-600">Metode Pembayaran</Label>
+                        <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                          <SelectTrigger className="h-9 w-full bg-white"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="CASH_PAY_LATER">Bayar di Sekolah</SelectItem>
+                            <SelectItem value="TRANSFER">Transfer Manual</SelectItem>
+                          </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label className="text-xs font-bold uppercase text-blue-600">Tambah Menu ke Pesanan Ini</Label>
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Pilih Menu</Label>
+                        <Select value={editItemForm.menuId} onValueChange={(val) => setEditItemForm({ ...editItemForm, menuId: val })}>
+                          <SelectTrigger className="bg-white"><SelectValue placeholder="Pilih menu..." /></SelectTrigger>
+                          <SelectContent>
+                            {sortedMenus.map(m => (
+                              <SelectItem key={m.id} value={m.id}>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="font-semibold">{m.name} (Rp {(m.price + adminFee).toLocaleString()})</span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded italic font-medium">
+                                      Vendor: {m.vendor?.vendorName || m.vendor?.name || "Anonim"}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 italic">
+                                      Hari: {m.availableDays && m.availableDays.length > 0 ? m.availableDays.join(", ") : "Semua Hari"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Tanggal Makan</Label>
+                        <Input 
+                          type="date" 
+                          value={editItemForm.date} 
+                          onChange={(e) => setEditItemForm({ ...editItemForm, date: e.target.value })}
+                          className="bg-white"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Jumlah (Porsi)</Label>
+                        <Input 
+                          type="number" min="1" 
+                          value={editItemForm.quantity} 
+                          onChange={(e) => setEditItemForm({ ...editItemForm, quantity: parseInt(e.target.value) || 1 })}
+                          className="bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 items-end">
+                        <div className="space-y-1.5 flex-1">
+                            <Label className="text-[10px] font-bold uppercase text-slate-500">Catatan Khusus</Label>
+                            <Input 
+                                placeholder="Tidak pedas, dll..." 
+                                value={editItemForm.note} 
+                                onChange={(e) => setEditItemForm({ ...editItemForm, note: e.target.value })}
+                                className="bg-white h-10"
+                            />
+                        </div>
+                        <Button 
+                            type="button" 
+                            onClick={addEditItem}
+                            className="bg-slate-800 hover:bg-slate-900 h-10 px-4 sm:px-6 text-xs whitespace-nowrap"
+                        >
+                            <Plus className="h-4 w-4 sm:mr-2" />
+                            Tambah
+                        </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                    <Label className="text-xs font-bold uppercase text-blue-600">Rincian Menu ({editOrderItems.length})</Label>
+                    <div className="border rounded-xl overflow-hidden shadow-sm overflow-x-auto">
+                        <Table>
+                            <TableHeader className="bg-slate-50">
+                                <TableRow>
+                                    <TableHead className="text-[10px]">Tgl Antar</TableHead>
+                                    <TableHead className="text-[10px]">Item</TableHead>
+                                    <TableHead className="text-[10px] text-center">Qty</TableHead>
+                                    <TableHead className="text-[10px] text-right">Harga</TableHead>
+                                    <TableHead className="text-[10px] text-right hidden sm:table-cell">Total</TableHead>
+                                    <TableHead className="w-10"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {editOrderItems.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-4 text-xs text-muted-foreground">
+                                      Belum ada menu. Tambahkan menu katering di atas.
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  editOrderItems.map((item: any, idx: number) => (
+                                      <TableRow key={item.id || idx}>
+                                          <TableCell className="text-xs">
+                                              <Input 
+                                                type="date"
+                                                value={item.date ? new Date(item.date).toISOString().slice(0, 10) : ""}
+                                                onChange={(e) => {
+                                                  const newItems = [...editOrderItems]
+                                                  newItems[idx].date = e.target.value
+                                                  setEditOrderItems(newItems)
+                                                }}
+                                                className="h-8 py-0.5 px-2 text-xs w-[130px] inline-block"
+                                              />
+                                          </TableCell>
+                                          <TableCell>
+                                              <div className="flex flex-col">
+                                                  <span className="text-xs font-bold">{item.menuName || item.menu?.name}</span>
+                                                  <span className="text-[10px] text-muted-foreground italic">{item.vendorName || item.menu?.vendor?.vendorName}</span>
+                                              </div>
+                                          </TableCell>
+                                          <TableCell className="text-center text-xs">
+                                              <Input 
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onChange={(e) => {
+                                                  const newItems = [...editOrderItems]
+                                                  newItems[idx].quantity = parseInt(e.target.value) || 1
+                                                  setEditOrderItems(newItems)
+                                                }}
+                                                className="h-8 py-0.5 px-2 text-xs w-16 text-center inline-block"
+                                              />
+                                          </TableCell>
+                                          <TableCell className="text-right text-xs">Rp {(item.price + (item.adminFee || adminFee)).toLocaleString()}</TableCell>
+                                          <TableCell className="text-right text-xs font-bold hidden sm:table-cell">Rp {((item.price + (item.adminFee || adminFee)) * item.quantity).toLocaleString()}</TableCell>
+                                          <TableCell className="text-right">
+                                              <Button 
+                                                variant="ghost" size="icon" 
+                                                onClick={() => removeEditItem(item.id)}
+                                                className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                              >
+                                                <XCircle className="h-4 w-4" />
+                                              </Button>
+                                          </TableCell>
+                                      </TableRow>
+                                  ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-4 border-t gap-4 flex-wrap">
+                    <div className="flex flex-col gap-1 w-full sm:w-auto">
+                        <Label className="text-[10px] uppercase font-bold text-slate-500">Catatan Khusus (Notes)</Label>
+                        <Input 
+                          placeholder="Catatan keseluruhan..."
+                          value={selectedOrderForDetail.adminNote || ""}
+                          onChange={(e) => {
+                            setSelectedOrderForDetail({ ...selectedOrderForDetail, adminNote: e.target.value })
+                          }}
+                          className="h-9 w-full sm:w-[280px]"
+                        />
+                    </div>
+                    <div className="flex flex-col items-end shrink-0 ml-auto">
+                        <p className="text-xs text-muted-foreground font-semibold">Total Keseluruhan</p>
+                        <p className="text-2xl font-black text-blue-600">
+                          Rp {editOrderItems.reduce((acc, item) => acc + ((item.price + (item.adminFee || adminFee)) * item.quantity), 0).toLocaleString()}
+                        </p>
+                    </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <div>
                         <Label className="text-[10px] uppercase font-bold text-slate-500">Pemesan</Label>
@@ -1061,17 +1337,34 @@ export default function AdminOrdersPage() {
                     </div>
                 </div>
 
-                {/* Admin Note */}
                 {selectedOrderForDetail.adminNote && (
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
                         <p className="text-[10px] font-bold uppercase text-amber-600 tracking-wider">Catatan untuk Admin</p>
                         <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedOrderForDetail.adminNote}</p>
                     </div>
                 )}
-            </div>
+              </div>
+            )
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedOrderForDetail(null)}>Tutup</Button>
+          <DialogFooter className="gap-2">
+            {isEditMode ? (
+              <>
+                <Button variant="ghost" onClick={() => setIsEditMode(false)}>Batal</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 font-bold" onClick={handleSaveEdit} disabled={savingEdit}>
+                  {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Simpan Perubahan
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setSelectedOrderForDetail(null)}>Tutup</Button>
+                {selectedOrderForDetail && selectedOrderForDetail.status !== 'CANCELLED' && selectedOrderForDetail.status !== 'COMPLETED' && (
+                  <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={() => setIsEditMode(true)}>
+                    Edit Pesanan
+                  </Button>
+                )}
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
