@@ -112,7 +112,7 @@ CREATE TABLE "Order" (
 CREATE TABLE "OrderItem" (
     "id" VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
     "orderId" VARCHAR NOT NULL REFERENCES "Order"(id) ON DELETE CASCADE,
-    "menuId" VARCHAR NOT NULL REFERENCES "MenuItem"(id) ON DELETE CASCADE,
+    "menuId" VARCHAR REFERENCES "MenuItem"(id) ON DELETE SET NULL,
     "date" TIMESTAMPTZ(3) NOT NULL,
     "quantity" INTEGER NOT NULL DEFAULT 1,
     "note" VARCHAR,

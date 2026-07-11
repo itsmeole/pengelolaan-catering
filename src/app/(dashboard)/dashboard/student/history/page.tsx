@@ -198,9 +198,7 @@ export default function StudentHistoryPage() {
                                             const isCancelled = item.cancelStatus === 'APPROVED'
                                             return (
                                                 <div key={idx} className={`flex items-center gap-3 rounded-lg px-3 py-2 ${isReceived ? 'bg-green-50/60 border border-green-100' : isCancelled ? 'bg-red-50/40 border border-red-100 opacity-60' : 'bg-muted/40'}`}>
-                                                    {item.menu?.imageUrl && (
-                                                        <img src={item.menu.imageUrl} className="h-10 w-10 rounded object-cover flex-shrink-0" alt={item.menuName} />
-                                                    )}
+                                                    <img src={item.menu?.imageUrl || "/placeholder-food.jpg"} className="h-10 w-10 rounded object-cover flex-shrink-0" alt={item.menuName} />
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium truncate">{item.menuName || "Menu"}</p>
                                                         <p className="text-xs text-muted-foreground">

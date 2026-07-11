@@ -107,7 +107,7 @@ export default function StudentDashboard() {
                             <div className="space-y-4">
                                 {tomorrowMenu.map((item: any, idx) => (
                                     <div key={idx} className="flex items-center space-x-4 border p-3 rounded bg-accent/10">
-                                        {item.menu?.imageUrl && <img src={item.menu.imageUrl} className="h-12 w-12 rounded object-cover" />}
+                                        <img src={item.menu?.imageUrl || "/placeholder-food.jpg"} className="h-12 w-12 rounded object-cover" />
                                         <div>
                                             <p className="font-bold">{item.menuName || item.menu?.name}</p>
                                             <p className="text-sm text-muted-foreground">
