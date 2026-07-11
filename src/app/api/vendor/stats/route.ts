@@ -62,19 +62,36 @@ export async function GET(req: Request) {
 
         if (itemsErr) throw itemsErr
 
+        // 0. Ambil tahun ajaran baru start date jika ada
+        const { data: settingData } = await supabase
+            .from('SystemSetting')
+            .select('value')
+            .eq('key', 'new_academic_year_start')
+            .maybeSingle()
+
+        const academicYearStart = settingData ? JSON.parse(settingData.value).academicYearStart : null
+
         // ── All-time net revenue (keseluruhan, tanpa batas tanggal) ──────────
         const { data: allTimeItems } = await supabase
             .from('OrderItem')
             .select(`
                 price, adminFee, quantity, cancelStatus,
-                Order!inner(status)
+                Order!inner(status, createdAt)
             `)
             .eq('vendorId', vendorId)
             .in('Order.status', ['PAID', 'COMPLETED'])
             .neq('cancelStatus', 'APPROVED')
 
         // Pendapatan bersih = price × qty (harga vendor, setelah admin fee sudah dipotong dari harga jual)
-        const allTimeNetRevenue = (allTimeItems || []).reduce((sum: number, i: any) => {
+        const filteredAllTimeItems = (allTimeItems || []).filter((i: any) => {
+            const o = i.Order
+            if (academicYearStart && o?.createdAt && new Date(o.createdAt) < new Date(academicYearStart)) {
+                return false;
+            }
+            return true;
+        })
+
+        const allTimeNetRevenue = filteredAllTimeItems.reduce((sum: number, i: any) => {
             return sum + (i.price * (i.quantity || 1))
         }, 0)
 
@@ -147,7 +164,8 @@ export async function GET(req: Request) {
             totalRevenue,
             allTimeNetRevenue,   // ← pendapatan bersih keseluruhan
             cookingList,
-            chartData
+            chartData,
+            academicYearStart
         })
 
     } catch (e) {

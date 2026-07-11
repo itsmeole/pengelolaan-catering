@@ -10,6 +10,16 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { format } from "date-fns"
 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+
 export default function VendorDashboard() {
     const tomorrowStr = format(new Date(new Date().setDate(new Date().getDate() + 1)), "yyyy-MM-dd")
     const [stats, setStats] = useState<any>(null)
@@ -17,6 +27,7 @@ export default function VendorDashboard() {
     const [refreshing, setRefreshing] = useState(false)
     const [startDate, setStartDate] = useState(tomorrowStr)
     const [endDate, setEndDate] = useState(tomorrowStr)
+    const [showAcademicYearAlert, setShowAcademicYearAlert] = useState(false)
 
     useEffect(() => {
         fetchStats()
@@ -31,6 +42,15 @@ export default function VendorDashboard() {
             if (res.ok) {
                 const data = await res.json()
                 setStats(data)
+
+                // Check if vendor has acknowledged this academic year reset
+                if (data.academicYearStart) {
+                    const ackKey = `ack_academic_year_${data.academicYearStart}`
+                    const acknowledged = localStorage.getItem(ackKey)
+                    if (!acknowledged) {
+                        setShowAcademicYearAlert(true)
+                    }
+                }
             }
         } catch (e) {
             console.error(e)
@@ -38,6 +58,14 @@ export default function VendorDashboard() {
             setLoading(false)
             setRefreshing(false)
         }
+    }
+
+    function handleAcknowledge() {
+        if (stats?.academicYearStart) {
+            const ackKey = `ack_academic_year_${stats.academicYearStart}`
+            localStorage.setItem(ackKey, "true")
+        }
+        setShowAcademicYearAlert(false)
     }
 
     if (loading) return <div className="p-8">Loading stats...</div>
@@ -189,6 +217,33 @@ export default function VendorDashboard() {
                     </CardContent>
                 </Card>
             </div>
+
+            <AlertDialog open={showAcademicYearAlert} onOpenChange={setShowAcademicYearAlert}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2 text-amber-800">
+                            <ChefHat className="h-6 w-6 text-amber-600 animate-bounce" />
+                            Tahun Ajaran Baru Telah Dimulai!
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-slate-600 pt-2 space-y-3">
+                            <p>
+                                Admin sekolah telah memproses dan memulai **Tahun Ajaran Baru**.
+                            </p>
+                            <p>
+                                Terkait perubahan ini, ringkasan pendapatan bersih Anda di dashboard ini telah **dimulai kembali dari Rp 0**.
+                            </p>
+                            <p className="font-semibold text-slate-800">
+                                ⚠️ Catatan: Seluruh riwayat pesanan katering dan detail laporan penjualan Anda di masa lalu tetap aman dan dapat Anda akses kapan saja di menu Laporan.
+                            </p>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-4">
+                        <AlertDialogAction onClick={handleAcknowledge} className="bg-amber-600 hover:bg-amber-700 text-white font-semibold">
+                            Saya Mengerti
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

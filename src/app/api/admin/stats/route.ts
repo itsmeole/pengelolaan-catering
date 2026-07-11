@@ -16,6 +16,15 @@ export async function GET() {
             }
         )
 
+        // 0. Ambil tahun ajaran baru start date jika ada
+        const { data: settingData } = await supabase
+            .from('SystemSetting')
+            .select('value')
+            .eq('key', 'new_academic_year_start')
+            .maybeSingle()
+
+        const academicYearStart = settingData ? JSON.parse(settingData.value).academicYearStart : null
+
         // 1. Future Date Range (Today until 7 days from now)
         const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }))
         
@@ -27,12 +36,17 @@ export async function GET() {
         sevenDaysLater.setHours(23,59,59,999)
 
         // 2. Fetch OrderItems for Today + 7 Days (Aggregating Top 5)
-        const { data: futureItems, error: itemsError } = await supabase
+        let futureItemsQuery = supabase
             .from('OrderItem')
-            .select('menuId, menuName, vendorName, quantity, order:Order!inner(studentId)')
+            .select('menuId, menuName, vendorName, quantity, order:Order!inner(studentId, createdAt)')
             .gte('date', today.toISOString())
             .lte('date', sevenDaysLater.toISOString())
             .neq('cancelStatus', 'APPROVED')
+
+        if (academicYearStart) {
+            futureItemsQuery = futureItemsQuery.gte('order.createdAt', academicYearStart)
+        }
+        const { data: futureItems, error: itemsError } = await futureItemsQuery
 
         if (itemsError) throw itemsError
 
@@ -66,17 +80,22 @@ export async function GET() {
         ).size
 
         // 4. Calculate Unverified Orders (PENDING)
-        const { count: unverifiedCount } = await supabase
+        let unverifiedQuery = supabase
             .from('Order')
             .select('*', { count: 'exact', head: true })
             .eq('status', 'PENDING')
+
+        if (academicYearStart) {
+            unverifiedQuery = unverifiedQuery.gte('createdAt', academicYearStart)
+        }
+        const { count: unverifiedCount } = await unverifiedQuery
 
         // 5. Revenue
         const { data: rawPaidItems } = await supabase
             .from('OrderItem')
             .select(`
                 price, quantity, adminFee, cancelStatus,
-                order:Order!inner(status, paymentMethod)
+                order:Order!inner(status, paymentMethod, createdAt)
             `)
             .neq('cancelStatus', 'APPROVED')
             
@@ -84,6 +103,7 @@ export async function GET() {
         const paidItems = (rawPaidItems || []).filter(item => {
             const o = (item as any).order;
             if (!o) return false;
+            if (academicYearStart && new Date(o.createdAt) < new Date(academicYearStart)) return false;
             if (['PAID', 'COMPLETED'].includes(o.status)) return true;
             if (o.status === 'PENDING' && o.paymentMethod === 'CASH_PAY_LATER') return true;
             return false;
@@ -101,14 +121,19 @@ export async function GET() {
             .reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0)
 
         // 6. Recent Activity
-        const { data: recentOrders } = await supabase
+        let recentQuery = supabase
             .from('Order')
             .select(`
                 id, totalAmount, paymentMethod, status,
-                profiles:studentId(name)
+                profiles:studentId(name),
+                createdAt
             `)
             .order('createdAt', { ascending: false })
-            .limit(5)
+
+        if (academicYearStart) {
+            recentQuery = recentQuery.gte('createdAt', academicYearStart)
+        }
+        const { data: recentOrders } = await recentQuery.limit(5)
         
         const recentActivity = (recentOrders || []).map(r => ({
             id: r.id,

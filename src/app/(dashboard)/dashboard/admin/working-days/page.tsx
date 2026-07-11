@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { Save } from "lucide-react"
+import { Save, GraduationCap } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { ConfirmButton } from "@/components/ui/confirm-button"
+import { format } from "date-fns"
+import { id as idLocale } from "date-fns/locale"
 
 export default function SettingsPage() {
     // State for Working Days Config
@@ -18,9 +21,14 @@ export default function SettingsPage() {
     const [adminFee, setAdminFee] = useState<number>(1000)
     const [feeLoading, setFeeLoading] = useState(true)
 
+    // State for Academic Year Config
+    const [academicYearStart, setAcademicYearStart] = useState<string | null>(null)
+    const [academicYearLoading, setAcademicYearLoading] = useState(true)
+
     useEffect(() => {
         fetchConfig()
         fetchAdminFee()
+        fetchAcademicYear()
     }, [])
 
     async function fetchAdminFee() {
@@ -48,6 +56,20 @@ export default function SettingsPage() {
             toast.error("Gagal memuat pengaturan")
         } finally {
             setLoading(false)
+        }
+    }
+
+    async function fetchAcademicYear() {
+        try {
+            const res = await fetch("/api/admin/settings/academic-year")
+            if (res.ok) {
+                const data = await res.json()
+                setAcademicYearStart(data.academicYearStart)
+            }
+        } catch (e) {
+            console.error("Failed to fetch academic year start")
+        } finally {
+            setAcademicYearLoading(false)
         }
     }
 
@@ -94,7 +116,24 @@ export default function SettingsPage() {
         }
     }
 
-    if (loading || feeLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Memuat Pengaturan...</div>
+    async function handleStartNewAcademicYear() {
+        try {
+            const res = await fetch("/api/admin/settings/academic-year", {
+                method: "POST"
+            })
+            if (res.ok) {
+                const data = await res.json()
+                setAcademicYearStart(data.academicYearStart)
+                toast.success("Tahun ajaran baru berhasil dimulai! Statistik dashboard kembali dari 0.")
+            } else {
+                toast.error("Gagal memulai tahun ajaran baru")
+            }
+        } catch (e) {
+            toast.error("Error sistem")
+        }
+    }
+
+    if (loading || feeLoading || academicYearLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Memuat Pengaturan...</div>
 
     return (
         <div className="space-y-6 max-w-4xl">
@@ -131,7 +170,48 @@ export default function SettingsPage() {
                 </CardContent>
             </Card>
 
-            {/* 2. Jadwal Mingguan */}
+            {/* 2. Tahun Ajaran Baru (Reset Dashboard) */}
+            <Card className="border border-amber-200 bg-amber-50/20">
+                <CardHeader>
+                    <CardTitle className="text-amber-800 flex items-center gap-2">
+                        <GraduationCap className="h-5 w-5 text-amber-600" />
+                        Tahun Ajaran Baru (Reset Statistik Dashboard)
+                    </CardTitle>
+                    <CardDescription className="text-amber-700/80">
+                        Memulai tahun ajaran baru akan menyembunyikan transaksi tahun ajaran sebelumnya dari grafik dan statistik dashboard admin (mengembalikan statistik pendapatan dan aktivitas ke 0). Semua data histori pesanan/invoice lama Anda tetap tersimpan dengan aman di database.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-2">
+                    <div className="bg-white border rounded-lg p-4 shadow-sm max-w-xl">
+                        <h4 className="font-semibold text-sm text-slate-800">Status Tahun Ajaran Saat Ini</h4>
+                        {academicYearStart ? (
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Aktif sejak: <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{format(new Date(academicYearStart), "dd MMMM yyyy, HH:mm", { locale: idLocale })}</span>
+                            </p>
+                        ) : (
+                            <p className="text-xs text-muted-foreground mt-1 text-slate-500 italic">
+                                Belum pernah diset (menghitung seluruh data dari awal).
+                            </p>
+                        )}
+                        
+                        <div className="mt-4">
+                            <ConfirmButton
+                                title="Mulai Tahun Ajaran Baru?"
+                                description="Apakah Anda yakin ingin memulai tahun ajaran baru? Statistik omzet, data pesanan mingguan, dan aktivitas terbaru pada dashboard utama admin akan diset ulang menjadi 0 mulai detik ini. Aksi ini tidak dapat dibatalkan."
+                                onConfirm={handleStartNewAcademicYear}
+                                confirmText="Ya, Mulai Sekarang"
+                                variant="default"
+                            >
+                                <Button className="bg-amber-600 hover:bg-amber-700 text-white">
+                                    Mulai Tahun Ajaran Baru
+                                </Button>
+                            </ConfirmButton>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* 3. Jadwal Mingguan */}
             <Card>
                 <CardHeader>
                     <CardTitle>Jadwal Mingguan & Batas Pemesanan</CardTitle>
