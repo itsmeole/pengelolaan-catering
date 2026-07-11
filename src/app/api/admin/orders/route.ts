@@ -20,22 +20,49 @@ export async function GET(req: Request) {
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
 
-        // OTOMASI: Ubah status PAID ke COMPLETED jika sudah > 5 hari dari jadwal makan terbaru
-        const fiveDaysAgo = new Date()
-        fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5)
+        // OTOMASI: Konfirmasi per-item setelah 1x24 jam dari jadwal antar untuk seluruh siswa
+        const oneDayAgo = new Date()
+        oneDayAgo.setDate(oneDayAgo.getDate() - 1)
 
-        const { data: oldItems } = await supabase
-            .from('OrderItem')
-            .select('orderId')
-            .lt('date', fiveDaysAgo.toISOString())
+        // 1. Ambil ID order yang masih berstatus PAID
+        const { data: paidOrders } = await supabase
+            .from('Order')
+            .select('id')
+            .eq('status', 'PAID')
 
-        if (oldItems && oldItems.length > 0) {
-            const oldOrderIds = Array.from(new Set(oldItems.map(i => i.orderId)))
-            await supabase
-                .from('Order')
-                .update({ status: 'COMPLETED', updatedAt: new Date().toISOString() })
-                .in('id', oldOrderIds)
-                .eq('status', 'PAID')
+        const paidOrderIds = (paidOrders || []).map((o: any) => o.id)
+
+        if (paidOrderIds.length > 0) {
+            // 2. Cari item katering dari order PAID yang sudah lewat 24 jam dan belum dikonfirmasi
+            const { data: overdueItems } = await supabase
+                .from('OrderItem')
+                .select('id, orderId')
+                .lt('date', oneDayAgo.toISOString())
+                .is('receivedAt', null)
+                .neq('cancelStatus', 'APPROVED')
+                .in('orderId', paidOrderIds)
+
+            if (overdueItems && overdueItems.length > 0) {
+                const overdueIds = overdueItems.map((i: any) => i.id)
+                await supabase
+                    .from('OrderItem')
+                    .update({ receivedAt: new Date().toISOString() })
+                    .in('id', overdueIds)
+
+                // Cek apakah semua item per order sudah ada receivedAt
+                const affectedOrderIds = Array.from(new Set(overdueItems.map((i: any) => i.orderId)))
+                for (const oId of affectedOrderIds) {
+                    const { data: allItems } = await supabase
+                        .from('OrderItem')
+                        .select('receivedAt, cancelStatus')
+                        .eq('orderId', oId)
+                    const allDone = (allItems || []).every((i: any) => i.receivedAt !== null || i.cancelStatus === 'APPROVED')
+                    if (allDone) {
+                        await supabase.from('Order').update({ status: 'COMPLETED', updatedAt: new Date().toISOString() })
+                            .eq('id', oId).eq('status', 'PAID')
+                    }
+                }
+            }
         }
 
         let query = supabase
