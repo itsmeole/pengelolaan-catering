@@ -36,13 +36,11 @@ export function UserNav({ user }: { user: any }) {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                    {user.role === 'ADMIN' && (
-                        <DropdownMenuItem asChild>
-                            <Link href="/dashboard/profile" className="flex w-full cursor-pointer">
-                                Profile
-                            </Link>
-                        </DropdownMenuItem>
-                    )}
+                    <DropdownMenuItem asChild>
+                        <Link href="/dashboard/profile" className="flex w-full cursor-pointer">
+                            Profile
+                        </Link>
+                    </DropdownMenuItem>
                     {/* Add more items if needed */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />

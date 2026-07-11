@@ -327,7 +327,7 @@ function StudentManager() {
                   <TableCell className="text-right space-x-2">
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={() => setFormData({ name: s.name || "", email: s.email || "", nis: s.nis || "", class: s.class || "", id: s.id })}>
+                        <Button variant="ghost" size="icon" onClick={() => setFormData({ name: s.name || "", email: s.email || "", nis: s.nis || "", class: s.class || "", id: s.id, password: "" })}>
                           <Pencil className="h-4 w-4 text-blue-500" />
                         </Button>
                       </DialogTrigger>
@@ -352,13 +352,21 @@ function StudentManager() {
                               <Input required value={formData.class} onChange={e => setFormData({ ...formData, class: e.target.value })} />
                             </div>
                           </div>
+                          <div className="space-y-2">
+                            <Label>Password Baru (Opsional)</Label>
+                            <Input
+                              placeholder="Biarkan kosong jika tidak diubah"
+                              value={formData.password || ""}
+                              onChange={e => setFormData({ ...formData, password: e.target.value })}
+                            />
+                          </div>
                           <Button type="submit" className="w-full">Simpan Perubahan</Button>
                         </form>
                       </DialogContent>
                     </Dialog>
                     <ConfirmButton
                       title="Reset Password"
-                      description="Apakah Anda yakin ingin mereset password siswa ini ke default (123456)?"
+                      description="Apakah Anda yakin ingin mereset password siswa ini ke default (NIS Siswa)?"
                       onConfirm={() => handleResetPass(s.id)}
                       confirmText="Reset Sekarang"
                     >
@@ -536,7 +544,7 @@ function VendorManager() {
               </div>
               <div className="space-y-2">
                 <Label>Password</Label>
-                <PasswordInput required value={formData.password} onChange={(e: any) => setFormData({ ...formData, password: e.target.value })} />
+                <Input required value={formData.password} onChange={(e: any) => setFormData({ ...formData, password: e.target.value })} />
               </div>
               <Button type="submit" className="w-full">Buat Akun Vendor</Button>
             </form>
@@ -602,7 +610,7 @@ function VendorManager() {
                         </div>
                         <div className="space-y-2">
                           <Label>Password Baru (Opsional)</Label>
-                          <PasswordInput
+                          <Input
                             placeholder="Biarkan kosong jika tidak diubah"
                             value={formData.password}
                             onChange={e => setFormData({ ...formData, password: e.target.value })}

@@ -315,7 +315,7 @@ export default function InstantOrderPage() {
                                                 >
                                                     <div>
                                                         <p className="font-bold text-slate-900">{s.name}</p>
-                                                        <p className="text-sm text-slate-500">Kelas: {s.class} | NIS: {s.nis}</p>
+                                                        <p className="text-sm text-slate-500">Kelas: {s.class}</p>
                                                     </div>
                                                     {selectedStudent?.id === s.id && <CheckCircle2 className="h-5 w-5 text-blue-500" />}
                                                 </button>

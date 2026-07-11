@@ -145,11 +145,15 @@ export async function PUT(req: Request) {
         const admin = createAdminClient()
 
         if (type === "UPDATE_INFO") {
-            // 1. Sync Email & Name to Auth metadata
-            const { error: authError } = await admin.auth.admin.updateUserById(id, { 
+            // 1. Sync Email, Name, and Password to Auth metadata
+            const updatePayload: any = { 
                 email,
                 user_metadata: { name }
-            })
+            }
+            if (body.password) {
+                updatePayload.password = body.password
+            }
+            const { error: authError } = await admin.auth.admin.updateUserById(id, updatePayload)
             if (authError) throw authError
 
             // 2. Update Profile Table
@@ -159,8 +163,14 @@ export async function PUT(req: Request) {
                 .eq('id', id)
             if (error) throw error
         } else if (type === "RESET_PASSWORD") {
-            // NIS as default reset password
-            const password = String(nis)
+            // Fetch student NIS from DB since it's not sent in the reset request body
+            const { data: profileData, error: profileError } = await admin
+                .from('profiles')
+                .select('nis')
+                .eq('id', id)
+                .single()
+            if (profileError || !profileData) throw new Error("Student profile not found")
+            const password = String(profileData.nis)
             const { error: authError } = await admin.auth.admin.updateUserById(id, { password })
             if (authError) throw authError
         }
