@@ -309,6 +309,7 @@ export default function InstantOrderPage() {
                                                     onClick={() => {
                                                         setSelectedStudent(s)
                                                         setSearchQuery(s.name)
+                                                        setPhone(s.phone || "")
                                                         setSearchResults([])
                                                     }}
                                                     className={`w-full text-left p-4 hover:bg-blue-50 transition-colors flex justify-between items-center ${selectedStudent?.id === s.id ? 'bg-blue-50 border-l-4 border-blue-500' : ''}`}

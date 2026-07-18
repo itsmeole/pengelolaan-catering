@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, name, class, nis')
+            .select('id, name, class, nis, phone')
             .eq('role', 'STUDENT')
             .ilike('name', `%${q}%`)
             .limit(5)
