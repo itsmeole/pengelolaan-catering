@@ -209,7 +209,7 @@ function StudentManager() {
         method: "PUT",
         body: JSON.stringify({ id, type: "RESET_PASSWORD" })
       })
-      toast.success("Password direset ke default: 123456")
+      toast.success("Password direset ke default (NIS Siswa)")
     } catch (e) {
       toast.error("Gagal mereset password")
     }
