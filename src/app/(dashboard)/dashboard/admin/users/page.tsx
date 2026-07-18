@@ -99,6 +99,7 @@ function StudentManager() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
+    const toastId = toast.loading("Sedang menambahkan siswa...")
     try {
       const res = await fetch("/api/admin/users/students", {
         method: "POST",
@@ -106,14 +107,16 @@ function StudentManager() {
       })
       const data = await res.json()
       if (res.ok) {
-        toast.success("Siswa berhasil ditambahkan")
+        toast.success("Siswa berhasil ditambahkan", { id: toastId })
         setIsAddOpen(false)
         setFormData({ name: "", email: "", nis: "", class: "" })
         fetchStudents()
       } else {
-        toast.error(data.error || "Gagal tambah siswa. Email/NIS mungkin duplikat.")
+        toast.error(data.error || "Gagal tambah siswa. Email/NIS mungkin duplikat.", { id: toastId })
       }
-    } catch (e: any) { toast.error(e.message || "Error sistem") }
+    } catch (e: any) { 
+      toast.error(e.message || "Error sistem", { id: toastId }) 
+    }
   }
 
   async function handleDownloadTemplate() {
@@ -133,6 +136,7 @@ function StudentManager() {
 
     const reader = new FileReader()
     reader.onload = async (evt) => {
+      const toastId = toast.loading("Sedang membaca dan mengimpor file Excel...")
       try {
         const bstr = evt.target?.result
         const wb = XLSX.read(bstr, { type: 'binary' })
@@ -157,29 +161,32 @@ function StudentManager() {
         })).filter(r => r.name && r.email)
 
         if (formatted.length === 0) {
-          toast.error("Format Excel tidak valid atau data Nama/Email kosong")
+          toast.error("Format Excel tidak valid atau data Nama/Email kosong", { id: toastId })
           return
         }
 
+        toast.loading("Sedang menyimpan data ke database...", { id: toastId })
         const res = await fetch("/api/admin/users/students", {
           method: "POST",
           body: JSON.stringify(formatted)
         })
         const resData = await res.json()
 
-        if (resData.success) {
-          const msg = `Berhasil: ${resData.count} baru, ${resData.updated} diperbarui`
-          toast.success(msg)
+        if (res.ok && resData.success) {
+          const msg = `Berhasil mengimpor: ${resData.count} siswa baru.`
+          toast.success(msg, { id: toastId })
           
           if (resData.errors && resData.errors.length > 0) {
             console.error("Import Errors:", resData.errors)
-            toast.warning(`${resData.errors.length} baris bermasalah. Cek konsol (F12) untuk rincian.`)
+            toast.warning(`${resData.errors.length} baris bermasalah (misal: email duplikat). Cek konsol (F12) untuk rincian.`)
           }
           fetchStudents()
+        } else {
+          toast.error(resData.error || "Gagal mengimpor data siswa.", { id: toastId })
         }
 
       } catch (err) {
-        toast.error("Gagal membaca file Excel")
+        toast.error("Gagal membaca file Excel", { id: toastId })
       }
     }
     reader.readAsBinaryString(file)
@@ -451,6 +458,7 @@ function VendorManager() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
+    const toastId = toast.loading("Sedang membuat akun vendor...")
     try {
       const res = await fetch("/api/admin/users/vendors", {
         method: "POST",
@@ -458,14 +466,16 @@ function VendorManager() {
       })
       const data = await res.json()
       if (res.ok) {
-        toast.success("Vendor berhasil dibuat")
+        toast.success("Vendor berhasil dibuat", { id: toastId })
         setIsAddOpen(false)
         setFormData({ name: "", email: "", vendorName: "", password: "" })
         fetchVendors()
       } else {
-        toast.error(data.error || "Gagal buat vendor")
+        toast.error(data.error || "Gagal buat vendor", { id: toastId })
       }
-    } catch (e: any) { toast.error(e.message || "Error") }
+    } catch (e: any) { 
+      toast.error(e.message || "Error", { id: toastId }) 
+    }
   }
 
   async function handleEdit(e: React.FormEvent) {

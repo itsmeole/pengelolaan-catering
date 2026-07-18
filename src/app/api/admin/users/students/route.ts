@@ -65,21 +65,7 @@ export async function POST(req: Request) {
                     .maybeSingle()
                 
                 if (existingProfile) {
-                    // 2. Jika sudah ada, lakukan UPDATE (NIS & Kelas)
-                    const { error: updateError } = await admin
-                        .from('profiles')
-                        .update({ 
-                            nis: nis, 
-                            class: String(targetClass || ""),
-                            name: name // Perbarui nama juga jika berubah di Excel
-                        })
-                        .eq('id', existingProfile.id)
-                    
-                    if (updateError) {
-                        errors.push({ email, name, error: "Gagal update profil: " + updateError.message })
-                    } else {
-                        updateCount++
-                    }
+                    errors.push({ email, name, error: "Email sudah terdaftar. Gunakan email yang unik." })
                     continue
                 }
 
@@ -119,7 +105,20 @@ export async function POST(req: Request) {
             })
         }
 
-        const { name, email, nis, class: targetClass } = body
+        const { name, email: rawEmail, nis, class: targetClass } = body
+        const email = String(rawEmail).trim().toLowerCase()
+
+        // Cek apakah email sudah ada di tabel profiles
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle()
+
+        if (existingProfile) {
+            return NextResponse.json({ error: "Email sudah terdaftar. Gunakan email yang unik." }, { status: 400 })
+        }
+
         const password = String(nis)
         const { data: authData, error: authError } = await supabaseAnon.auth.signUp({
             email,
