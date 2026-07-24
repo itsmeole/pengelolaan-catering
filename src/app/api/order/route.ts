@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSessionUser } from '@/lib/serverSession'
+import { sendPushNotification } from '@/lib/push'
 
 function getClient(cookieStore: any) {
     return createServerClient(
@@ -274,6 +275,17 @@ export async function POST(req: Request) {
             .from('OrderItem').insert(orderItems)
 
         if (itemsError) throw itemsError
+
+        if (paymentMethod === 'CASH_PAY_LATER') {
+            const uniqueVendorIds = Array.from(new Set(orderItems.map((item: any) => item.vendorId).filter(Boolean)))
+            for (const vId of uniqueVendorIds) {
+                sendPushNotification(vId as string, {
+                    title: 'Pesanan Baru (Cash)!',
+                    body: 'Anda menerima pesanan katering sekolah baru (Bayar di Sekolah).',
+                    url: '/dashboard/vendor'
+                }).catch(err => console.error('Error sending push notification:', err))
+            }
+        }
 
         return NextResponse.json({ success: true, orderId: order.id })
     } catch (e) {

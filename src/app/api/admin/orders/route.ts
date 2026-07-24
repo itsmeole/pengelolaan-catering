@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { sendPushNotification } from '@/lib/push'
 
 function getClient(cookieStore: any) {
     return createServerClient(
@@ -221,6 +222,25 @@ export async function PUT(req: Request) {
             .eq('id', orderId)
 
         if (error) throw error
+
+        if (updateData.status === 'PAID') {
+            const { data: orderItems } = await supabase
+                .from('OrderItem')
+                .select('vendorId')
+                .eq('orderId', orderId)
+            
+            if (orderItems && orderItems.length > 0) {
+                const uniqueVendorIds = Array.from(new Set(orderItems.map((item: any) => item.vendorId).filter(Boolean)))
+                for (const vId of uniqueVendorIds) {
+                    sendPushNotification(vId as string, {
+                        title: 'Pesanan Baru (Telah Dibayar)!',
+                        body: 'Pembayaran transfer untuk pesanan baru telah disetujui admin.',
+                        url: '/dashboard/vendor'
+                    }).catch(err => console.error('Error sending push notification:', err))
+                }
+            }
+        }
+
         return NextResponse.json({ success: true })
     } catch (e) {
         console.error('ADMIN PUT ORDER ERROR:', e)

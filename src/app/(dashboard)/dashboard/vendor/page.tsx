@@ -19,8 +19,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { usePushNotifications } from "@/hooks/usePushNotifications"
 
 export default function VendorDashboard() {
+    usePushNotifications()
     const tomorrowStr = format(new Date(new Date().setDate(new Date().getDate() + 1)), "yyyy-MM-dd")
     const [stats, setStats] = useState<any>(null)
     const [loading, setLoading] = useState(true)
@@ -225,16 +227,18 @@ export default function VendorDashboard() {
                             <ChefHat className="h-6 w-6 text-amber-600 animate-bounce" />
                             Tahun Ajaran Baru Telah Dimulai!
                         </AlertDialogTitle>
-                        <AlertDialogDescription className="text-slate-600 pt-2 space-y-3">
-                            <p>
-                                Admin sekolah telah memproses dan memulai **Tahun Ajaran Baru**.
-                            </p>
-                            <p>
-                                Terkait perubahan ini, ringkasan pendapatan bersih Anda di dashboard ini telah **dimulai kembali dari Rp 0**.
-                            </p>
-                            <p className="font-semibold text-slate-800">
-                                ⚠️ Catatan: Seluruh riwayat pesanan katering dan detail laporan penjualan Anda di masa lalu tetap aman dan dapat Anda akses kapan saja di menu Laporan.
-                            </p>
+                        <AlertDialogDescription asChild className="text-slate-600 pt-2">
+                            <div className="space-y-3">
+                                <p>
+                                    Admin sekolah telah memproses dan memulai **Tahun Ajaran Baru**.
+                                </p>
+                                <p>
+                                    Terkait perubahan ini, ringkasan pendapatan bersih Anda di dashboard ini telah **dimulai kembali dari Rp 0**.
+                                </p>
+                                <p className="font-semibold text-slate-800">
+                                    ⚠️ Catatan: Seluruh riwayat pesanan katering dan detail laporan penjualan Anda di masa lalu tetap aman dan dapat Anda akses kapan saja di menu Laporan.
+                                </p>
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="mt-4">

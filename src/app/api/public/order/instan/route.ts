@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { addDays, startOfWeek, addWeeks, format } from 'date-fns'
 import { checkRateLimit, recordRequest, getClientIp } from '@/lib/rateLimiter'
+import { sendPushNotification } from '@/lib/push'
 
 export async function POST(req: Request) {
     try {
@@ -246,6 +247,17 @@ export async function POST(req: Request) {
 
         const { error: itemsError } = await supabase.from('OrderItem').insert(finalItems)
         if (itemsError) throw itemsError
+
+        if (paymentMethod === 'CASH_PAY_LATER') {
+            const uniqueVendorIds = Array.from(new Set(finalItems.map((item: any) => item.vendorId).filter(Boolean)))
+            for (const vId of uniqueVendorIds) {
+                sendPushNotification(vId as string, {
+                    title: 'Pesanan Baru (Cash - Instan)!',
+                    body: 'Anda menerima pesanan katering sekolah baru (Instant Order - Bayar di Sekolah).',
+                    url: '/dashboard/vendor'
+                }).catch(err => console.error('Error sending push notification:', err))
+            }
+        }
 
         return NextResponse.json({ success: true, orderId: orderHeader.id })
     } catch (e: any) {
