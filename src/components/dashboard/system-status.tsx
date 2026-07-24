@@ -63,8 +63,8 @@ export function SystemStatus() {
                 }
 
                 // Build human-readable deadline label
-                const deadlineLabel = dayOffset === -1
-                    ? `H-1 pukul ${deadlineTime}`
+                const deadlineLabel = dayOffset < 0
+                    ? `H${dayOffset} pukul ${deadlineTime}`
                     : `pukul ${deadlineTime}`
 
                 setStatus({ type, deadline: deadlineLabel, workingDays: config })

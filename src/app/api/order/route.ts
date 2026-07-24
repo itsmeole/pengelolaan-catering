@@ -209,7 +209,9 @@ export async function POST(req: Request) {
                 deadlineDate.setHours(h, m, 0, 0)
 
                 if (now > deadlineDate) {
-                    const offsetLabel = dayOffset === -1 ? " (H-1, sehari sebelumnya pukul " + deadlineObj.time + ")" : ` pada pukul ${deadlineObj.time}`
+                    const offsetLabel = dayOffset < 0 
+                        ? ` (H${dayOffset}, ${Math.abs(dayOffset)} hari sebelumnya pukul ${deadlineObj.time})` 
+                        : ` pada pukul ${deadlineObj.time}`
                     return NextResponse.json({ 
                         error: `Batas jam pemesanan untuk tanggal ${itemDate.toLocaleDateString('id-ID')} sudah ditutup${offsetLabel}.` 
                     }, { status: 403 })

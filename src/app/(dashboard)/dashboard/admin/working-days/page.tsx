@@ -12,6 +12,18 @@ import { ConfirmButton } from "@/components/ui/confirm-button"
 import { format } from "date-fns"
 import { id as idLocale } from "date-fns/locale"
 
+const DAY_INDEX_MAP: Record<string, number> = {
+    sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6
+}
+const DAY_LABELS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
+
+function getTargetDayLabel(dayKey: string, dayOffset: number): string {
+    const startIdx = DAY_INDEX_MAP[dayKey]
+    if (startIdx === undefined) return ""
+    const targetIdx = (startIdx + dayOffset + 700) % 7
+    return DAY_LABELS[targetIdx]
+}
+
 export default function SettingsPage() {
     // State for Working Days Config
     const [config, setConfig] = useState<any>(null)
@@ -260,8 +272,14 @@ export default function SettingsPage() {
                                                 value={deadlineObj.dayOffset ?? 0}
                                                 onChange={(e) => updateDeadline({ dayOffset: Number(e.target.value) })}
                                             >
-                                                <option value={0}>H (Hari Itu)</option>
-                                                <option value={-1}>H-1 (Sehari Sebelum)</option>
+                                                <option value={0}>H ({getTargetDayLabel(day.k, 0)})</option>
+                                                <option value={-1}>H-1 ({getTargetDayLabel(day.k, -1)})</option>
+                                                <option value={-2}>H-2 ({getTargetDayLabel(day.k, -2)})</option>
+                                                <option value={-3}>H-3 ({getTargetDayLabel(day.k, -3)})</option>
+                                                <option value={-4}>H-4 ({getTargetDayLabel(day.k, -4)})</option>
+                                                <option value={-5}>H-5 ({getTargetDayLabel(day.k, -5)})</option>
+                                                <option value={-6}>H-6 ({getTargetDayLabel(day.k, -6)})</option>
+                                                <option value={-7}>H-7 ({getTargetDayLabel(day.k, -7)})</option>
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-0.5">
