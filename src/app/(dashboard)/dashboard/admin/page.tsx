@@ -122,7 +122,7 @@ function PersonalNotes() {
                 )}
             </CardHeader>
 
-            <CardContent className="px-4 pb-4 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[340px]">
+            <CardContent className="px-4 pb-4 flex flex-col gap-2 flex-1 overflow-y-auto max-h-[460px]">
                 {/* Add form */}
                 {adding && (
                     <div className="bg-white border border-slate-100 rounded-lg p-3 space-y-2 shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
@@ -341,38 +341,40 @@ export default function AdminDashboard() {
                 {/* Top 5 Menu — 1 col */}
                 <Card className="shadow-sm border-none bg-white">
                     <CardHeader className="flex flex-row items-center justify-between px-6 pt-6 pb-2">
-                        <CardTitle className="text-sm font-bold text-slate-800">Top 5 Menu Terlaris (7 Hari ke Depan)</CardTitle>
+                        <CardTitle className="text-sm font-bold text-slate-800">Ranking Menu Terlaris (Minggu Ini)</CardTitle>
                         <TrendingUp className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent className="px-2 pb-6">
                         {stats.topWeeklyMenus && stats.topWeeklyMenus.length > 0 ? (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableHead className="w-[40px] text-xs">No</TableHead>
-                                        <TableHead className="text-xs">Menu</TableHead>
-                                        <TableHead className="text-xs text-right">Porsi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {stats.topWeeklyMenus.map((menu: any, idx: number) => (
-                                        <TableRow key={menu.id} className="group">
-                                            <TableCell className="text-xs text-slate-500">{idx + 1}</TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-slate-800 line-clamp-1">{menu.name}</span>
-                                                    <span className="text-[10px] text-slate-400 font-medium">{menu.vendorName}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-50 font-bold text-xs ring-1 ring-inset ring-blue-700/10">
-                                                    {menu.count}
-                                                </Badge>
-                                            </TableCell>
+                            <div className="overflow-y-auto max-h-[350px] px-2 pr-3 scrollbar-thin">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="w-[40px] text-xs">No</TableHead>
+                                            <TableHead className="text-xs">Menu</TableHead>
+                                            <TableHead className="text-xs text-right">Porsi</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {stats.topWeeklyMenus.map((menu: any, idx: number) => (
+                                            <TableRow key={menu.id} className="group">
+                                                <TableCell className="text-xs text-slate-500">{idx + 1}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-slate-800 line-clamp-1">{menu.name}</span>
+                                                        <span className="text-[10px] text-slate-400 font-medium">{menu.vendorName}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-50 font-bold text-xs ring-1 ring-inset ring-blue-700/10">
+                                                        {menu.count}
+                                                    </Badge>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center p-8 text-center bg-slate-50 rounded-lg mx-4 mt-4">
                                 <ShoppingBag className="h-10 w-10 text-slate-300 mb-2" />

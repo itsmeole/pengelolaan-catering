@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { startOfWeek, endOfWeek } from 'date-fns'
 
 export async function GET() {
     try {
@@ -25,22 +26,17 @@ export async function GET() {
 
         const academicYearStart = settingData ? JSON.parse(settingData.value).academicYearStart : null
 
-        // 1. Future Date Range (Today until 7 days from now)
+        // 1. Time range (Current Week: Monday to Sunday)
         const nowJakarta = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }))
-        
-        const today = new Date(nowJakarta)
-        today.setHours(0,0,0,0)
+        const thisWeekStart = startOfWeek(nowJakarta, { weekStartsOn: 1 }).toISOString()
+        const thisWeekEnd = endOfWeek(nowJakarta, { weekStartsOn: 1 }).toISOString()
 
-        const sevenDaysLater = new Date(nowJakarta)
-        sevenDaysLater.setDate(today.getDate() + 7)
-        sevenDaysLater.setHours(23,59,59,999)
-
-        // 2. Fetch OrderItems for Today + 7 Days (Aggregating Top 5)
+        // 2. Fetch OrderItems for This Week
         let futureItemsQuery = supabase
             .from('OrderItem')
             .select('menuId, menuName, vendorName, quantity, order:Order!inner(studentId, createdAt)')
-            .gte('date', today.toISOString())
-            .lte('date', sevenDaysLater.toISOString())
+            .gte('date', thisWeekStart)
+            .lte('date', thisWeekEnd)
             .neq('cancelStatus', 'APPROVED')
 
         if (academicYearStart) {
@@ -55,19 +51,21 @@ export async function GET() {
             const aggregation: Record<string, any> = {}
             futureItems.forEach(item => {
                 const id = item.menuId
-                if (!aggregation[id]) {
-                    aggregation[id] = { 
-                        name: item.menuName, 
-                        vendorName: item.vendorName, 
-                        count: 0 
+                if (id) {
+                    if (!aggregation[id]) {
+                        aggregation[id] = { 
+                            name: item.menuName, 
+                            vendorName: item.vendorName, 
+                            count: 0 
+                        }
                     }
+                    aggregation[id].count += (item.quantity || 1)
                 }
-                aggregation[id].count += (item.quantity || 1)
             })
 
             topWeeklyMenus = Object.entries(aggregation)
                 .sort((a, b) => b[1].count - a[1].count)
-                .slice(0, 5) // TOP 5
+                .slice(0, 10) // Limit to top 10
                 .map(([id, data]) => ({
                     id,
                     ...data
@@ -91,19 +89,24 @@ export async function GET() {
         const { count: unverifiedCount } = await unverifiedQuery
 
         // 5. Revenue
-        const { data: rawPaidItems } = await supabase
+        let revenueQuery = supabase
             .from('OrderItem')
             .select(`
                 price, quantity, adminFee, cancelStatus,
                 order:Order!inner(status, paymentMethod, createdAt)
             `)
             .neq('cancelStatus', 'APPROVED')
+
+        if (academicYearStart) {
+            revenueQuery = revenueQuery.gte('Order.createdAt', academicYearStart)
+        }
+
+        const { data: rawPaidItems } = await revenueQuery
             
         // Filter in JS for revenue (PAID/COMPLETED or CASH_PAY_LATER)
         const paidItems = (rawPaidItems || []).filter(item => {
             const o = (item as any).order;
             if (!o) return false;
-            if (academicYearStart && new Date(o.createdAt) < new Date(academicYearStart)) return false;
             if (['PAID', 'COMPLETED'].includes(o.status)) return true;
             if (o.status === 'PENDING' && o.paymentMethod === 'CASH_PAY_LATER') return true;
             return false;
@@ -133,7 +136,7 @@ export async function GET() {
         if (academicYearStart) {
             recentQuery = recentQuery.gte('createdAt', academicYearStart)
         }
-        const { data: recentOrders } = await recentQuery.limit(5)
+        const { data: recentOrders } = await recentQuery.limit(4)
         
         const recentActivity = (recentOrders || []).map(r => ({
             id: r.id,
