@@ -55,7 +55,11 @@ export async function GET(req: Request) {
             .from('OrderItem')
             .select(`
                 id, date, quantity, note, menuId, menuName, price, cancelStatus, vendorId,
-                Order!inner(status, paymentMethod)
+                Order!inner(
+                    status, 
+                    paymentMethod,
+                    student:profiles!studentId(class)
+                )
             `)
             .eq('vendorId', vendorId)
             .gte('date', fetchStart)
@@ -71,16 +75,22 @@ export async function GET(req: Request) {
 
         const academicYearStart = settingData ? JSON.parse(settingData.value).academicYearStart : null
 
-        // ── All-time net revenue (keseluruhan, tanpa batas tanggal) ──────────
-        const { data: allTimeItems } = await supabase
+        // ── All-time items with student profiles ──────────
+        const { data: allTimeItems, error: allTimeErr } = await supabase
             .from('OrderItem')
             .select(`
                 price, adminFee, quantity, cancelStatus,
-                Order!inner(status, createdAt)
+                Order!inner(
+                    status, 
+                    createdAt,
+                    student:profiles!studentId(class)
+                )
             `)
             .eq('vendorId', vendorId)
             .in('Order.status', ['PAID', 'COMPLETED'])
             .neq('cancelStatus', 'APPROVED')
+
+        if (allTimeErr) throw allTimeErr
 
         // Pendapatan bersih = price × qty (harga vendor, setelah admin fee sudah dipotong dari harga jual)
         const filteredAllTimeItems = (allTimeItems || []).filter((i: any) => {
@@ -123,10 +133,64 @@ export async function GET(req: Request) {
             chartDataMap[dayName] = 0
         }
 
+        // Populate last 7 days chart data based on transaction date
+        const sevenDaysAgo = new Date(now)
+        sevenDaysAgo.setDate(now.getDate() - 7)
+        sevenDaysAgo.setHours(0, 0, 0, 0)
+
+        filteredAllTimeItems.forEach((item: any) => {
+            const orderDate = new Date(item.Order.createdAt)
+            if (orderDate >= sevenDaysAgo && orderDate <= now) {
+                const dayName = orderDate.toLocaleDateString('id-ID', { weekday: 'short' })
+                if (chartDataMap[dayName] !== undefined) {
+                    chartDataMap[dayName] += (item.price * (item.quantity || 1))
+                }
+            }
+        })
+
+        // ── Perbandingan Penjualan Tahunan (Line Chart) ──
+        const yearsSet = new Set<string>()
+        allTimeItems?.forEach((item: any) => {
+            if (item.Order?.createdAt) {
+                const year = new Date(item.Order.createdAt).getFullYear()
+                yearsSet.add(String(year))
+            }
+        })
+        yearsSet.add(String(now.getFullYear()))
+        const years = Array.from(yearsSet).sort()
+
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        const monthlyChartData = monthNames.map((month) => {
+            const entry: Record<string, any> = { name: month }
+            years.forEach(yr => {
+                entry[yr] = 0
+            })
+            return entry
+        })
+
+        allTimeItems?.forEach((item: any) => {
+            if (item.Order?.createdAt) {
+                const orderDate = new Date(item.Order.createdAt)
+                const yearStr = String(orderDate.getFullYear())
+                const monthIdx = orderDate.getMonth()
+                
+                if (monthlyChartData[monthIdx]) {
+                    monthlyChartData[monthIdx][yearStr] += (item.price * (item.quantity || 1))
+                }
+            }
+        })
+
+        // ── Sebaran Kelas Mingguan (Pie Chart) ──
+        const classDataMap: Record<string, number> = {}
+
         validItems.forEach((item: any) => {
-            // Stats for this week
+            // Stats for this week (delivery date based)
             if (item.date >= thisWeekStart && item.date <= thisWeekEnd) {
                 weeklyCount += item.quantity || 1
+
+                const student = item.Order?.student
+                const studentClass = (Array.isArray(student) ? student[0]?.class : student?.class) || 'Lainnya'
+                classDataMap[studentClass] = (classDataMap[studentClass] || 0) + (item.quantity || 1)
             }
 
             // Stats for next week
@@ -150,6 +214,11 @@ export async function GET(req: Request) {
             }
         })
 
+        const classPieData = Object.keys(classDataMap).map(className => ({
+            name: className,
+            value: classDataMap[className]
+        })).sort((a, b) => b.value - a.value)
+
         const cookingList = Object.values(cookingMap)
 
         const chartData = Object.keys(chartDataMap).map(key => ({
@@ -162,9 +231,12 @@ export async function GET(req: Request) {
             nextWeekOrderCount: nextWeekCount,
             weeklyOrderCount: weeklyCount,
             totalRevenue,
-            allTimeNetRevenue,   // ← pendapatan bersih keseluruhan
+            allTimeNetRevenue,
             cookingList,
             chartData,
+            monthlyChartData,
+            years,
+            classPieData,
             academicYearStart
         })
 
