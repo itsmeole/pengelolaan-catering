@@ -30,6 +30,7 @@ export async function GET(req: Request) {
                     status,
                     createdAt,
                     paymentMethod,
+                    studentId,
                     student:profiles!studentId(name, class)
                 )
             `)
@@ -72,6 +73,7 @@ export async function GET(req: Request) {
                 id: item.id,
                 transactionDate: format(new Date((item as any).order?.createdAt), "dd/MM/yyyy HH:mm"),
                 deliveryDate: format(new Date(item.date), "dd/MM/yyyy"),
+                studentId: (item as any).order?.studentId || null,
                 studentName: (item as any).order?.student?.name || 'Siswa',
                 studentClass: (item as any).order?.student?.class || '-',
                 paymentMethod: (item as any).order?.paymentMethod || 'UNKNOWN',

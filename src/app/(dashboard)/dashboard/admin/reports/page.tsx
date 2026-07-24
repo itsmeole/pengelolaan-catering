@@ -70,7 +70,7 @@ export default function AdminReportsPage() {
       
       data.details.forEach((d: any) => {
         if (d.refundStatus === 'APPROVED') return
-        const key = d.studentName
+        const key = d.studentId || d.studentName
         if (!studentMap[key]) {
           studentMap[key] = {
             studentName: d.studentName,
@@ -84,10 +84,11 @@ export default function AdminReportsPage() {
         const date = new Date(+yyyy, +mm - 1, +dd)
         const dayName = DAY_JS[date.getDay()]
         if (dayName) {
+          const packageRepeated = Array(d.quantity || 1).fill(d.vendorName).join(', ')
           if (studentMap[key].days[dayName]) {
-            studentMap[key].days[dayName] += `, ${d.vendorName}`
+            studentMap[key].days[dayName] += `, ${packageRepeated}`
           } else {
-            studentMap[key].days[dayName] = d.vendorName
+            studentMap[key].days[dayName] = packageRepeated
           }
         }
       })
@@ -300,7 +301,7 @@ export default function AdminReportsPage() {
     
     data.details.forEach((d: any) => {
       if (d.refundStatus === 'APPROVED') return
-      const key = d.studentName
+      const key = d.studentId || d.studentName
       if (!studentMap[key]) {
         studentMap[key] = {
           studentName: d.studentName,
@@ -314,10 +315,11 @@ export default function AdminReportsPage() {
       const date = new Date(+yyyy, +mm - 1, +dd)
       const dayName = DAY_JS_UPPER[date.getDay()]
       if (dayName) {
+        const packageRepeated = Array(d.quantity || 1).fill(d.vendorName).join(', ')
         if (studentMap[key].days[dayName]) {
-          studentMap[key].days[dayName] += `, ${d.vendorName}`
+          studentMap[key].days[dayName] += `, ${packageRepeated}`
         } else {
-          studentMap[key].days[dayName] = d.vendorName
+          studentMap[key].days[dayName] = packageRepeated
         }
       }
     })
