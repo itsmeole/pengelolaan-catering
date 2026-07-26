@@ -21,10 +21,19 @@ export async function GET() {
         const user = await getSessionUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+        // Get academicYearStart if exists
+        const { data: settingData } = await supabase
+            .from('SystemSetting')
+            .select('value')
+            .eq('key', 'new_academic_year_start')
+            .maybeSingle()
+
+        const academicYearStart = settingData ? JSON.parse(settingData.value).academicYearStart : null
+
         // Get OrderItems for menus owned by this vendor
         // Filter: Order.status is PAID/COMPLETED OR (PENDING AND CASH_PAY_LATER)
         // This ensures vendors only see orders that are either pre-paid or committed cash-on-school
-        const { data, error } = await supabase
+        let query = supabase
             .from('OrderItem')
             .select(`
                 *,
@@ -35,6 +44,12 @@ export async function GET() {
             `)
             .eq('vendorId', user.id)
             .or('status.in.("PAID","COMPLETED"),and(status.eq.PENDING,paymentMethod.eq.CASH_PAY_LATER)', { foreignTable: 'order' })
+
+        if (academicYearStart) {
+            query = query.gte('order.createdAt', academicYearStart)
+        }
+
+        const { data, error } = await query
             .order('date', { ascending: true })
             .order('createdAt', { ascending: false, foreignTable: 'order' })
 
