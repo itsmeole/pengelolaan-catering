@@ -3,8 +3,12 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSessionUser } from '@/lib/serverSession'
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        const { searchParams } = new URL(req.url)
+        const start = searchParams.get('start')
+        const end = searchParams.get('end')
+
         const cookieStore = await cookies()
         const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,6 +51,18 @@ export async function GET() {
 
         if (academicYearStart) {
             query = query.gte('order.createdAt', academicYearStart)
+        }
+
+        // Apply date range filters on the database query level if provided
+        if (start) {
+            const startDate = new Date(start)
+            startDate.setHours(0,0,0,0)
+            query = query.gte('date', startDate.toISOString())
+        }
+        if (end) {
+            const endDate = new Date(end)
+            endDate.setHours(23,59,59,999)
+            query = query.lte('date', endDate.toISOString())
         }
 
         const { data, error } = await query

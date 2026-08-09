@@ -22,26 +22,42 @@ export default function VendorOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'this_week' | 'next_week' | 'all'>('next_week')
 
-  useEffect(() => {
-    fetchItems()
-  }, [])
-
-  async function fetchItems() {
-    try {
-      const res = await fetch("/api/vendor/orders")
-      if (res.ok) {
-        setItems(await res.json())
-      }
-    } catch { /* Handle error */ }
-    finally { setLoading(false) }
-  }
-
   // Calculate date ranges
   const now = new Date()
   const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 })
   const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 })
   const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 })
   const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 })
+
+  useEffect(() => {
+    fetchItems()
+  }, [filter])
+
+  async function fetchItems() {
+    setLoading(true)
+    try {
+      let url = "/api/vendor/orders"
+      const params = new URLSearchParams()
+      if (filter === 'this_week') {
+        params.append('start', format(thisWeekStart, "yyyy-MM-dd"))
+        params.append('end', format(thisWeekEnd, "yyyy-MM-dd"))
+      } else if (filter === 'next_week') {
+        params.append('start', format(nextWeekStart, "yyyy-MM-dd"))
+        params.append('end', format(nextWeekEnd, "yyyy-MM-dd"))
+      }
+      
+      const queryString = params.toString()
+      if (queryString) {
+        url += `?${queryString}`
+      }
+
+      const res = await fetch(url)
+      if (res.ok) {
+        setItems(await res.json())
+      }
+    } catch { /* Handle error */ }
+    finally { setLoading(false) }
+  }
 
   const filteredItems = items.filter(item => {
     const itemDate = parseISO(item.date)
