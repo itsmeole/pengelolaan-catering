@@ -25,7 +25,8 @@ import {
   Loader2, Plus, Search, User, Calendar, 
   ChevronRight, Filter, Eye, XCircle, CheckCircle2,
   Trash2, AlertCircle, FileText, CheckCircle,
-  LayoutGrid, Utensils, CalendarClock, UserPlus, RotateCcw
+  LayoutGrid, Utensils, CalendarClock, UserPlus, RotateCcw,
+  ExternalLink
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1224,10 +1225,20 @@ export default function AdminOrdersPage() {
                                                 className="h-8 py-0.5 px-2 text-xs w-[130px] inline-block"
                                               />
                                           </TableCell>
-                                          <TableCell>
-                                              <div className="flex flex-col">
-                                                  <span className="text-xs font-bold">{item.menuName || item.menu?.name}</span>
-                                                  <span className="text-[10px] text-muted-foreground italic">{item.vendorName || item.menu?.vendor?.vendorName}</span>
+                                          <TableCell className="min-w-0 max-w-[120px] xs:max-w-[150px] sm:max-w-[220px]">
+                                              <div className="flex flex-col min-w-0">
+                                                  <span 
+                                                      className="text-xs font-bold truncate block"
+                                                      title={item.menuName || item.menu?.name}
+                                                  >
+                                                      {item.menuName || item.menu?.name}
+                                                  </span>
+                                                  <span 
+                                                      className="text-[10px] text-muted-foreground italic truncate block"
+                                                      title={item.vendorName || item.menu?.vendor?.vendorName}
+                                                  >
+                                                      {item.vendorName || item.menu?.vendor?.vendorName}
+                                                  </span>
                                               </div>
                                           </TableCell>
                                           <TableCell className="text-center text-xs">
@@ -1303,26 +1314,36 @@ export default function AdminOrdersPage() {
                         <Table>
                             <TableHeader className="bg-slate-50">
                                 <TableRow>
-                                    <TableHead className="text-[10px]">Tgl Antar</TableHead>
+                                    <TableHead className="text-[10px] whitespace-nowrap">Tgl Antar</TableHead>
                                     <TableHead className="text-[10px]">Item</TableHead>
-                                    <TableHead className="text-[10px] text-center">Qty</TableHead>
-                                    <TableHead className="text-[10px] text-right">Harga</TableHead>
-                                    <TableHead className="text-[10px] text-right hidden sm:table-cell">Total</TableHead>
+                                    <TableHead className="text-[10px] text-center whitespace-nowrap">Qty</TableHead>
+                                    <TableHead className="text-[10px] text-right whitespace-nowrap">Harga</TableHead>
+                                    <TableHead className="text-[10px] text-right hidden sm:table-cell whitespace-nowrap">Total</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {selectedOrderForDetail.items?.map((item: any) => (
                                     <TableRow key={item.id}>
-                                        <TableCell className="text-xs">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold">{item.menuName || item.menu?.name}</span>
-                                                <span className="text-[10px] text-muted-foreground italic">{item.vendorName || item.menu?.vendor?.vendorName}</span>
+                                        <TableCell className="text-xs whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
+                                        <TableCell className="min-w-0 max-w-[120px] xs:max-w-[150px] sm:max-w-[220px]">
+                                            <div className="flex flex-col min-w-0">
+                                                <span 
+                                                    className="text-xs font-bold truncate block"
+                                                    title={item.menuName || item.menu?.name}
+                                                >
+                                                    {item.menuName || item.menu?.name}
+                                                </span>
+                                                <span 
+                                                    className="text-[10px] text-muted-foreground italic truncate block"
+                                                    title={item.vendorName || item.menu?.vendor?.vendorName}
+                                                >
+                                                    {item.vendorName || item.menu?.vendor?.vendorName}
+                                                </span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center text-xs font-bold">{item.quantity}</TableCell>
-                                        <TableCell className="text-right text-xs">Rp {(item.price + item.adminFee).toLocaleString()}</TableCell>
-                                        <TableCell className="text-right text-xs font-bold hidden sm:table-cell">Rp {((item.price + item.adminFee) * item.quantity).toLocaleString()}</TableCell>
+                                        <TableCell className="text-center text-xs font-bold whitespace-nowrap">{item.quantity}</TableCell>
+                                        <TableCell className="text-right text-xs whitespace-nowrap">Rp {(item.price + item.adminFee).toLocaleString()}</TableCell>
+                                        <TableCell className="text-right text-xs font-bold hidden sm:table-cell whitespace-nowrap">Rp {((item.price + item.adminFee) * item.quantity).toLocaleString()}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -1370,10 +1391,36 @@ export default function AdminOrdersPage() {
       </Dialog>
 
       <Dialog open={!!selectedProof} onOpenChange={(open) => !open && setSelectedProof(null)}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader><DialogTitle>Bukti Transfer</DialogTitle></DialogHeader>
-          {selectedProof && <img src={selectedProof} className="w-full rounded-lg border shadow-sm" alt="Bukti" />}
-          <Button variant="secondary" className="w-full mt-4" onClick={() => setSelectedProof(null)}>Tutup</Button>
+        <DialogContent showCloseButton={false} className="max-w-md sm:max-w-lg w-[95vw] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+          <DialogHeader className="pb-2 border-b flex-shrink-0">
+            <DialogTitle className="text-base font-bold flex items-center justify-between">
+              <span>Bukti Transfer</span>
+              {selectedProof && (
+                <a 
+                  href={selectedProof} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="text-xs font-normal text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Buka Penuh
+                </a>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto min-h-0 py-2 flex items-center justify-center bg-slate-100/60 rounded-xl my-2 p-2">
+            {selectedProof && (
+              <img 
+                src={selectedProof} 
+                className="max-h-[65vh] w-auto max-w-full rounded-lg object-contain shadow-sm" 
+                alt="Bukti Transfer" 
+              />
+            )}
+          </div>
+
+          <DialogFooter className="pt-2 border-t flex-shrink-0">
+            <Button variant="secondary" className="w-full" onClick={() => setSelectedProof(null)}>Tutup</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

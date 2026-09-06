@@ -45,3 +45,8 @@ next-env.d.ts
 # private scripts folder
 /scripts
 
+# documentation diagrams
+FLOWMAP.md
+flowmap.md
+FLOWMAP.html
+flowmap.html
