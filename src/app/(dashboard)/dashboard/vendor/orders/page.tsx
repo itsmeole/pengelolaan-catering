@@ -17,6 +17,7 @@ import { Loader2, ChefHat, CalendarDays, User, Utensils, CalendarClock, Download
 import { toast } from "sonner"
 import * as XLSX from "xlsx"
 import { useRealtimeOrders } from "@/hooks/useRealtimeOrders"
+import { cn } from "@/lib/utils"
 
 export default function VendorOrdersPage() {
   const [items, setItems] = useState<any[]>([])
@@ -97,12 +98,14 @@ export default function VendorOrdersPage() {
     // Siapkan array data object yang akan menjadi row di Excel
     const exportData = filteredItems.map((item) => {
         const dateStr = format(parseISO(item.date), "EEEE, dd MMMM yyyy", { locale: idLocale })
+        const isCancelled = item.cancelStatus === 'APPROVED' || item.order?.status === 'CANCELLED'
         return {
             "Tanggal": dateStr,
             "Menu": item.menuName || "Menu Terhapus",
             "Siswa": item.order?.student?.name || "-",
             "Kelas": item.order?.student?.class || "-",
-            "Jumlah Porsi": item.quantity,
+            "Jumlah Porsi": isCancelled ? 0 : item.quantity,
+            "Status": isCancelled ? "DIBATALKAN / REFUND" : "AKTIF",
             "Catatan": item.note || "-"
         }
     })
@@ -111,7 +114,7 @@ export default function VendorOrdersPage() {
         const worksheet = XLSX.utils.json_to_sheet(exportData)
         // Autoresizing lebar kolom (opsional tapi bagus)
         const colWidths = [
-            { wch: 25 }, { wch: 30 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }
+            { wch: 25 }, { wch: 30 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 22 }, { wch: 25 }
         ]
         worksheet["!cols"] = colWidths
         
@@ -135,15 +138,15 @@ export default function VendorOrdersPage() {
   )
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-xl border shadow-sm">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-primary">Daftar Masak</h2>
-          <p className="text-muted-foreground">Jadwal persiapan menu berdasarkan pesanan siswa.</p>
+          <p className="text-muted-foreground text-sm">Kelola jadwal dan porsi menu katering per hari.</p>
         </div>
         
-        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 w-full md:w-auto">
-          <div className="flex bg-slate-100 p-1 rounded-lg w-fit border">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
             <button 
               onClick={() => setFilter('this_week')}
               className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'this_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
@@ -191,12 +194,16 @@ export default function VendorOrdersPage() {
           const dateItems = filteredItems.filter(i => i.date.startsWith(dateStr))
           const date = new Date(dateStr)
           
+          // Hanya hitung porsi aktif (bukan yang dibatalkan/direfund)
+          const activeDateItems = dateItems.filter(i => i.cancelStatus !== 'APPROVED' && i.order?.status !== 'CANCELLED')
+          
           // Summary for the day
-          const menuSummary = dateItems.reduce((acc: any, curr) => {
+          const menuSummary = activeDateItems.reduce((acc: any, curr) => {
             const name = curr.menuName || 'Menu Terhapus'
             acc[name] = (acc[name] || 0) + curr.quantity
             return acc
           }, {})
+          const totalActivePortions = (Object.values(menuSummary) as number[]).reduce((a, b) => a + b, 0)
 
           return (
             <div key={dateStr} className="space-y-4">
@@ -208,7 +215,9 @@ export default function VendorOrdersPage() {
                     <h3 className="text-xl font-bold text-slate-800">
                         {format(date, "EEEE, dd MMMM yyyy", { locale: idLocale })}
                     </h3>
-                    <p className="text-xs text-muted-foreground">Total {dateItems.length} pesanan · {(Object.values(menuSummary) as number[]).reduce((a, b) => a + b, 0)} porsi</p>
+                    <p className="text-xs text-muted-foreground">
+                      Total {activeDateItems.length} pesanan aktif · {totalActivePortions} porsi masak
+                    </p>
                 </div>
               </div>
 
@@ -242,35 +251,51 @@ export default function VendorOrdersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dateItems.map((item) => (
-                      <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center border">
-                              <Utensils className="h-5 w-5 text-slate-400" />
+                    {dateItems.map((item) => {
+                      const isItemCancelled = item.cancelStatus === 'APPROVED' || item.order?.status === 'CANCELLED'
+                      return (
+                        <TableRow key={item.id} className={isItemCancelled ? "bg-slate-50/80 opacity-60" : "hover:bg-slate-50/50 transition-colors"}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 bg-slate-100 rounded-lg flex items-center justify-center border shrink-0">
+                                <Utensils className="h-5 w-5 text-slate-400" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn("font-bold text-slate-800", isItemCancelled && "line-through text-slate-400")}>
+                                    {item.menuName || "Menu Terhapus"}
+                                  </span>
+                                  {isItemCancelled && (
+                                    <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">
+                                      Batal / Refund
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <span className="font-bold text-slate-800">{item.menuName || "Menu Terhapus"}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
+                          </TableCell>
+                          <TableCell>
                             <div className="flex items-center gap-2">
-                                <User className="h-3 w-3 text-slate-400" />
-                                <span className="font-medium">{item.order?.student?.name}</span>
+                              <User className="h-3 w-3 text-slate-400" />
+                              <span className={cn("font-medium", isItemCancelled && "line-through text-slate-400")}>
+                                {item.order?.student?.name}
+                              </span>
                             </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">
-                            {item.order?.student?.class}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-blue-600 text-lg">
-                          {item.quantity}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground italic">
-                          {item.note || "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200">
+                              {item.order?.student?.class}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className={cn("text-center font-bold text-lg", isItemCancelled ? "line-through text-slate-400" : "text-blue-600")}>
+                            {isItemCancelled ? 0 : item.quantity}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground italic">
+                            {item.note || "-"}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>

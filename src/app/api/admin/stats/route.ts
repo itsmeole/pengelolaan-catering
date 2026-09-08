@@ -93,7 +93,7 @@ export async function GET() {
             .from('OrderItem')
             .select(`
                 price, quantity, adminFee, cancelStatus,
-                order:Order!inner(status, paymentMethod, createdAt)
+                order:Order!inner(id, status, paymentMethod, createdAt, serviceFee)
             `)
             .neq('cancelStatus', 'APPROVED')
 
@@ -111,17 +111,32 @@ export async function GET() {
             if (o.status === 'PENDING' && o.paymentMethod === 'CASH_PAY_LATER') return true;
             return false;
         })
+
+        // Unique active orders for service fee calculation
+        const activeOrderMap = new Map<string, { serviceFee: number; paymentMethod: string }>()
+        paidItems.forEach(item => {
+            const o = (item as any).order
+            if (o && o.id && !activeOrderMap.has(o.id)) {
+                activeOrderMap.set(o.id, {
+                    serviceFee: Number(o.serviceFee) || 0,
+                    paymentMethod: o.paymentMethod
+                })
+            }
+        })
+        const totalServiceFee = Array.from(activeOrderMap.values()).reduce((acc, o) => acc + o.serviceFee, 0)
+        const totalServiceFeeTF = Array.from(activeOrderMap.values()).filter(o => o.paymentMethod === 'TRANSFER').reduce((acc, o) => acc + o.serviceFee, 0)
+        const totalServiceFeeCash = Array.from(activeOrderMap.values()).filter(o => o.paymentMethod === 'CASH_PAY_LATER').reduce((acc, o) => acc + o.serviceFee, 0)
         
-        const grossRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0) || 0
-        const netRevenue = paidItems?.reduce((acc, curr) => acc + ((curr.adminFee || 0) * curr.quantity), 0) || 0
+        const grossRevenue = (paidItems?.reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0) || 0) + totalServiceFee
+        const netRevenue = (paidItems?.reduce((acc, curr) => acc + ((curr.adminFee || 0) * curr.quantity), 0) || 0) + totalServiceFee
 
         const grossTF = paidItems
             .filter(item => (item as any).order?.paymentMethod === 'TRANSFER')
-            .reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0)
+            .reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0) + totalServiceFeeTF
         
         const grossCash = paidItems
             .filter(item => (item as any).order?.paymentMethod === 'CASH_PAY_LATER')
-            .reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0)
+            .reduce((acc, curr) => acc + ((curr.price + (curr.adminFee || 0)) * curr.quantity), 0) + totalServiceFeeCash
 
         // 6. Recent Activity
         let recentQuery = supabase

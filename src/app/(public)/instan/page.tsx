@@ -27,6 +27,7 @@ export default function InstantOrderPage() {
     const [proofImage, setProofImage] = useState<string | null>(null)
     const [orderSuccess, setOrderSuccess] = useState<any>(null)
     const [adminFee, setAdminFee] = useState<number>(1000)
+    const [serviceFee, setServiceFee] = useState<number>(0)
     const [orderWeek, setOrderWeek] = useState<'THIS_WEEK' | 'NEXT_WEEK'>('THIS_WEEK')
     const [deadlineInfo, setDeadlineInfo] = useState("20:00")
     const [systemConfig, setSystemConfig] = useState<any>(null)
@@ -42,6 +43,7 @@ export default function InstantOrderPage() {
             .then(res => res.json())
             .then(data => {
                 if (data.fee !== undefined) setAdminFee(data.fee)
+                if (data.serviceFee !== undefined) setServiceFee(data.serviceFee)
             }).catch(() => {})
 
         fetch("/api/admin/settings/working-days")
@@ -263,10 +265,11 @@ export default function InstantOrderPage() {
         }
     }
 
-    const totalAmount = menus.reduce((acc, menu) => {
+    const itemsSubtotal = menus.reduce((acc, menu) => {
         const qty = selectedMenus[menu.id] || 0
         return acc + (qty * (menu.price + adminFee))
     }, 0)
+    const totalAmount = itemsSubtotal + (itemsSubtotal > 0 ? serviceFee : 0)
 
     if (step === 4) {
         return (
@@ -580,11 +583,21 @@ export default function InstantOrderPage() {
                                             )
                                         })}
                                     </div>
-                                    <Separator className="bg-white/20" />
-                                    <div className="flex justify-between items-center bg-white/10 p-3 rounded-lg">
-                                        <p className="font-bold text-lg">Total Bayar</p>
-                                        <p className="text-lg font-extrabold">Rp {totalAmount.toLocaleString("id-ID")}</p>
-                                    </div>
+                                     <Separator className="bg-white/20" />
+                                     <div className="space-y-1.5 text-xs">
+                                         <div className="flex justify-between opacity-90">
+                                             <span>Subtotal Menu</span>
+                                             <span>Rp {itemsSubtotal.toLocaleString("id-ID")}</span>
+                                         </div>
+                                         <div className="flex justify-between opacity-90">
+                                             <span>Biaya Layanan</span>
+                                             <span>Rp {serviceFee.toLocaleString("id-ID")}</span>
+                                         </div>
+                                     </div>
+                                     <div className="flex justify-between items-center bg-white/10 p-3 rounded-lg">
+                                         <p className="font-bold text-lg">Total Bayar</p>
+                                         <p className="text-lg font-extrabold">Rp {totalAmount.toLocaleString("id-ID")}</p>
+                                     </div>
                                 </div>
 
                                 <div className="space-y-4">

@@ -110,12 +110,15 @@ export async function PUT(req: Request) {
         let updateData: any = { updatedAt: new Date().toISOString() }
 
         if (type === 'EDIT_ORDER') {
-            // 1. Fetch Admin Fee
+            // 1. Fetch Admin Fee & Existing Order Service Fee
             const { data: feeData } = await supabase.from('SystemSetting').select('value').eq('key', 'admin_fee_config').single()
             const adminFee = feeData && feeData.value ? JSON.parse(feeData.value).fee : 1000
 
+            const { data: existingOrder } = await supabase.from('Order').select('serviceFee').eq('id', orderId).single()
+            const currentServiceFee = existingOrder?.serviceFee || 0
+
             // 2. Calculate new totalAmount
-            const totalAmount = items.reduce((acc: number, item: any) => acc + ((item.price + adminFee) * item.quantity), 0)
+            const totalAmount = items.reduce((acc: number, item: any) => acc + ((item.price + adminFee) * item.quantity), 0) + currentServiceFee
 
             // 3. Update Order
             const { error: orderError } = await supabase
@@ -276,5 +279,46 @@ export async function PUT(req: Request) {
     } catch (e) {
         console.error('ADMIN PUT ORDER ERROR:', e)
         return NextResponse.json({ error: 'System Error' }, { status: 500 })
+    }
+}
+
+// DELETE: Hapus pesanan permanen dari database
+export async function DELETE(req: Request) {
+    try {
+        const { searchParams } = new URL(req.url)
+        let orderId = searchParams.get('orderId')
+        
+        if (!orderId) {
+            const body = await req.json().catch(() => ({}))
+            orderId = body.orderId
+        }
+
+        if (!orderId) {
+            return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
+        }
+
+        const cookieStore = await cookies()
+        const supabase = getClient(cookieStore)
+
+        // 1. Hapus OrderItem terkait
+        const { error: itemsError } = await supabase
+            .from('OrderItem')
+            .delete()
+            .eq('orderId', orderId)
+
+        if (itemsError) throw itemsError
+
+        // 2. Hapus Order
+        const { error: orderError } = await supabase
+            .from('Order')
+            .delete()
+            .eq('id', orderId)
+
+        if (orderError) throw orderError
+
+        return NextResponse.json({ success: true, message: 'Pesanan berhasil dihapus' })
+    } catch (e: any) {
+        console.error('ADMIN DELETE ORDER ERROR:', e)
+        return NextResponse.json({ error: e.message || 'System Error' }, { status: 500 })
     }
 }

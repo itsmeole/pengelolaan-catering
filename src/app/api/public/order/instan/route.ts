@@ -92,7 +92,9 @@ export async function POST(req: Request) {
             .select('value')
             .eq('key', 'admin_fee_config')
             .single()
-        const ADMIN_FEE = feeData ? JSON.parse(feeData.value).fee : 1000
+        const feeConfig = feeData && feeData.value ? JSON.parse(feeData.value) : { fee: 1000, serviceFee: 0 }
+        const ADMIN_FEE = feeConfig.fee !== undefined ? Number(feeConfig.fee) : 1000
+        const SERVICE_FEE = feeConfig.serviceFee !== undefined ? Number(feeConfig.serviceFee) : 0
 
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -223,11 +225,14 @@ export async function POST(req: Request) {
         }
 
         // 4. Simpan Order
+        const finalTotalAmount = totalAmount + SERVICE_FEE
+
         const { data: orderHeader, error: orderError } = await supabase
             .from('Order')
             .insert({
                 studentId,
-                totalAmount,
+                totalAmount: finalTotalAmount,
+                serviceFee: SERVICE_FEE,
                 paymentMethod,
                 proofImage: proofImage || null,
                 status: 'PENDING',

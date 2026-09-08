@@ -11,11 +11,15 @@ export async function GET() {
             .single()
 
         if (error || !data) {
-            return NextResponse.json({ fee: 1000 })
+            return NextResponse.json({ fee: 1000, serviceFee: 0 })
         }
-        return NextResponse.json(JSON.parse(data.value))
+        const parsed = JSON.parse(data.value)
+        return NextResponse.json({
+            fee: parsed.fee !== undefined ? Number(parsed.fee) : 1000,
+            serviceFee: parsed.serviceFee !== undefined ? Number(parsed.serviceFee) : 0
+        })
     } catch (e) {
-        return NextResponse.json({ fee: 1000 })
+        return NextResponse.json({ fee: 1000, serviceFee: 0 })
     }
 }
 
@@ -24,11 +28,16 @@ export async function PUT(req: Request) {
         const payload = await req.json()
         const supabase = await createClient()
 
+        const configToSave = {
+            fee: payload.fee !== undefined ? Number(payload.fee) : 1000,
+            serviceFee: payload.serviceFee !== undefined ? Number(payload.serviceFee) : 0
+        }
+
         const { error } = await supabase
             .from('SystemSetting')
             .upsert({
                 key: 'admin_fee_config',
-                value: JSON.stringify(payload),
+                value: JSON.stringify(configToSave),
                 updatedAt: new Date().toISOString()
             }, { onConflict: 'key' })
 
@@ -37,7 +46,7 @@ export async function PUT(req: Request) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ success: true })
+        return NextResponse.json({ success: true, ...configToSave })
     } catch (e) {
         console.error('System Error:', e)
         return NextResponse.json({ error: "System Error" }, { status: 500 })

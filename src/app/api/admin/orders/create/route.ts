@@ -33,10 +33,13 @@ export async function POST(req: Request) {
         }
 
         const { data: feeData } = await supabase.from('SystemSetting').select('value').eq('key', 'admin_fee_config').single()
-        const adminFee = feeData ? JSON.parse(feeData.value).fee : 1000
+        const feeConfig = feeData && feeData.value ? JSON.parse(feeData.value) : { fee: 1000, serviceFee: 0 }
+        const adminFee = feeConfig.fee !== undefined ? Number(feeConfig.fee) : 1000
+        const serviceFee = feeConfig.serviceFee !== undefined ? Number(feeConfig.serviceFee) : 0
 
-        // Total amount (Vendor Price + Admin Fee per item)
-        const totalAmount = items.reduce((acc: number, item: any) => acc + ((item.price + adminFee) * item.quantity), 0)
+        // Total amount (Vendor Price + Admin Fee per item) + serviceFee per order
+        const itemsTotal = items.reduce((acc: number, item: any) => acc + ((item.price + adminFee) * item.quantity), 0)
+        const totalAmount = itemsTotal + serviceFee
 
         // 2. Buat Order (Default PENDING untuk transparansi manual)
         const { data: order, error: orderError } = await supabase
@@ -44,6 +47,7 @@ export async function POST(req: Request) {
             .insert({
                 studentId,
                 totalAmount,
+                serviceFee,
                 status: 'PENDING', 
                 paymentMethod: paymentMethod || 'CASH_PAY_LATER',
                 proofImage: proofImage || null,

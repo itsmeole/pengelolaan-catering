@@ -77,7 +77,7 @@ export async function GET() {
         const { data, error } = await supabase
             .from('Order')
             .select(`
-                id, studentId, totalAmount, status, paymentMethod, proofImage, isProofInvalid, rejectionReason, cancelStatus, createdAt, updatedAt,
+                id, studentId, totalAmount, serviceFee, status, paymentMethod, proofImage, isProofInvalid, rejectionReason, cancelStatus, createdAt, updatedAt,
                 items:"OrderItem"(
                     id, orderId, menuId, date, quantity, note, price, adminFee, menuName, vendorName, vendorId, cancelStatus, receivedAt,
                     menu:"MenuItem"(imageUrl, name)
@@ -220,9 +220,11 @@ export async function POST(req: Request) {
         }
         // --- END VALIDASI ---
 
-        // Ambil Admin Fee dari DB untuk keamanan validasi harga di backend
+        // Ambil Admin Fee & Biaya Layanan dari DB untuk keamanan validasi harga di backend
         const { data: feeData } = await supabase.from('SystemSetting').select('value').eq('key', 'admin_fee_config').single()
-        const adminFee = feeData && feeData.value ? JSON.parse(feeData.value).fee : 1000
+        const feeConfig = feeData && feeData.value ? JSON.parse(feeData.value) : { fee: 1000, serviceFee: 0 }
+        const adminFee = feeConfig.fee !== undefined ? Number(feeConfig.fee) : 1000
+        const serviceFee = feeConfig.serviceFee !== undefined ? Number(feeConfig.serviceFee) : 0
 
         if (!items || items.length === 0) {
             return NextResponse.json({ error: 'Keranjang kosong' }, { status: 400 })
@@ -232,13 +234,15 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Jumlah porsi tidak valid (minimal 1)' }, { status: 400 })
         }
 
-        const totalAmount = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0)
+        const itemsTotal = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0)
+        const totalAmount = itemsTotal + serviceFee
 
         const { data: order, error: orderError } = await supabase
             .from('Order')
             .insert({
                 studentId: user.id,
                 totalAmount,
+                serviceFee,
                 status: 'PENDING',
                 paymentMethod,
                 proofImage: proofImage || null,

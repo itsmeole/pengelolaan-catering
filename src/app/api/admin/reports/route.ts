@@ -27,10 +27,12 @@ export async function GET(req: Request) {
                 id, quantity, price, adminFee, date, cancelStatus, cancelReason,
                 menuName, vendorName, vendorId,
                 order:"Order"!inner(
+                    id,
                     status,
                     createdAt,
                     paymentMethod,
                     studentId,
+                    serviceFee,
                     student:profiles!studentId(name, class)
                 )
             `)
@@ -71,6 +73,7 @@ export async function GET(req: Request) {
             const netPerItem    = (item.adminFee || 0) * item.quantity
             return {
                 id: item.id,
+                orderId: (item as any).order?.id || null,
                 transactionDate: format(new Date((item as any).order?.createdAt), "dd/MM/yyyy HH:mm"),
                 deliveryDate: format(new Date(item.date), "dd/MM/yyyy"),
                 studentId: (item as any).order?.studentId || null,
@@ -93,8 +96,23 @@ export async function GET(req: Request) {
         // Summary: EXCLUDE approved cancellations from money totals
         const filterActive = (d: any) => d.refundStatus !== 'APPROVED'
         const totalOrders  = details.filter(filterActive).length
-        const grossRevenue = details.filter(filterActive).reduce((acc, curr) => acc + curr.total, 0)
-        const netRevenue   = details.filter(filterActive).reduce((acc, curr) => acc + curr.adminFee, 0)
+        const totalAdminFee = details.filter(filterActive).reduce((acc, curr) => acc + curr.adminFee, 0)
+
+        // Calculate total serviceFee from unique active orders
+        const activeOrderMap = new Map<string, number>()
+        items.forEach(item => {
+            const isApproved = item.cancelStatus === 'APPROVED' || (item as any).order?.status === 'CANCELLED'
+            if (!isApproved) {
+                const o = (item as any).order
+                if (o && o.id && !activeOrderMap.has(o.id)) {
+                    activeOrderMap.set(o.id, Number(o.serviceFee) || 0)
+                }
+            }
+        })
+        const totalServiceFee = Array.from(activeOrderMap.values()).reduce((acc, fee) => acc + fee, 0)
+
+        const grossRevenue = details.filter(filterActive).reduce((acc, curr) => acc + curr.total, 0) + totalServiceFee
+        const netRevenue   = totalAdminFee + totalServiceFee
 
         // Aggregation for chart (Group by delivery date)
         const chartMap: Record<string, { date: string, gross: number, net: number, count: number }> = {}
@@ -111,7 +129,13 @@ export async function GET(req: Request) {
         const chart = Object.values(chartMap).sort((a, b) => a.date.localeCompare(b.date))
 
         return NextResponse.json({
-            summary: { totalOrders, grossRevenue, netRevenue },
+            summary: { 
+                totalOrders, 
+                grossRevenue, 
+                netRevenue,
+                totalAdminFee,
+                totalServiceFee
+            },
             details,
             chart
         })

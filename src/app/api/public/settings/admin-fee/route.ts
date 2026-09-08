@@ -18,10 +18,14 @@ export async function GET() {
             .single()
 
         if (error || !data) {
-            return NextResponse.json({ fee: 1000 })
+            return NextResponse.json({ fee: 1000, serviceFee: 0 })
         }
-        return NextResponse.json(JSON.parse(data.value))
+        const parsed = JSON.parse(data.value)
+        return NextResponse.json({
+            fee: parsed.fee !== undefined ? Number(parsed.fee) : 1000,
+            serviceFee: parsed.serviceFee !== undefined ? Number(parsed.serviceFee) : 0
+        })
     } catch (e) {
-        return NextResponse.json({ fee: 1000 })
+        return NextResponse.json({ fee: 1000, serviceFee: 0 })
     }
 }

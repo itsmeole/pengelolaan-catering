@@ -57,6 +57,8 @@ export default function AdminReportsPage() {
       ["Total Pesanan", data.summary.totalOrders],
       ["Total Pemasukan (Kotor)", data.summary.grossRevenue],
       ["Pendapatan Bersih (Admin)", data.summary.netRevenue],
+      ["  - Total Fee Admin (Porsi)", data.summary.totalAdminFee || 0],
+      ["  - Total Biaya Layanan (Per Order)", data.summary.totalServiceFee || 0],
       ["Uang Masuk via Transfer", grossTF],
       ["Uang Masuk via Cash", grossCash]
     ]
@@ -204,7 +206,7 @@ export default function AdminReportsPage() {
     // ── Ringkasan angka kecil di atas ─────────────────────────────────
     doc.setFontSize(9)
     doc.text(`Total Pesanan: ${data.summary.totalOrders}  |  Total Pemasukan: ${formatMoney(data.summary.grossRevenue)}  |  Pendapatan Bersih: ${formatMoney(data.summary.netRevenue)}`, pageW / 2, 34, { align: 'center' })
-    doc.text(`Uang Masuk (TF): ${formatMoney(grossTFPdf)}  |  Uang Masuk (Cash): ${formatMoney(grossCashPdf)}`, pageW / 2, 39, { align: 'center' })
+    doc.text(`(Fee Admin: ${formatMoney(data.summary.totalAdminFee || 0)}  |  Biaya Layanan: ${formatMoney(data.summary.totalServiceFee || 0)})  |  TF: ${formatMoney(grossTFPdf)}  |  Cash: ${formatMoney(grossCashPdf)}`, pageW / 2, 39, { align: 'center' })
 
     // ── BUILD VENDOR SUMMARY ──────────────────────────────────────────
     const DAYS_ID   = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
@@ -419,7 +421,16 @@ export default function AdminReportsPage() {
               <div className="text-lg sm:text-2xl font-bold text-primary truncate mt-1" title={formatMoney(data.summary.netRevenue)}>
                 {formatMoney(data.summary.netRevenue)}
               </div>
-              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Fee admin terkumpul</p>
+              <div className="mt-1.5 pt-1.5 border-t border-slate-100 text-[10px] sm:text-[11px] text-slate-500 space-y-0.5">
+                <div className="flex justify-between items-center">
+                  <span>Fee Admin:</span>
+                  <span className="font-semibold text-slate-700">{formatMoney(data.summary.totalAdminFee || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>Biaya Layanan:</span>
+                  <span className="font-semibold text-slate-700">{formatMoney(data.summary.totalServiceFee || 0)}</span>
+                </div>
+              </div>
             </Card>
 
             <Card className="border-l-4 border-l-slate-400 shadow-sm col-span-1 sm:col-span-1 p-3.5 sm:p-4">

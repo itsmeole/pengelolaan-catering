@@ -29,8 +29,9 @@ export default function SettingsPage() {
     const [config, setConfig] = useState<any>(null)
     const [loading, setLoading] = useState(true)
 
-    // State for Admin Fee Config
+    // State for Admin & Service Fee Config
     const [adminFee, setAdminFee] = useState<number>(1000)
+    const [serviceFee, setServiceFee] = useState<number>(0)
     const [feeLoading, setFeeLoading] = useState(true)
 
     // State for Academic Year Config
@@ -49,6 +50,7 @@ export default function SettingsPage() {
             if (res.ok) {
                 const data = await res.json()
                 setAdminFee(data.fee === undefined ? 1000 : data.fee)
+                setServiceFee(data.serviceFee === undefined ? 0 : data.serviceFee)
             }
         } catch (e) {
             console.error("Failed to fetch admin fee")
@@ -115,13 +117,16 @@ export default function SettingsPage() {
         try {
             const res = await fetch("/api/admin/settings/admin-fee", {
                 method: "PUT",
-                body: JSON.stringify({ fee: Number(adminFee) })
+                body: JSON.stringify({ 
+                    fee: Number(adminFee),
+                    serviceFee: Number(serviceFee)
+                })
             })
 
             if (res.ok) {
-                toast.success("Biaya layanan diperbarui")
+                toast.success("Biaya admin & biaya layanan berhasil diperbarui")
             } else {
-                toast.error("Gagal menyimpan biaya layanan")
+                toast.error("Gagal menyimpan biaya")
             }
         } catch (e) {
             toast.error("Error sistem")
@@ -151,42 +156,61 @@ export default function SettingsPage() {
         <div className="space-y-6 max-w-5xl pb-8">
             <div>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Pengaturan Sistem</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Kelola biaya layanan, tahun ajaran, dan jadwal operasional kantin.</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Kelola biaya admin, biaya layanan, tahun ajaran, dan jadwal operasional kantin.</p>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2 items-start">
-                {/* Left Column: Admin Fee & Academic Year */}
+                {/* Left Column: Admin Fee, Service Fee & Academic Year */}
                 <div className="space-y-6">
-                    {/* 1. Biaya Layanan (Admin Fee) */}
+                    {/* 1. Biaya Admin & Biaya Layanan */}
                     <Card className="border-none shadow-sm">
                         <CardHeader className="p-4 sm:p-5 pb-2">
                             <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-slate-800">
                                 <Coins className="h-4 w-4 text-primary shrink-0" />
-                                Biaya Layanan (Admin Fee)
+                                Biaya Admin & Biaya Layanan
                             </CardTitle>
                             <CardDescription className="text-xs text-muted-foreground">
-                                Biaya admin otomatis per porsi pesanan siswa.
+                                Atur tarif biaya admin (per porsi) dan biaya layanan (per transaksi/order).
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="p-4 sm:p-5 pt-2">
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
-                                <div className="space-y-1.5 flex-1 min-w-0">
-                                    <Label htmlFor="fee" className="text-xs font-semibold text-slate-600">Tarif per Porsi (Rp)</Label>
+                        <CardContent className="p-4 sm:p-5 pt-2 space-y-3.5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="fee" className="text-xs font-semibold text-slate-600">Fee Admin (per Porsi)</Label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
                                         <Input
                                             id="fee"
                                             type="number"
+                                            min={0}
                                             className="pl-9 h-9 text-sm bg-white"
                                             value={adminFee}
                                             onChange={(e) => setAdminFee(Number(e.target.value))}
                                         />
                                     </div>
+                                    <p className="text-[10px] text-slate-400">Dikalikan jumlah porsi menu.</p>
                                 </div>
-                                <Button size="sm" onClick={handleSaveFee} className="h-9 px-4 text-xs font-semibold shrink-0">
-                                    <Save className="mr-1.5 h-3.5 w-3.5" /> Simpan
-                                </Button>
+
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="serviceFee" className="text-xs font-semibold text-slate-600">Biaya Layanan (per Order)</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                                        <Input
+                                            id="serviceFee"
+                                            type="number"
+                                            min={0}
+                                            className="pl-9 h-9 text-sm bg-white"
+                                            value={serviceFee}
+                                            onChange={(e) => setServiceFee(Number(e.target.value))}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400">Flat per transaksi pesanan baru.</p>
+                                </div>
                             </div>
+
+                            <Button size="sm" onClick={handleSaveFee} className="w-full h-9 text-xs font-semibold">
+                                <Save className="mr-1.5 h-3.5 w-3.5" /> Simpan Pengaturan Biaya
+                            </Button>
                         </CardContent>
                     </Card>
 

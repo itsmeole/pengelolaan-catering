@@ -72,6 +72,7 @@ export default function AdminOrdersPage() {
   const [filterDateTo, setFilterDateTo] = useState("")
   const [selectedProof, setSelectedProof] = useState<string | null>(null)
   const [adminFee, setAdminFee] = useState<number>(1000)
+  const [serviceFee, setServiceFee] = useState<number>(0)
   const [searchName, setSearchName] = useState("")
 
   // States for Refund (Admin)
@@ -120,6 +121,7 @@ export default function AdminOrdersPage() {
     note: ""
   })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (selectedOrderForDetail) {
@@ -151,6 +153,7 @@ export default function AdminOrdersPage() {
       const res = await fetch("/api/public/settings/admin-fee")
       const data = await res.json()
       if (data.fee !== undefined) setAdminFee(data.fee)
+      if (data.serviceFee !== undefined) setServiceFee(data.serviceFee)
     } catch { }
   }
 
@@ -309,6 +312,28 @@ export default function AdminOrdersPage() {
     }
   }
 
+  async function handleDeleteOrder(orderId: string) {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/orders?orderId=${orderId}`, {
+        method: "DELETE"
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Pesanan berhasil dihapus permanen dari database")
+        setSelectedOrderForDetail(null)
+        setIsEditMode(false)
+        fetchOrders()
+      } else {
+        toast.error(data.error || "Gagal menghapus pesanan")
+      }
+    } catch {
+      toast.error("Terjadi kesalahan sistem saat menghapus pesanan")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   async function handleAddOrder() {
     if (!selectedStudent) {
       return toast.error("Pilih siswa terlebih dahulu")
@@ -356,7 +381,8 @@ export default function AdminOrdersPage() {
     }
   }
 
-  const orderSubtotal = orderItems.reduce((acc, item) => acc + ((item.price + adminFee) * item.quantity), 0)
+  const orderItemsSubtotal = orderItems.reduce((acc, item) => acc + ((item.price + adminFee) * item.quantity), 0)
+  const orderSubtotal = orderItemsSubtotal + (orderItems.length > 0 ? serviceFee : 0)
 
   async function updateOrderStatus(orderId: string, status: string) {
     try {
@@ -472,8 +498,12 @@ export default function AdminOrdersPage() {
   }
 
   function openRefundDialog(order: any) {
+    const activeItems = order.items?.filter((i: any) => i.cancelStatus !== 'APPROVED') || []
+    if (activeItems.length === 0) {
+      return toast.error("Semua item dalam pesanan ini sudah direfund")
+    }
     setRefundOrder(order)
-    setRefundItems(order.items?.map((i: any) => i.id) || [])
+    setRefundItems(activeItems.map((i: any) => i.id))
     setRefundReason("VENDOR_LATE")
     setRefundOther("")
     setRefundImage(null)
@@ -652,13 +682,13 @@ export default function AdminOrdersPage() {
                           <div className="space-y-1.5">
                             <Label className="text-[11px] font-semibold text-slate-600">Pilih Menu Katering</Label>
                             <Select value={itemForm.menuId} onValueChange={(val) => setItemForm({ ...itemForm, menuId: val })}>
-                              <SelectTrigger className="bg-white h-10 text-xs sm:text-sm border-slate-200 w-full">
+                              <SelectTrigger className="bg-white min-h-[48px] h-auto text-xs sm:text-sm border-slate-200 w-full py-2 px-3 text-left [&>span]:w-full [&>span]:line-clamp-none whitespace-normal">
                                 <SelectValue placeholder="Pilih menu katering..." />
                               </SelectTrigger>
                               <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] min-w-[280px] max-h-60">
                                 {sortedMenus.map(m => (
                                   <SelectItem key={m.id} value={m.id} className="cursor-pointer py-2 w-full">
-                                    <div className="w-full min-w-0 flex flex-col gap-1 pr-1">
+                                    <div className="w-full min-w-0 flex flex-col gap-1 pr-1 text-left">
                                       <div className="flex items-center justify-between gap-3 w-full min-w-0">
                                         <span className="font-semibold text-xs sm:text-sm text-slate-800 truncate flex-1 min-w-0" title={m.name}>
                                           {m.name}
@@ -667,11 +697,12 @@ export default function AdminOrdersPage() {
                                           Rp {(m.price + adminFee).toLocaleString()}
                                         </span>
                                       </div>
-                                      <div className="flex items-center gap-2 text-[10px] text-slate-500 w-full min-w-0">
-                                        <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">
+                                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500 w-full min-w-0">
+                                        <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-semibold shrink-0">
                                           {m.vendor?.vendorName || m.vendor?.name || "Anonim"}
                                         </span>
-                                        <span className="truncate flex-1 min-w-0">
+                                        <span className="text-slate-400 font-bold">•</span>
+                                        <span className="text-slate-500 font-medium truncate">
                                           Hari: {m.availableDays && m.availableDays.length > 0 ? m.availableDays.join(", ") : "Semua Hari"}
                                         </span>
                                       </div>
@@ -823,14 +854,24 @@ export default function AdminOrdersPage() {
                       </div>
 
                       {/* Total Harga Box */}
-                      <div className="bg-slate-900 text-white p-3.5 rounded-xl flex items-center justify-between shadow-sm">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Total Tagihan</span>
-                          <span className="text-xs text-slate-300">{orderItems.length} menu katering</span>
+                      <div className="bg-slate-900 text-white p-3.5 rounded-xl space-y-2 shadow-sm">
+                        <div className="flex justify-between text-xs text-slate-300">
+                          <span>Subtotal Menu ({orderItems.reduce((acc, i) => acc + i.quantity, 0)} porsi)</span>
+                          <span>Rp {orderItemsSubtotal.toLocaleString()}</span>
                         </div>
-                        <span className="text-lg sm:text-xl font-black text-white">
-                          Rp {orderSubtotal.toLocaleString()}
-                        </span>
+                        <div className="flex justify-between text-xs text-slate-300">
+                          <span>Biaya Layanan</span>
+                          <span>Rp {serviceFee.toLocaleString()}</span>
+                        </div>
+                        <div className="border-t border-slate-700 pt-2 flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Total Tagihan</span>
+                            <span className="text-xs text-slate-300">{orderItems.length} menu katering</span>
+                          </div>
+                          <span className="text-lg sm:text-xl font-black text-white">
+                            Rp {orderSubtotal.toLocaleString()}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Action Buttons */}
@@ -1066,8 +1107,8 @@ export default function AdminOrdersPage() {
                           </div>
                         )}
 
-                        {/* Tombol Refund (Admin) */}
-                        {order.status !== 'CANCELLED' && order.status !== 'COMPLETED' && order.cancelStatus !== 'PENDING' && (
+                        {/* Tombol Refund (Admin) - HANYA untuk status PAID dan ada item aktif */}
+                        {order.status === 'PAID' && order.cancelStatus !== 'PENDING' && order.items?.some((i: any) => i.cancelStatus !== 'APPROVED') && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -1197,11 +1238,13 @@ export default function AdminOrdersPage() {
                       <div className="space-y-1.5 sm:col-span-2 min-w-0">
                         <Label className="text-[10px] font-bold uppercase text-slate-500">Pilih Menu</Label>
                         <Select value={editItemForm.menuId} onValueChange={(val) => setEditItemForm({ ...editItemForm, menuId: val })}>
-                          <SelectTrigger className="bg-white w-full"><SelectValue placeholder="Pilih menu..." /></SelectTrigger>
+                          <SelectTrigger className="bg-white min-h-[48px] h-auto text-xs sm:text-sm border-slate-200 w-full py-2 px-3 text-left [&>span]:w-full [&>span]:line-clamp-none whitespace-normal">
+                            <SelectValue placeholder="Pilih menu..." />
+                          </SelectTrigger>
                           <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] min-w-[280px] max-h-60">
                             {sortedMenus.map(m => (
                               <SelectItem key={m.id} value={m.id} className="cursor-pointer py-2 w-full">
-                                <div className="w-full min-w-0 flex flex-col gap-1 pr-1">
+                                <div className="w-full min-w-0 flex flex-col gap-1 pr-1 text-left">
                                   <div className="flex items-center justify-between gap-3 w-full min-w-0">
                                     <span className="font-semibold text-xs sm:text-sm text-slate-800 truncate flex-1 min-w-0" title={m.name}>
                                       {m.name}
@@ -1210,11 +1253,12 @@ export default function AdminOrdersPage() {
                                       Rp {(m.price + adminFee).toLocaleString()}
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-[10px] text-slate-500 w-full min-w-0">
-                                    <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">
+                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-500 w-full min-w-0">
+                                    <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-semibold shrink-0">
                                       {m.vendor?.vendorName || m.vendor?.name || "Anonim"}
                                     </span>
-                                    <span className="truncate flex-1 min-w-0">
+                                    <span className="text-slate-400 font-bold">•</span>
+                                    <span className="text-slate-500 font-medium truncate">
                                       Hari: {m.availableDays && m.availableDays.length > 0 ? m.availableDays.join(", ") : "Semua Hari"}
                                     </span>
                                   </div>
@@ -1366,8 +1410,11 @@ export default function AdminOrdersPage() {
                   <div className="flex flex-col items-end shrink-0 ml-auto">
                     <p className="text-xs text-muted-foreground font-semibold">Total Keseluruhan</p>
                     <p className="text-2xl font-black text-blue-600">
-                      Rp {editOrderItems.reduce((acc, item) => acc + ((item.price + (item.adminFee || adminFee)) * item.quantity), 0).toLocaleString()}
+                      Rp {(editOrderItems.reduce((acc, item) => acc + ((item.price + (item.adminFee || adminFee)) * item.quantity), 0) + (selectedOrderForDetail?.serviceFee || 0)).toLocaleString()}
                     </p>
+                    {(selectedOrderForDetail?.serviceFee || 0) > 0 && (
+                      <span className="text-[10px] text-slate-500">Termasuk Biaya Layanan Rp {selectedOrderForDetail.serviceFee.toLocaleString()}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1400,30 +1447,49 @@ export default function AdminOrdersPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedOrderForDetail.items?.map((item: any) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="text-xs whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
-                            <TableCell className="min-w-0 max-w-[120px] xs:max-w-[150px] sm:max-w-[220px]">
-                              <div className="flex flex-col min-w-0">
-                                <span
-                                  className="text-xs font-bold truncate block"
-                                  title={item.menuName || item.menu?.name}
-                                >
-                                  {item.menuName || item.menu?.name}
-                                </span>
-                                <span
-                                  className="text-[10px] text-muted-foreground italic truncate block"
-                                  title={item.vendorName || item.menu?.vendor?.vendorName}
-                                >
-                                  {item.vendorName || item.menu?.vendor?.vendorName}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center text-xs font-bold whitespace-nowrap">{item.quantity}</TableCell>
-                            <TableCell className="text-right text-xs whitespace-nowrap">Rp {(item.price + item.adminFee).toLocaleString()}</TableCell>
-                            <TableCell className="text-right text-xs font-bold hidden sm:table-cell whitespace-nowrap">Rp {((item.price + item.adminFee) * item.quantity).toLocaleString()}</TableCell>
-                          </TableRow>
-                        ))}
+                        {selectedOrderForDetail.items?.map((item: any) => {
+                          const isItemCancelled = item.cancelStatus === 'APPROVED' || selectedOrderForDetail.status === 'CANCELLED'
+                          return (
+                            <TableRow key={item.id} className={isItemCancelled ? "bg-slate-50/70" : ""}>
+                              <TableCell className={cn("text-xs whitespace-nowrap", isItemCancelled && "line-through text-slate-400")}>
+                                {format(new Date(item.date), "dd/MM/yyyy")}
+                              </TableCell>
+                              <TableCell className="min-w-0 max-w-[120px] xs:max-w-[150px] sm:max-w-[220px]">
+                                <div className="flex flex-col min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span
+                                      className={cn("text-xs font-bold truncate block", isItemCancelled && "line-through text-slate-400")}
+                                      title={item.menuName || item.menu?.name}
+                                    >
+                                      {item.menuName || item.menu?.name}
+                                    </span>
+                                    {isItemCancelled && (
+                                      <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">Direfund</Badge>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={cn("text-[10px] text-muted-foreground italic truncate block", isItemCancelled && "text-slate-400")}
+                                    title={item.vendorName || item.menu?.vendor?.vendorName}
+                                  >
+                                    {item.vendorName || item.menu?.vendor?.vendorName}
+                                  </span>
+                                  {isItemCancelled && item.cancelReason && (
+                                    <span className="text-[9px] text-red-500 italic mt-0.5">Alasan: {item.cancelReason}</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className={cn("text-center text-xs font-bold whitespace-nowrap", isItemCancelled && "line-through text-slate-400")}>
+                                {item.quantity}
+                              </TableCell>
+                              <TableCell className={cn("text-right text-xs whitespace-nowrap", isItemCancelled && "line-through text-slate-400")}>
+                                Rp {(item.price + item.adminFee).toLocaleString()}
+                              </TableCell>
+                              <TableCell className={cn("text-right text-xs font-bold hidden sm:table-cell whitespace-nowrap", isItemCancelled ? "text-slate-400 line-through" : "text-slate-900")}>
+                                {isItemCancelled ? "Rp 0 (Batal)" : `Rp ${((item.price + item.adminFee) * item.quantity).toLocaleString()}`}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -1445,24 +1511,68 @@ export default function AdminOrdersPage() {
               </div>
             )
           )}
-          <DialogFooter className="gap-2">
+          <DialogFooter className="pt-4 sm:pt-5 border-t mt-4 flex items-center justify-between w-full gap-3">
             {isEditMode ? (
-              <>
-                <Button variant="ghost" onClick={() => setIsEditMode(false)}>Batal</Button>
-                <Button className="bg-blue-600 hover:bg-blue-700 font-bold" onClick={handleSaveEdit} disabled={savingEdit}>
-                  {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Simpan Perubahan
-                </Button>
-              </>
+              <div className="flex items-center justify-between w-full gap-3">
+                <ConfirmButton
+                  title="Hapus Pesanan Permanen?"
+                  description={`Pesanan #${selectedOrderForDetail?.id.slice(-8).toUpperCase()} beserta seluruh item di dalamnya akan dihapus permanen dari database.`}
+                  confirmText="Ya, Hapus Pesanan"
+                  cancelText="Batal"
+                  variant="destructive"
+                  onConfirm={() => handleDeleteOrder(selectedOrderForDetail.id)}
+                >
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="bg-red-600 hover:bg-red-700 text-white font-semibold h-10 w-10 p-0 sm:w-auto sm:px-4 gap-2 shrink-0 shadow-xs"
+                    disabled={isDeleting || savingEdit}
+                    title="Hapus Pesanan Permanen"
+                  >
+                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Hapus Pesanan</span>
+                  </Button>
+                </ConfirmButton>
+
+                <div className="flex items-center gap-2.5 ml-auto">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 px-3.5 sm:px-4 text-xs sm:text-sm font-semibold border-slate-200 hover:bg-slate-50"
+                    onClick={() => setIsEditMode(false)}
+                    disabled={savingEdit || isDeleting}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-4 sm:px-5 text-xs sm:text-sm shadow-md shadow-blue-200"
+                    onClick={handleSaveEdit}
+                    disabled={savingEdit || isDeleting}
+                  >
+                    {savingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Simpan Perubahan
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <>
-                <Button variant="outline" onClick={() => setSelectedOrderForDetail(null)}>Tutup</Button>
+              <div className="flex items-center justify-end w-full gap-2.5">
+                <Button
+                  variant="outline"
+                  className="h-10 px-4 text-xs sm:text-sm font-semibold border-slate-200 hover:bg-slate-50"
+                  onClick={() => setSelectedOrderForDetail(null)}
+                >
+                  Tutup
+                </Button>
                 {selectedOrderForDetail && selectedOrderForDetail.status !== 'CANCELLED' && selectedOrderForDetail.status !== 'COMPLETED' && (
-                  <Button className="bg-blue-600 hover:bg-blue-700 text-white font-bold" onClick={() => setIsEditMode(true)}>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-5 text-xs sm:text-sm shadow-md shadow-blue-200"
+                    onClick={() => setIsEditMode(true)}
+                  >
                     Edit Pesanan
                   </Button>
                 )}
-              </>
+              </div>
             )}
           </DialogFooter>
         </DialogContent>
@@ -1522,7 +1632,7 @@ export default function AdminOrdersPage() {
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase text-muted-foreground">Pilih Item yang Direfund:</Label>
               <div className="space-y-1.5 max-h-44 overflow-auto border rounded-lg p-2 bg-muted/20">
-                {refundOrder?.items?.map((item: any) => (
+                {refundOrder?.items?.filter((item: any) => item.cancelStatus !== 'APPROVED').map((item: any) => (
                   <div key={item.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50">
                     <input
                       type="checkbox"

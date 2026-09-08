@@ -44,6 +44,7 @@ export default function StudentOrderPage() {
     const [loading, setLoading] = useState(false)
     const [workingDays, setWorkingDays] = useState<string[]>(ALL_DAYS)
     const [adminFee, setAdminFee] = useState<number>(1000)
+    const [serviceFee, setServiceFee] = useState<number>(0)
     const [orderWeek, setOrderWeek] = useState<'THIS_WEEK' | 'NEXT_WEEK'>('THIS_WEEK')
     const [deadlineInfo, setDeadlineInfo] = useState("20:00")
     const [systemConfig, setSystemConfig] = useState<any>(null)
@@ -78,6 +79,7 @@ export default function StudentOrderPage() {
             const res = await fetch("/api/public/settings/admin-fee")
             const data = await res.json()
             if (data.fee !== undefined) setAdminFee(data.fee)
+            if (data.serviceFee !== undefined) setServiceFee(data.serviceFee)
         } catch { }
     }
 
@@ -341,7 +343,8 @@ export default function StudentOrderPage() {
         }
     }
 
-    const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
+    const itemsSubtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
+    const total = itemsSubtotal + (cart.length > 0 ? serviceFee : 0)
 
     // Gunakan hari kerja dari config admin
     const DAYS_ORDER = workingDays
@@ -541,9 +544,19 @@ export default function StudentOrderPage() {
 
                     {cart.length > 0 && (
                         <div className="space-y-4 border-t pt-4">
-                            <div className="flex justify-between font-bold text-lg">
-                                <span>Total</span>
-                                <span>Rp {total.toLocaleString()}</span>
+                            <div className="space-y-1.5 bg-slate-50 p-3 rounded-lg border text-sm">
+                                <div className="flex justify-between text-slate-600">
+                                    <span>Subtotal Menu ({cart.reduce((s, i) => s + i.quantity, 0)} porsi)</span>
+                                    <span>Rp {itemsSubtotal.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-slate-600">
+                                    <span>Biaya Layanan</span>
+                                    <span>Rp {serviceFee.toLocaleString()}</span>
+                                </div>
+                                <div className="border-t pt-1.5 flex justify-between font-bold text-base text-slate-900">
+                                    <span>Total Pembayaran</span>
+                                    <span className="text-primary">Rp {total.toLocaleString()}</span>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Metode Pembayaran</Label>
