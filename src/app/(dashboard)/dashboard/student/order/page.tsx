@@ -46,6 +46,7 @@ export default function StudentOrderPage() {
     const [adminFee, setAdminFee] = useState<number>(1000)
     const [orderWeek, setOrderWeek] = useState<'THIS_WEEK' | 'NEXT_WEEK'>('THIS_WEEK')
     const [deadlineInfo, setDeadlineInfo] = useState("20:00")
+    const [systemConfig, setSystemConfig] = useState<any>(null)
     const [userRole, setUserRole] = useState<string>("STUDENT")
     const [activeDay, setActiveDay] = useState<string>(() => {
         const todayName = new Date().toLocaleDateString("id-ID", { weekday: "long" })
@@ -100,8 +101,9 @@ export default function StudentOrderPage() {
         try {
             const res = await fetch("/api/admin/settings/working-days")
             const config = await res.json()
+            setSystemConfig(config)
             
-            setDeadlineInfo(config.deadlineTime || "20:00")
+            if (config.deadlineTime) setDeadlineInfo(config.deadlineTime)
 
             // Filter hari sesuai config admin
             const active = ALL_DAYS.filter(dayId => {
@@ -139,26 +141,137 @@ export default function StudentOrderPage() {
         const today = new Date()
         today.setHours(12, 0, 0, 0) // Fix Timezone Shift: Set ke jam 12 siang agar tidak bergeser hari saat konversi ke UTC
         
+        let currentDay = today.getDay() === 0 ? 6 : today.getDay() - 1
+        let target = targetWeekday === 0 ? 6 : targetWeekday - 1
+        let diff = target - currentDay
+        
         if (week === 'THIS_WEEK') {
-            const currentDay = today.getDay()
-            let diff = targetWeekday - currentDay
             return addDays(today, diff)
         } else {
-            let deliveryDate = nextDay(today, targetWeekday as 0|1|2|3|4|5|6)
-            if (today.getDay() === targetWeekday) {
-                deliveryDate = addDays(today, 7)
-            }
-            return deliveryDate
+            return addDays(today, diff + 7)
         }
+    }
+
+    const checkIsDayEnabled = (dayName: string): boolean => {
+        if (!systemConfig) return true
+        const dayKeyMap: Record<string, string> = {
+            Senin: 'monday', Selasa: 'tuesday', Rabu: 'wednesday',
+            Kamis: 'thursday', Jumat: 'friday', Sabtu: 'saturday', Minggu: 'sunday'
+        }
+        const key = dayKeyMap[dayName]
+        if (!key) return true
+        return systemConfig[key] !== false
+    }
+
+    const checkIsHoliday = (deliveryDate: Date): boolean => {
+        if (!systemConfig || !systemConfig.holidays || systemConfig.holidays.length === 0) return false
+        const deliveryStr = deliveryDate.toISOString().slice(0, 10) // "yyyy-MM-dd"
+        return (systemConfig.holidays as string[]).includes(deliveryStr)
     }
 
     const checkIsAvailable = (deliveryDate: Date) => {
         const now = new Date()
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+        const dayKey = dayNames[deliveryDate.getDay()]
+        
+        let dHour = 8, dMin = 0, dayOffset = 0;
+        
+        if (systemConfig && systemConfig.dailyDeadlines && systemConfig.dailyDeadlines[dayKey]) {
+            const raw = systemConfig.dailyDeadlines[dayKey]
+            if (typeof raw === 'object' && raw !== null) {
+                const parts = (raw.time || deadlineInfo || "08:00").split(":")
+                dHour = parseInt(parts[0])
+                dMin = parseInt(parts[1])
+                dayOffset = raw.dayOffset ?? 0
+            } else {
+                const parts = (raw || deadlineInfo || "08:00").split(":")
+                dHour = parseInt(parts[0])
+                dMin = parseInt(parts[1])
+                dayOffset = systemConfig.dayOffset ?? 0
+            }
+        } else if (systemConfig) {
+            const parts = (deadlineInfo || "08:00").split(":")
+            dHour = parseInt(parts[0])
+            dMin = parseInt(parts[1])
+            dayOffset = systemConfig.dayOffset ?? 0
+        } else {
+            const parts = (deadlineInfo || "20:00").split(":")
+            dHour = parseInt(parts[0])
+            dMin = parseInt(parts[1])
+        }
+
         const deadline = new Date(deliveryDate)
-        const [dHour, dMin] = deadlineInfo.split(":").map(Number)
+        deadline.setDate(deadline.getDate() + dayOffset)
         deadline.setHours(dHour, dMin, 0, 0)
         return now <= deadline
     }
+
+    // Helper: Cek apakah hari tertentu pada minggu tertentu memiliki menu yang belum expired & buka
+    const checkDayStatus = (dayName: string, week: 'THIS_WEEK' | 'NEXT_WEEK') => {
+        const cDate = getDeliveryDate(dayName, week)
+        const isEnabled = checkIsDayEnabled(dayName)
+        const isHoliday = checkIsHoliday(cDate)
+        const isCutoffOpen = checkIsAvailable(cDate)
+
+        // Cek apakah ada menu yang belum expired
+        const dayMenus = menus.filter(m => 
+            m.availableDays?.includes(dayName) || 
+            (!m.availableDays && (dayName !== "Sabtu" && dayName !== "Minggu"))
+        )
+
+        const deliveryDateOnly = new Date(cDate)
+        deliveryDateOnly.setHours(0, 0, 0, 0)
+
+        const hasValidMenu = dayMenus.some(menu => {
+            const expDate = menu.expiredDate ? new Date(menu.expiredDate) : null
+            if (expDate) expDate.setHours(0, 0, 0, 0)
+            const isExpired = expDate ? expDate.getTime() < deliveryDateOnly.getTime() : false
+            return !isExpired
+        })
+
+        // Buka jika hari aktif, bukan libur, cutoff belum lewat, dan menu tidak expired
+        const isOpen = isEnabled && !isHoliday && isCutoffOpen && (dayMenus.length === 0 || hasValidMenu)
+
+        return {
+            cDate,
+            isEnabled,
+            isHoliday,
+            isCutoffOpen,
+            hasValidMenu,
+            isOpen
+        }
+    }
+
+    // Cek apakah minggu (THIS_WEEK / NEXT_WEEK) memiliki setidaknya 1 hari yang buka
+    const isWeekAvailable = (week: 'THIS_WEEK' | 'NEXT_WEEK') => {
+        return workingDays.some(day => checkDayStatus(day, week).isOpen)
+    }
+
+    const isThisWeekOpen = isWeekAvailable('THIS_WEEK')
+    const isNextWeekOpen = isWeekAvailable('NEXT_WEEK')
+
+    useEffect(() => {
+        if (!systemConfig || menus.length === 0) return
+        
+        // Jika minggu ini tutup tapi minggu depan buka, otomatis beralih ke NEXT_WEEK
+        if (!isThisWeekOpen && isNextWeekOpen && orderWeek === 'THIS_WEEK') {
+            setOrderWeek('NEXT_WEEK')
+        } else if (isThisWeekOpen && !isNextWeekOpen && orderWeek === 'NEXT_WEEK') {
+            setOrderWeek('THIS_WEEK')
+        }
+    }, [systemConfig, menus, isThisWeekOpen, isNextWeekOpen])
+
+    useEffect(() => {
+        // Cek apakah activeDay saat ini valid di orderWeek yang dipilih
+        const currentStatus = checkDayStatus(activeDay, orderWeek)
+        if (!currentStatus.isOpen) {
+            // Cari hari pertama yang buka di orderWeek ini
+            const firstOpenDay = workingDays.find(d => checkDayStatus(d, orderWeek).isOpen)
+            if (firstOpenDay) {
+                setActiveDay(firstOpenDay)
+            }
+        }
+    }, [orderWeek, workingDays])
 
     const addToCart = () => {
         if (!quantity || quantity < 1) {
@@ -270,31 +383,52 @@ export default function StudentOrderPage() {
 
             <Tabs value={orderWeek} onValueChange={(v) => setOrderWeek(v as 'THIS_WEEK' | 'NEXT_WEEK')} className="w-full mb-2">
                 <TabsList className="grid w-full max-w-sm grid-cols-2">
-                    <TabsTrigger value="THIS_WEEK">Untuk Minggu Ini</TabsTrigger>
-                    <TabsTrigger value="NEXT_WEEK">Untuk Minggu Depan</TabsTrigger>
+                    <TabsTrigger 
+                        value="THIS_WEEK" 
+                        disabled={!isThisWeekOpen}
+                        className={cn(!isThisWeekOpen && "opacity-40 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400")}
+                    >
+                        Untuk Minggu Ini
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        value="NEXT_WEEK"
+                        disabled={!isNextWeekOpen}
+                        className={cn(!isNextWeekOpen && "opacity-40 cursor-not-allowed pointer-events-none bg-slate-100 text-slate-400")}
+                    >
+                        Untuk Minggu Depan
+                    </TabsTrigger>
                 </TabsList>
             </Tabs>
 
             {/* Tab Hari */}
             <div className="flex gap-2 flex-wrap border-b pb-3">
-                {DAYS_ORDER.map((day) => (
-                    <button
-                        key={day}
-                        onClick={() => setActiveDay(day)}
-                        className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                            activeDay === day
-                                ? "bg-primary text-white shadow"
-                                : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        }`}
-                    >
-                        {day}
-                        {menuByDay[day].length > 0 && (
-                            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${activeDay === day ? "bg-white/20" : "bg-primary/10 text-primary"}`}>
-                                {menuByDay[day].length}
-                            </span>
-                        )}
-                    </button>
-                ))}
+                {DAYS_ORDER.map((day) => {
+                    const status = checkDayStatus(day, orderWeek)
+                    const isDayOpen = status.isOpen
+
+                    return (
+                        <button
+                            key={day}
+                            disabled={!isDayOpen}
+                            onClick={() => isDayOpen && setActiveDay(day)}
+                            className={cn(
+                                "px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
+                                activeDay === day
+                                    ? "bg-primary text-white shadow"
+                                    : isDayOpen
+                                        ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                                        : "bg-slate-100 text-slate-400 border border-slate-200 opacity-40 cursor-not-allowed pointer-events-none"
+                            )}
+                        >
+                            <span>{day}</span>
+                            {isDayOpen && menuByDay[day].length > 0 && (
+                                <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${activeDay === day ? "bg-white/20" : "bg-primary/10 text-primary"}`}>
+                                    {menuByDay[day].length}
+                                </span>
+                            )}
+                        </button>
+                    )
+                })}
             </div>
 
             {/* Grid Menu per Hari */}
@@ -306,15 +440,20 @@ export default function StudentOrderPage() {
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                     {menuByDay[activeDay].map((menu) => {
-                        const today = new Date()
-                        today.setHours(0, 0, 0, 0)
+                        const deliveryDate = getDeliveryDate(activeDay, orderWeek)
+                        const deliveryDateOnly = new Date(deliveryDate)
+                        deliveryDateOnly.setHours(0, 0, 0, 0)
+                        
                         const expDate = menu.expiredDate ? new Date(menu.expiredDate) : null
                         if (expDate) expDate.setHours(0, 0, 0, 0)
-                        const isExpired = expDate ? expDate.getTime() < today.getTime() : false
-                        const isAvailableTime = checkIsAvailable(getDeliveryDate(activeDay, orderWeek))
+                        
+                        const isExpired = expDate ? expDate.getTime() < deliveryDateOnly.getTime() : false
+                        const isAvailableTime = checkIsAvailable(deliveryDate) && checkIsDayEnabled(activeDay) && !checkIsHoliday(deliveryDate)
+
+                        const isDisabled = isExpired || (!isAvailableTime && userRole === 'STUDENT')
 
                         return (
-                        <Card key={menu.id} className={`overflow-hidden hover:shadow-md transition-shadow flex flex-col ${isExpired ? 'opacity-70 grayscale' : ''}`}>
+                        <Card key={menu.id} className={cn("overflow-hidden hover:shadow-md transition-shadow flex flex-col", isDisabled && "opacity-60 grayscale")}>
                             {/* Gambar */}
                             <div className="h-24 w-full bg-muted relative flex-shrink-0">
                                 {menu.imageUrl ? (
@@ -336,7 +475,7 @@ export default function StudentOrderPage() {
                                 <Button 
                                     size="sm" 
                                     className="w-full mt-2 text-xs h-7" 
-                                    disabled={isExpired || (!isAvailableTime && userRole === 'STUDENT')}
+                                    disabled={isDisabled}
                                     onClick={() => {
                                         setSelectedMenu(menu)
                                         setIsAddOpen(true)

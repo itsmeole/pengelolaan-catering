@@ -255,23 +255,44 @@ function StudentManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row justify-between gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
         <Input
           placeholder="Cari siswa (Nama, NIS, Kelas)..."
           value={search} onChange={e => setSearch(e.target.value)}
-          className="max-w-sm"
+          className="w-full sm:max-w-xs md:max-w-sm h-9 text-xs sm:text-sm"
         />
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 sm:flex sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
           <input type="file" ref={fileInputRef} hidden accept=".xlsx, .xls" onChange={handleImport} />
-          <Button variant="outline" onClick={handleDownloadTemplate} title="Download Template Excel">
-            <Download className="mr-2 h-4 w-4" /> Template
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleDownloadTemplate} 
+            title="Download Template Excel"
+            className="h-9 px-2 sm:px-3 text-xs sm:text-sm flex items-center justify-center"
+          >
+            <Download className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+            <span>Template</span>
           </Button>
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-            <FileUp className="mr-2 h-4 w-4" /> Import Excel
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            title="Import Excel"
+            className="h-9 px-2 sm:px-3 text-xs sm:text-sm flex items-center justify-center"
+          >
+            <FileUp className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+            <span className="hidden sm:inline">Import Excel</span>
+            <span className="sm:hidden">Import</span>
           </Button>
 
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-            <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" /> Tambah Siswa</Button></DialogTrigger>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-9 px-2 sm:px-3 text-xs sm:text-sm flex items-center justify-center">
+                <Plus className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+                <span className="hidden sm:inline">Tambah Siswa</span>
+                <span className="sm:hidden">Tambah</span>
+              </Button>
+            </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Tambah Siswa Baru</DialogTitle></DialogHeader>
               <form onSubmit={handleAdd} className="space-y-4 py-4">
@@ -536,7 +557,11 @@ function VendorManager() {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" /> Tambah Vendor</Button></DialogTrigger>
+          <DialogTrigger asChild>
+            <Button size="sm" className="h-9 px-3 text-xs sm:text-sm">
+              <Plus className="mr-1.5 h-4 w-4" /> Tambah Vendor
+            </Button>
+          </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Tambah Vendor Baru</DialogTitle></DialogHeader>
             <form onSubmit={handleAdd} className="space-y-4 py-4">

@@ -159,7 +159,10 @@ export default function VendorMenuPage() {
                     else setOpen(true)
                 }}>
                     <DialogTrigger asChild>
-                        <Button><Plus className="mr-2 h-4 w-4" /> Tambah Menu</Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm font-bold shadow-sm">
+                            <Plus className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Tambah Menu</span>
+                        </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
@@ -216,71 +219,88 @@ export default function VendorMenuPage() {
                 </Dialog>
             </div>
 
-            <div className="rounded-md border bg-white">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nama</TableHead>
-                            <TableHead>Harga</TableHead>
-                            <TableHead>Deskripsi</TableHead>
-                            <TableHead>Jadwal</TableHead>
-                            <TableHead>Expired</TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {menus.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground">Belum ada menu.</TableCell>
+            <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-slate-50">
+                                <TableHead className="w-[180px] sm:w-auto">Nama</TableHead>
+                                <TableHead className="whitespace-nowrap">Harga</TableHead>
+                                <TableHead className="hidden md:table-cell">Deskripsi</TableHead>
+                                <TableHead className="hidden sm:table-cell">Jadwal</TableHead>
+                                <TableHead className="hidden lg:table-cell">Expired</TableHead>
+                                <TableHead className="w-[80px] text-right">Aksi</TableHead>
                             </TableRow>
-                        )}
-                        {menus.map((menu) => (
-                            <TableRow key={menu.id}>
-                                <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
-                                        {menu.imageUrl && <img src={menu.imageUrl} className="h-8 w-8 rounded object-cover" />}
-                                        {menu.name}
-                                    </div>
-                                </TableCell>
-                                <TableCell>Rp {menu.price.toLocaleString()}</TableCell>
-                                <TableCell className="max-w-[200px] truncate">{menu.description}</TableCell>
-                                <TableCell>
-                                    <div className="flex flex-wrap gap-1">
-                                        {(menu.availableDays || []).map((day: string) => (
-                                            <span key={day} className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                                                {day.substring(0, 3)}
-                                            </span>
-                                        ))}
-                                        {(!menu.availableDays || menu.availableDays.length === 0) && (
-                                            <span className="text-xs text-muted-foreground">Semua hari</span>
-                                        )}
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-sm font-medium text-red-600 whitespace-nowrap">
-                                    {menu.expiredDate ? new Date(menu.expiredDate).toLocaleDateString('id-ID') : '-'}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(menu)}>
-                                            <Pencil className="h-4 w-4 text-blue-600" />
-                                        </Button>
-                                        <ConfirmButton
-                                          title="Hapus Menu"
-                                          description={`Apakah Anda yakin ingin menghapus menu "${menu.name}"? Data ini tidak dapat dikembalikan.`}
-                                          onConfirm={() => handleDelete(menu.id)}
-                                          confirmText="Hapus"
-                                          variant="destructive"
-                                        >
-                                          <Button variant="ghost" size="icon">
-                                              <Trash className="h-4 w-4 text-destructive" />
-                                          </Button>
-                                        </ConfirmButton>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {menus.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Belum ada menu.</TableCell>
+                                </TableRow>
+                            )}
+                            {menus.map((menu) => (
+                                <TableRow key={menu.id}>
+                                    <TableCell className="font-medium max-w-[150px] sm:max-w-[240px] md:max-w-none">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            {menu.imageUrl ? (
+                                                <img src={menu.imageUrl} className="h-9 w-9 rounded-lg object-cover shrink-0 border border-slate-100" alt={menu.name} />
+                                            ) : (
+                                                <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 text-slate-400 text-xs font-bold">
+                                                    🍽️
+                                                </div>
+                                            )}
+                                            <div className="min-w-0 flex-1">
+                                                <span className="font-bold text-slate-800 text-xs sm:text-sm truncate block" title={menu.name}>
+                                                    {menu.name}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 sm:hidden block truncate">
+                                                    {(menu.availableDays || []).join(", ") || "Semua hari"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="whitespace-nowrap font-bold text-xs sm:text-sm text-slate-800">
+                                        Rp {menu.price.toLocaleString('id-ID')}
+                                    </TableCell>
+                                    <TableCell className="max-w-[200px] truncate text-xs text-slate-500 hidden md:table-cell">{menu.description || '-'}</TableCell>
+                                    <TableCell className="hidden sm:table-cell">
+                                        <div className="flex flex-wrap gap-1">
+                                            {(menu.availableDays || []).map((day: string) => (
+                                                <span key={day} className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-200">
+                                                    {day.substring(0, 3)}
+                                                </span>
+                                            ))}
+                                            {(!menu.availableDays || menu.availableDays.length === 0) && (
+                                                <span className="text-xs text-muted-foreground">Semua hari</span>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs font-medium text-red-600 whitespace-nowrap hidden lg:table-cell">
+                                        {menu.expiredDate ? new Date(menu.expiredDate).toLocaleDateString('id-ID') : '-'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-50" onClick={() => handleEdit(menu)}>
+                                                <Pencil className="h-3.5 w-3.5 text-blue-600" />
+                                            </Button>
+                                            <ConfirmButton
+                                              title="Hapus Menu"
+                                              description={`Apakah Anda yakin ingin menghapus menu "${menu.name}"? Data ini tidak dapat dikembalikan.`}
+                                              onConfirm={() => handleDelete(menu.id)}
+                                              confirmText="Hapus"
+                                              variant="destructive"
+                                            >
+                                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-50">
+                                                  <Trash className="h-3.5 w-3.5 text-destructive" />
+                                              </Button>
+                                            </ConfirmButton>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
         </div>
     )

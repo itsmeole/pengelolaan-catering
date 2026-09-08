@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { Save, GraduationCap } from "lucide-react"
+import { Save, GraduationCap, Coins, CalendarClock } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { ConfirmButton } from "@/components/ui/confirm-button"
 import { format } from "date-fns"
@@ -148,170 +148,189 @@ export default function SettingsPage() {
     if (loading || feeLoading || academicYearLoading) return <div className="p-8 text-center text-sm text-muted-foreground">Memuat Pengaturan...</div>
 
     return (
-        <div className="space-y-6 max-w-4xl">
+        <div className="space-y-6 max-w-5xl pb-8">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight text-primary">Pengaturan Sistem</h2>
-                <p className="text-muted-foreground text-sm">Atur jadwal operasional kantin dan biaya layanan aplikasi.</p>
+                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Pengaturan Sistem</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Kelola biaya layanan, tahun ajaran, dan jadwal operasional kantin.</p>
             </div>
 
-            {/* 1. Biaya Layanan (Admin Fee) */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Biaya Layanan (Admin Fee)</CardTitle>
-                    <CardDescription>
-                        Biaya ini akan ditambahkan secara otomatis pada setiap porsi pesanan yang dibeli oleh siswa dari aplikasi, baik secara instan maupun bulanan.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="fee">Tarif Biaya Layanan per Porsi (Rp)</Label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium tracking-wider">Rp</span>
-                            <Input
-                                id="fee"
-                                type="number"
-                                className="pl-10 max-w-[250px] bg-white"
-                                value={adminFee}
-                                onChange={(e) => setAdminFee(Number(e.target.value))}
-                            />
-                        </div>
-                    </div>
-                    <Button size="lg" onClick={handleSaveFee} className="mt-4">
-                        <Save className="mr-2 h-4 w-4" /> Simpan Biaya Layanan
-                    </Button>
-                </CardContent>
-            </Card>
+            <div className="grid gap-6 lg:grid-cols-2 items-start">
+                {/* Left Column: Admin Fee & Academic Year */}
+                <div className="space-y-6">
+                    {/* 1. Biaya Layanan (Admin Fee) */}
+                    <Card className="border-none shadow-sm">
+                        <CardHeader className="p-4 sm:p-5 pb-2">
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-slate-800">
+                                <Coins className="h-4 w-4 text-primary shrink-0" />
+                                Biaya Layanan (Admin Fee)
+                            </CardTitle>
+                            <CardDescription className="text-xs text-muted-foreground">
+                                Biaya admin otomatis per porsi pesanan siswa.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-4 sm:p-5 pt-2">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
+                                <div className="space-y-1.5 flex-1 min-w-0">
+                                    <Label htmlFor="fee" className="text-xs font-semibold text-slate-600">Tarif per Porsi (Rp)</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">Rp</span>
+                                        <Input
+                                            id="fee"
+                                            type="number"
+                                            className="pl-9 h-9 text-sm bg-white"
+                                            value={adminFee}
+                                            onChange={(e) => setAdminFee(Number(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+                                <Button size="sm" onClick={handleSaveFee} className="h-9 px-4 text-xs font-semibold shrink-0">
+                                    <Save className="mr-1.5 h-3.5 w-3.5" /> Simpan
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-            {/* 2. Tahun Ajaran Baru (Reset Dashboard) */}
-            <Card className="border border-amber-200 bg-amber-50/20">
-                <CardHeader>
-                    <CardTitle className="text-amber-800 flex items-center gap-2">
-                        <GraduationCap className="h-5 w-5 text-amber-600" />
-                        Tahun Ajaran Baru (Reset Statistik Dashboard)
-                    </CardTitle>
-                    <CardDescription className="text-amber-700/80">
-                        Memulai tahun ajaran baru akan menyembunyikan transaksi tahun ajaran sebelumnya dari grafik dan statistik dashboard admin (mengembalikan statistik pendapatan dan aktivitas ke 0). Semua data histori pesanan/invoice lama Anda tetap tersimpan dengan aman di database.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-2">
-                    <div className="bg-white border rounded-lg p-4 shadow-sm max-w-xl">
-                        <h4 className="font-semibold text-sm text-slate-800">Status Tahun Ajaran Saat Ini</h4>
-                        {academicYearStart ? (
-                            <p className="text-xs text-muted-foreground mt-1">
-                                Aktif sejak: <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">{format(new Date(academicYearStart), "dd MMMM yyyy, HH:mm", { locale: idLocale })}</span>
-                            </p>
-                        ) : (
-                            <p className="text-xs text-muted-foreground mt-1 text-slate-500 italic">
-                                Belum pernah diset (menghitung seluruh data dari awal).
-                            </p>
-                        )}
-                        
-                        <div className="mt-4">
+                    {/* 2. Tahun Ajaran Baru (Reset Dashboard) */}
+                    <Card className="border border-amber-200/80 bg-amber-50/20 shadow-sm">
+                        <CardHeader className="p-4 sm:p-5 pb-2">
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-amber-900">
+                                <GraduationCap className="h-4 w-4 text-amber-600 shrink-0" />
+                                Tahun Ajaran Baru
+                            </CardTitle>
+                            <CardDescription className="text-xs text-amber-800/80">
+                                Reset statistik dashboard ke 0 untuk periode baru. Data riwayat lama tetap tersimpan.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-4 sm:p-5 pt-2 space-y-3">
+                            <div className="bg-white border border-amber-100 rounded-lg p-3 shadow-xs">
+                                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Status Periode</div>
+                                {academicYearStart ? (
+                                    <div className="text-xs text-slate-700 font-medium mt-1 flex items-center gap-1.5 flex-wrap">
+                                        <span>Aktif sejak:</span>
+                                        <span className="font-bold text-slate-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-[11px]">
+                                            {format(new Date(academicYearStart), "dd MMM yyyy, HH:mm", { locale: idLocale })}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-400 mt-1 italic">Menghitung seluruh data dari awal.</p>
+                                )}
+                            </div>
+                            
                             <ConfirmButton
                                 title="Mulai Tahun Ajaran Baru?"
-                                description="Apakah Anda yakin ingin memulai tahun ajaran baru? Statistik omzet, data pesanan mingguan, dan aktivitas terbaru pada dashboard utama admin akan diset ulang menjadi 0 mulai detik ini. Aksi ini tidak dapat dibatalkan."
+                                description="Statistik omzet, pesanan mingguan, dan grafik di dashboard admin akan dimulai kembali dari 0. Riwayat transaksi lama tetap aman di laporan."
                                 onConfirm={handleStartNewAcademicYear}
                                 confirmText="Ya, Mulai Sekarang"
                                 variant="default"
                             >
-                                <Button className="bg-amber-600 hover:bg-amber-700 text-white">
+                                <Button size="sm" className="w-full bg-amber-600 hover:bg-amber-700 text-white h-9 text-xs font-semibold">
                                     Mulai Tahun Ajaran Baru
                                 </Button>
                             </ConfirmButton>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                        </CardContent>
+                    </Card>
+                </div>
 
-            {/* 3. Jadwal Mingguan */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Jadwal Mingguan & Batas Pemesanan</CardTitle>
-                    <CardDescription>
-                        Aktifkan hari operasional kantin beserta batas hari dan jam pemesanannya.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {[
-                        { k: "monday", l: "Senin" },
-                        { k: "tuesday", l: "Selasa" },
-                        { k: "wednesday", l: "Rabu" },
-                        { k: "thursday", l: "Kamis" },
-                        { k: "friday", l: "Jumat" },
-                        { k: "saturday", l: "Sabtu" },
-                        { k: "sunday", l: "Minggu" },
-                    ].map((day) => {
-                        const raw = config.dailyDeadlines?.[day.k]
-                        const deadlineObj = typeof raw === 'object' && raw !== null
-                            ? raw
-                            : { dayOffset: 0, time: typeof raw === 'string' ? raw : (config.deadlineTime || "08:00") }
+                {/* Right Column: Working Days & Deadlines */}
+                <div>
+                    <Card className="border-none shadow-sm">
+                        <CardHeader className="p-4 sm:p-5 pb-2">
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2 text-slate-800">
+                                <CalendarClock className="h-4 w-4 text-primary shrink-0" />
+                                Jadwal & Batas Pemesanan
+                            </CardTitle>
+                            <CardDescription className="text-xs text-muted-foreground">
+                                Atur hari aktif katering dan batas waktu (cutoff) pemesanan siswa.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-4 sm:p-5 pt-2 space-y-2.5">
+                            {[
+                                { k: "monday", l: "Senin" },
+                                { k: "tuesday", l: "Selasa" },
+                                { k: "wednesday", l: "Rabu" },
+                                { k: "thursday", l: "Kamis" },
+                                { k: "friday", l: "Jumat" },
+                                { k: "saturday", l: "Sabtu" },
+                                { k: "sunday", l: "Minggu" },
+                            ].map((day) => {
+                                const raw = config.dailyDeadlines?.[day.k]
+                                const deadlineObj = typeof raw === 'object' && raw !== null
+                                    ? raw
+                                    : { dayOffset: 0, time: typeof raw === 'string' ? raw : (config.deadlineTime || "08:00") }
 
-                        const updateDeadline = (patch: any) => setConfig({
-                            ...config,
-                            dailyDeadlines: {
-                                ...(config.dailyDeadlines || {}),
-                                [day.k]: { ...deadlineObj, ...patch }
-                            }
-                        })
+                                const updateDeadline = (patch: any) => setConfig({
+                                    ...config,
+                                    dailyDeadlines: {
+                                        ...(config.dailyDeadlines || {}),
+                                        [day.k]: { ...deadlineObj, ...patch }
+                                    }
+                                })
 
-                        return (
-                            <div key={day.k} className="border-b pb-3 last:border-0 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <Label className="font-medium text-base">{day.l}</Label>
-                                    <Switch
-                                        checked={config[day.k]}
-                                        onCheckedChange={() => toggleDay(day.k)}
-                                    />
-                                </div>
-                                {config[day.k] && (
-                                    <div className="flex items-center gap-3 flex-wrap pl-1">
-                                        <div className="flex flex-col gap-0.5">
-                                            <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Batas Hari</span>
-                                            <select
-                                                className="px-2 py-1 border rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                                                value={deadlineObj.dayOffset ?? 0}
-                                                onChange={(e) => updateDeadline({ dayOffset: Number(e.target.value) })}
-                                            >
-                                                <option value={0}>H ({getTargetDayLabel(day.k, 0)})</option>
-                                                <option value={-1}>H-1 ({getTargetDayLabel(day.k, -1)})</option>
-                                                <option value={-2}>H-2 ({getTargetDayLabel(day.k, -2)})</option>
-                                                <option value={-3}>H-3 ({getTargetDayLabel(day.k, -3)})</option>
-                                                <option value={-4}>H-4 ({getTargetDayLabel(day.k, -4)})</option>
-                                                <option value={-5}>H-5 ({getTargetDayLabel(day.k, -5)})</option>
-                                                <option value={-6}>H-6 ({getTargetDayLabel(day.k, -6)})</option>
-                                                <option value={-7}>H-7 ({getTargetDayLabel(day.k, -7)})</option>
-                                            </select>
-                                        </div>
-                                        <div className="flex flex-col gap-0.5">
-                                            <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Jam Cutoff</span>
-                                            <input
-                                                type="time"
-                                                className="px-2 py-1 border rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary w-[90px]"
-                                                value={deadlineObj.time}
-                                                onChange={(e) => updateDeadline({ time: e.target.value })}
+                                const isActive = !!config[day.k]
+
+                                return (
+                                    <div 
+                                        key={day.k} 
+                                        className={`p-2.5 rounded-lg border transition-all ${isActive ? 'bg-white border-slate-200' : 'bg-slate-50/60 border-slate-100 opacity-60'}`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <Label className={`font-semibold text-xs sm:text-sm cursor-pointer ${isActive ? 'text-slate-800' : 'text-slate-400'}`}>
+                                                {day.l}
+                                            </Label>
+                                            <Switch
+                                                checked={isActive}
+                                                onCheckedChange={() => toggleDay(day.k)}
+                                                className="scale-90"
                                             />
                                         </div>
+                                        {isActive && (
+                                            <div className="flex items-center gap-2 pt-2 mt-1.5 border-t border-slate-100 flex-wrap">
+                                                <div className="flex items-center gap-1.5 flex-1 min-w-[130px]">
+                                                    <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">Batas:</span>
+                                                    <select
+                                                        className="px-2 py-1 border rounded-md text-xs font-medium bg-white focus:outline-none focus:ring-1 focus:ring-primary w-full"
+                                                        value={deadlineObj.dayOffset ?? 0}
+                                                        onChange={(e) => updateDeadline({ dayOffset: Number(e.target.value) })}
+                                                    >
+                                                        <option value={0}>H ({getTargetDayLabel(day.k, 0)})</option>
+                                                        <option value={-1}>H-1 ({getTargetDayLabel(day.k, -1)})</option>
+                                                        <option value={-2}>H-2 ({getTargetDayLabel(day.k, -2)})</option>
+                                                        <option value={-3}>H-3 ({getTargetDayLabel(day.k, -3)})</option>
+                                                        <option value={-4}>H-4 ({getTargetDayLabel(day.k, -4)})</option>
+                                                        <option value={-5}>H-5 ({getTargetDayLabel(day.k, -5)})</option>
+                                                        <option value={-6}>H-6 ({getTargetDayLabel(day.k, -6)})</option>
+                                                        <option value={-7}>H-7 ({getTargetDayLabel(day.k, -7)})</option>
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <span className="text-[10px] text-slate-400 font-medium">Jam:</span>
+                                                    <input
+                                                        type="time"
+                                                        className="px-2 py-1 border rounded-md text-xs font-medium bg-white focus:outline-none focus:ring-1 focus:ring-primary w-[75px]"
+                                                        value={deadlineObj.time}
+                                                        onChange={(e) => updateDeadline({ time: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+                                )
+                            })}
+
+                            <div className="pt-2 text-[11px] text-muted-foreground flex items-start gap-1">
+                                <span className="font-semibold text-slate-600">💡 Info:</span>
+                                <span>H = hari antar, H-1 = 1 hari sebelum pengantaran.</span>
                             </div>
-                        )
-                    })}
 
-                    <div className="pt-3 mt-2 border-t">
-                        <p className="text-xs text-muted-foreground">
-                            <strong>Keterangan</strong>:<br/>
-                            💡 <strong>H (Hari Itu)</strong>: Siswa harus pesan sebelum jam cutoff di hari yang sama.<br/>
-                            💡 <strong>H-1</strong>: Siswa harus pesan sebelum jam cutoff di hari sebelumnya.
-                        </p>
-                    </div>
-
-                    <div className="pt-4">
-                        <Button size="lg" onClick={handleSave} className="w-full md:w-auto">
-                            <Save className="mr-2 h-4 w-4" /> Simpan Jadwal Mingguan
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                            <div className="pt-2">
+                                <Button size="sm" onClick={handleSave} className="w-full h-9 text-xs font-semibold">
+                                    <Save className="mr-1.5 h-3.5 w-3.5" /> Simpan Jadwal
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
         </div>
     )
 }

@@ -248,13 +248,29 @@ export async function POST(req: Request) {
         const { error: itemsError } = await supabase.from('OrderItem').insert(finalItems)
         if (itemsError) throw itemsError
 
+        // Kirim Push Notification ke Admin
+        const { data: admins } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'ADMIN')
+
+        if (admins && admins.length > 0) {
+            for (const admin of admins) {
+                sendPushNotification(admin.id, {
+                    title: '🛒 Pesanan Instan Baru Masuk!',
+                    body: `Ada pesanan instan baru senilai Rp ${totalAmount.toLocaleString('id-ID')}.`,
+                    url: '/dashboard/admin/orders'
+                }).catch(err => console.error('Error sending push to admin:', err))
+            }
+        }
+
         if (paymentMethod === 'CASH_PAY_LATER') {
             const uniqueVendorIds = Array.from(new Set(finalItems.map((item: any) => item.vendorId).filter(Boolean)))
             for (const vId of uniqueVendorIds) {
                 sendPushNotification(vId as string, {
-                    title: 'Pesanan Baru (Cash - Instan)!',
-                    body: 'Anda menerima pesanan katering sekolah baru (Instant Order - Bayar di Sekolah).',
-                    url: '/dashboard/vendor'
+                    title: '📦 Pesanan Baru (Instan - Bayar di Sekolah)!',
+                    body: 'Anda menerima pesanan porsi katering sekolah baru.',
+                    url: '/dashboard/vendor/orders'
                 }).catch(err => console.error('Error sending push notification:', err))
             }
         }

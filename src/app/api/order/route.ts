@@ -278,13 +278,30 @@ export async function POST(req: Request) {
 
         if (itemsError) throw itemsError
 
+        // Kirim Push Notification ke Admin (Semua Admin)
+        const { data: admins } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('role', 'ADMIN')
+
+        if (admins && admins.length > 0) {
+            for (const admin of admins) {
+                sendPushNotification(admin.id, {
+                    title: '🛒 Pesanan Baru Masuk!',
+                    body: `Ada pesanan katering baru senilai Rp ${totalAmount.toLocaleString('id-ID')}.`,
+                    url: '/dashboard/admin/orders'
+                }).catch(err => console.error('Error sending push to admin:', err))
+            }
+        }
+
+        // Kirim Push Notification ke Vendor jika metode Bayar di Sekolah
         if (paymentMethod === 'CASH_PAY_LATER') {
             const uniqueVendorIds = Array.from(new Set(orderItems.map((item: any) => item.vendorId).filter(Boolean)))
             for (const vId of uniqueVendorIds) {
                 sendPushNotification(vId as string, {
-                    title: 'Pesanan Baru (Cash)!',
-                    body: 'Anda menerima pesanan katering sekolah baru (Bayar di Sekolah).',
-                    url: '/dashboard/vendor'
+                    title: '📦 Pesanan Baru (Bayar di Sekolah)!',
+                    body: 'Anda menerima pesanan porsi katering sekolah baru.',
+                    url: '/dashboard/vendor/orders'
                 }).catch(err => console.error('Error sending push notification:', err))
             }
         }

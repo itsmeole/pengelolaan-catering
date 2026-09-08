@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Receipt, Clock, CheckCircle, XCircle, Loader2, AlertTriangle, Upload, CheckCircle2, PackageCheck } from "lucide-react"
 import { toast } from "sonner"
 import { uploadImage } from "@/lib/uploadImage"
+import { useRealtimeOrders } from "@/hooks/useRealtimeOrders"
 import {
     Dialog,
     DialogContent,
@@ -57,6 +58,14 @@ export default function StudentHistoryPage() {
             .catch(() => { })
             .finally(() => setLoading(false))
     }
+
+    // Realtime listener for student order updates
+    useRealtimeOrders({
+        role: "STUDENT",
+        showToast: false, // Toast handled globally by RealtimeNotificationProvider in layout
+        onOrderUpdated: () => fetchOrders(),
+        onOrderItemChanged: () => fetchOrders(),
+    })
 
     useEffect(() => {
         fetchOrders()

@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import { SidebarNav } from "@/components/dashboard/sidebar-nav"
 import { MobileNav } from "@/components/dashboard/mobile-nav"
 import { UserNav } from "@/components/dashboard/user-nav"
+import { NotificationPermissionPrompt } from "@/components/dashboard/notification-permission-prompt"
+import { RealtimeNotificationProvider } from "@/components/providers/realtime-notification-provider"
 import { cookies } from "next/headers"
 import { createServerClient } from '@supabase/ssr'
 
@@ -59,7 +61,7 @@ export default async function DashboardLayout({
             </aside>
 
             {/* Main Content */}
-            <div className="flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
                 <header className="flex h-14 items-center justify-between border-b px-4 lg:px-6">
                     <div className="md:hidden">
                         <MobileNav role={role} />
@@ -69,9 +71,11 @@ export default async function DashboardLayout({
                             Halo <span className="font-bold text-slate-900">{userMock.name}</span>!<span className="hidden md:inline"> Selamat datang</span>
                         </p>
                         <UserNav user={userMock} />
+                        {/* <NotificationPermissionPrompt /> */}
                     </div>
                 </header>
-                <main className="flex-1 p-4 lg:p-6 bg-muted/20">
+                <main className="flex-1 p-4 lg:p-6 bg-muted/20 min-w-0">
+                    <RealtimeNotificationProvider role={role} userId={user.id} />
                     {children}
                 </main>
             </div>

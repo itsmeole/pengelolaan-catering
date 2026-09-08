@@ -353,24 +353,45 @@ export default function AdminReportsPage() {
     toast.success("PDF berhasil didownload")
   }
 
+  // Pagination states for details table
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [data])
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
+      {/* Header & Date Filter */}
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-primary">Laporan Keuangan</h2>
-          <p className="text-muted-foreground">Monitor pendapatan dan performa bisnis.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Laporan Keuangan</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Monitor pendapatan dan performa bisnis katering.</p>
         </div>
-        <div className="flex items-end gap-2">
-          <div className="grid gap-1.5">
-            <Label>Dari Tanggal</Label>
-            <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} />
+        <div className="flex items-center justify-between gap-1.5 sm:gap-2 bg-white p-2 sm:p-2.5 rounded-xl border shadow-sm w-full md:w-auto">
+          <div className="grid gap-0.5 flex-1 min-w-0">
+            <Label className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500">Dari</Label>
+            <Input 
+              type="date" 
+              className="h-8 sm:h-9 w-full sm:w-32 md:w-36 border-none focus-visible:ring-0 p-0 text-xs sm:text-sm" 
+              value={startDate} 
+              onChange={e => setStartDate(e.target.value)} 
+            />
           </div>
-          <div className="grid gap-1.5">
-            <Label>Sampai Tanggal</Label>
-            <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          <div className="w-[1px] h-7 sm:h-8 bg-slate-200 mx-1 sm:mx-2 shrink-0" />
+          <div className="grid gap-0.5 flex-1 min-w-0">
+            <Label className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500">Sampai</Label>
+            <Input 
+              type="date" 
+              className="h-8 sm:h-9 w-full sm:w-32 md:w-36 border-none focus-visible:ring-0 p-0 text-xs sm:text-sm" 
+              value={endDate} 
+              onChange={e => setEndDate(e.target.value)} 
+            />
           </div>
-          <Button onClick={fetchReports} disabled={loading}>
-            <Filter className="mr-2 h-4 w-4" /> Filter
+          <Button size="sm" onClick={fetchReports} disabled={loading} className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs shrink-0 ml-1">
+            <Filter className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden xs:inline sm:inline">Filter</span>
           </Button>
         </div>
       </div>
@@ -384,30 +405,43 @@ export default function AdminReportsPage() {
           .filter((d: any) => d.refundStatus !== 'APPROVED' && d.paymentMethod === 'CASH_PAY_LATER')
           .reduce((s: number, d: any) => s + (d.total || 0), 0)
         return (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <Card className="border-l-4 border-l-green-500">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Pemasukan</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-green-600">{formatMoney(data.summary.grossRevenue)}</div></CardContent>
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 lg:grid-cols-5">
+            <Card className="border-l-4 border-l-green-500 shadow-sm col-span-2 sm:col-span-1 p-3.5 sm:p-4">
+              <div className="text-xs font-semibold text-slate-500">Total Pemasukan</div>
+              <div className="text-lg sm:text-2xl font-bold text-green-600 truncate mt-1" title={formatMoney(data.summary.grossRevenue)}>
+                {formatMoney(data.summary.grossRevenue)}
+              </div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Total omzet kotor</p>
             </Card>
-            <Card className="border-l-4 border-l-blue-500">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Pendapatan Bersih</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-primary">{formatMoney(data.summary.netRevenue)}</div></CardContent>
+
+            <Card className="border-l-4 border-l-blue-500 shadow-sm col-span-2 sm:col-span-1 p-3.5 sm:p-4">
+              <div className="text-xs font-semibold text-slate-500">Pendapatan Bersih</div>
+              <div className="text-lg sm:text-2xl font-bold text-primary truncate mt-1" title={formatMoney(data.summary.netRevenue)}>
+                {formatMoney(data.summary.netRevenue)}
+              </div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Fee admin terkumpul</p>
             </Card>
-            <Card className="border-l-4 border-l-slate-400">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Volume Pesanan</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold">{data.summary.totalOrders} Transaksi</div></CardContent>
+
+            <Card className="border-l-4 border-l-slate-400 shadow-sm col-span-1 sm:col-span-1 p-3.5 sm:p-4">
+              <div className="text-xs font-semibold text-slate-500">Volume Pesanan</div>
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 mt-1">{data.summary.totalOrders} <span className="text-xs sm:text-sm font-normal text-slate-500">Item</span></div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">Total menu dipesan</p>
             </Card>
-            <Card className="border-l-4 border-l-indigo-500">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Uang Masuk (TF)</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-indigo-600">{formatMoney(grossTFUi)}</div>
-                <p className="text-xs text-slate-400 mt-1">Via Transfer Bank</p>
-              </CardContent>
+
+            <Card className="border-l-4 border-l-indigo-500 shadow-sm col-span-1 sm:col-span-1 p-3.5 sm:p-4">
+              <div className="text-xs font-semibold text-slate-500">Transfer Bank</div>
+              <div className="text-lg sm:text-2xl font-bold text-indigo-600 truncate mt-1" title={formatMoney(grossTFUi)}>
+                {formatMoney(grossTFUi)}
+              </div>
+              <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Metode Transfer</p>
             </Card>
-            <Card className="border-l-4 border-l-orange-500">
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Uang Masuk (Cash)</CardTitle></CardHeader>
-              <CardContent><div className="text-2xl font-bold text-orange-600">{formatMoney(grossCashUi)}</div>
-                <p className="text-xs text-slate-400 mt-1">Via Bayar di Sekolah</p>
-              </CardContent>
+
+            <Card className="border-l-4 border-l-orange-500 shadow-sm col-span-2 sm:col-span-2 lg:col-span-1 p-3.5 sm:p-4">
+              <div className="text-xs font-semibold text-slate-500">Cash di Sekolah</div>
+              <div className="text-lg sm:text-2xl font-bold text-orange-600 truncate mt-1" title={formatMoney(grossCashUi)}>
+                {formatMoney(grossCashUi)}
+              </div>
+              <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Bayar di Sekolah</p>
             </Card>
           </div>
         )
@@ -415,27 +449,28 @@ export default function AdminReportsPage() {
 
       {/* Chart */}
       {data && (
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Grafik Pendapatan Harian</CardTitle>
+        <Card className="border-none shadow-sm min-w-0 overflow-hidden">
+          <CardHeader className="p-4 sm:p-5 pb-2">
+            <CardTitle className="text-base sm:text-lg">Grafik Pendapatan Harian</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Perbandingan pemasukan kotor dan pendapatan bersih harian.</p>
           </CardHeader>
-          <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
+          <CardContent className="p-4 sm:p-5 pt-0">
+            <div className="h-[260px] sm:h-[320px] w-full min-w-0">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.chart}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={(val) => format(new Date(val), "dd MMM")} />
-                  <YAxis tickFormatter={(val) => `Rp ${val / 1000}k`} />
+                <BarChart data={data.chart} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.12} />
+                  <XAxis dataKey="date" tickFormatter={(val) => format(new Date(val), "dd MMM")} fontSize={10} axisLine={false} tickLine={false} />
+                  <YAxis fontSize={10} axisLine={false} tickLine={false} width={45} tickFormatter={(val) => `Rp${val >= 1000 ? val / 1000 + 'k' : val}`} />
                   <Tooltip
                     content={({ active, payload, label }: any) => {
                       if (active && payload && payload.length) {
                         const count = payload[0]?.payload?.count ?? 0
                         return (
-                          <div className="bg-white border rounded-lg shadow-lg p-3 text-sm space-y-1">
-                            <p className="font-bold text-slate-700">{label}</p>
-                            <p className="text-muted-foreground text-xs">{count} item pesanan</p>
+                          <div className="bg-white border rounded-xl shadow-lg p-3 text-xs space-y-1">
+                            <p className="font-bold text-slate-800">{label}</p>
+                            <p className="text-muted-foreground text-[11px]">{count} item pesanan</p>
                             {payload.map((p: any) => (
-                              <p key={p.name} style={{ color: p.color }}>
+                              <p key={p.name} style={{ color: p.color }} className="font-medium">
                                 {p.name === 'gross' ? 'Pemasukan' : 'Bersih'}: {formatMoney(p.value)}
                               </p>
                             ))}
@@ -445,55 +480,134 @@ export default function AdminReportsPage() {
                       return null
                     }}
                   />
-                  <Bar dataKey="gross" fill="var(--primary)" radius={[4, 4, 0, 0]} name="Pemasukan" />
-                  <Bar dataKey="net" fill="#82ca9d" radius={[4, 4, 0, 0]} name="Bersih" />
+                  <Bar dataKey="gross" fill="#16a34a" radius={[4, 4, 0, 0]} name="Pemasukan" maxBarSize={32} />
+                  <Bar dataKey="net" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Bersih" maxBarSize={32} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
       )}
+
       {/* Transaction Details Table */}
       {data && data.details && (
-        <Card className="col-span-4 mt-6">
-          <CardHeader>
-            <CardTitle>Detail Transaksi</CardTitle>
+        <Card className="border-none shadow-sm overflow-hidden">
+          <CardHeader className="p-4 sm:p-6 pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base sm:text-lg">Detail Transaksi</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Rincian seluruh pesanan pada rentang tanggal terpilih.</p>
+              </div>
+              <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full border">
+                {data.details.length} transaksi
+              </span>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="border rounded-md max-h-[400px] overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted sticky top-0">
-                  <tr className="border-b">
-                    <th className="h-10 px-4 text-left font-medium">Tgl Pesan</th>
-                    <th className="h-10 px-4 text-left font-medium">Tgl Antar</th>
-                    <th className="h-10 px-4 text-left font-medium">Siswa</th>
-                    <th className="h-10 px-4 text-left font-medium">Vendor</th>
-                    <th className="h-10 px-4 text-left font-medium text-xs">Menu</th>
-                    <th className="h-10 px-4 text-right font-medium">Total</th>
-                    <th className="h-10 px-4 text-right font-medium">Fee</th>
-                    <th className="h-10 px-4 text-center font-medium">Status</th>
+          <CardContent className="p-0">
+            {/* Mobile View: Card List */}
+            <div className="block md:hidden divide-y divide-slate-100 border-t">
+              {data.details.length === 0 ? (
+                <div className="text-center py-8 text-xs text-muted-foreground">Tidak ada transaksi</div>
+              ) : (
+                data.details.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item: any, idx: number) => {
+                  const isCancelled = item.refundStatus === 'APPROVED';
+                  return (
+                    <div key={idx} className={`p-3.5 space-y-2 transition-colors ${isCancelled ? 'bg-red-50/20' : 'bg-white'}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[11px] text-muted-foreground">
+                          Antar: <strong className="text-slate-700">{item.deliveryDate}</strong>
+                        </div>
+                        {isCancelled ? (
+                          <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold uppercase">
+                            Refund
+                          </span>
+                        ) : (
+                          <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">
+                            Sukses
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-semibold text-slate-800 leading-snug line-clamp-1 ${isCancelled ? 'line-through text-slate-400' : ''}`}>
+                            {item.itemName}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            {item.studentName} <span className="text-[10px] text-slate-400 font-medium">({item.vendorName})</span>
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className={`text-sm font-bold ${isCancelled ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                            {formatMoney(isCancelled ? 0 : item.total)}
+                          </div>
+                          <div className="text-[11px] text-blue-600 font-medium">
+                            Fee: {formatMoney(isCancelled ? 0 : item.adminFee)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                        <span>Pesan: {item.transactionDate}</span>
+                        <span className="uppercase font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {item.paymentMethod === 'TRANSFER' ? 'Transfer' : 'Cash'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop View: Full Table */}
+            <div className="hidden md:block border-t max-h-[450px] overflow-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50/80 sticky top-0 z-10 border-b">
+                  <tr>
+                    <th className="h-9 px-4 text-left font-semibold text-slate-600">Tgl Pesan</th>
+                    <th className="h-9 px-4 text-left font-semibold text-slate-600">Tgl Antar</th>
+                    <th className="h-9 px-4 text-left font-semibold text-slate-600">Siswa</th>
+                    <th className="h-9 px-4 text-left font-semibold text-slate-600">Vendor</th>
+                    <th className="h-9 px-4 text-left font-semibold text-slate-600">Menu</th>
+                    <th className="h-9 px-4 text-center font-semibold text-slate-600">Bayar</th>
+                    <th className="h-9 px-4 text-right font-semibold text-slate-600">Total</th>
+                    <th className="h-9 px-4 text-right font-semibold text-slate-600">Fee Admin</th>
+                    <th className="h-9 px-4 text-center font-semibold text-slate-600">Status</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {data.details.map((item: any, idx: number) => {
+                <tbody className="divide-y divide-slate-100">
+                  {data.details.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((item: any, idx: number) => {
                     const isCancelled = item.refundStatus === 'APPROVED';
 
                     return (
-                      <tr key={idx} className={`border-b transition-colors hover:bg-muted/50 ${isCancelled ? 'bg-red-50/30 text-muted-foreground line-through' : ''}`}>
-                        <td className="p-4 text-[10px] whitespace-nowrap">{item.transactionDate}</td>
-                        <td className="p-4 text-[10px] whitespace-nowrap">{item.deliveryDate}</td>
-                        <td className="p-4">{item.studentName}</td>
-                        <td className="p-4">{item.vendorName}</td>
-                        <td className="p-4">{item.itemName}</td>
-                        <td className="p-4 text-right">{formatMoney(isCancelled ? 0 : item.total)}</td>
-                        <td className="p-4 text-right">{formatMoney(isCancelled ? 0 : item.adminFee)}</td>
-                        <td className="p-4 text-center">
+                      <tr key={idx} className={`transition-colors hover:bg-slate-50/60 ${isCancelled ? 'bg-red-50/30 text-slate-400' : ''}`}>
+                        <td className="px-4 py-3 text-[11px] text-muted-foreground whitespace-nowrap">{item.transactionDate}</td>
+                        <td className="px-4 py-3 font-medium whitespace-nowrap">{item.deliveryDate}</td>
+                        <td className="px-4 py-3 max-w-[150px]">
+                          <span className="font-medium text-slate-800 truncate block" title={item.studentName}>{item.studentName}</span>
+                        </td>
+                        <td className="px-4 py-3 max-w-[130px]">
+                          <span className="text-slate-600 truncate block" title={item.vendorName}>{item.vendorName}</span>
+                        </td>
+                        <td className="px-4 py-3 max-w-[150px]">
+                          <span className={`truncate block ${isCancelled ? 'line-through text-slate-400' : 'text-slate-700'}`} title={item.itemName}>
+                            {item.itemName}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {item.paymentMethod === 'TRANSFER' ? 'TF' : 'Cash'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">{formatMoney(isCancelled ? 0 : item.total)}</td>
+                        <td className="px-4 py-3 text-right font-bold text-blue-600">{formatMoney(isCancelled ? 0 : item.adminFee)}</td>
+                        <td className="px-4 py-3 text-center">
                           {isCancelled ? (
-                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded-full font-bold uppercase">
+                            <span className="text-[9px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold uppercase">
                               Refund
                             </span>
                           ) : (
-                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold uppercase">
+                            <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">
                               Sukses
                             </span>
                           )}
@@ -504,17 +618,57 @@ export default function AdminReportsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-3 sm:p-4 border-t gap-3">
+              <div className="flex items-center justify-between w-full sm:w-auto gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Baris:</span>
+                  <select 
+                    value={pageSize} 
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    className="text-xs border rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+                <div className="sm:hidden text-xs font-medium text-muted-foreground">
+                  Hal {currentPage} dari {Math.ceil(data.details.length / pageSize) || 1}
+                </div>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
+                <Button 
+                  variant="outline" size="sm" className="h-8 text-xs flex-1 sm:flex-initial px-3"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >Sebelumnya</Button>
+                <div className="hidden sm:flex items-center gap-1 mx-2 text-xs font-medium text-muted-foreground">
+                  Hal {currentPage} dari {Math.ceil(data.details.length / pageSize) || 1}
+                </div>
+                <Button 
+                  variant="outline" size="sm" className="h-8 text-xs flex-1 sm:flex-initial px-3"
+                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(data.details.length / pageSize), p + 1))}
+                  disabled={currentPage >= Math.ceil(data.details.length / pageSize) || data.details.length === 0}
+                >Berikutnya</Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Action Buttons */}
+      {/* Action Buttons at bottom for quick access */}
       {data && (
-        <div className="flex gap-2 justify-end mt-4">
-          <Button variant="outline" onClick={downloadExcel}>
+        <div className="flex gap-2 justify-end pt-2">
+          <Button variant="outline" size="sm" onClick={downloadExcel} className="h-9 text-xs sm:text-sm">
             <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" /> Export Excel
           </Button>
-          <Button variant="outline" onClick={downloadPDF}>
+          <Button variant="outline" size="sm" onClick={downloadPDF} className="h-9 text-xs sm:text-sm">
             <FileText className="mr-2 h-4 w-4 text-red-600" /> Export PDF
           </Button>
         </div>

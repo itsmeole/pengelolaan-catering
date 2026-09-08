@@ -21,8 +21,8 @@ import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
-import { 
-  Loader2, Plus, Search, User, Calendar, 
+import {
+  Loader2, Plus, Search, User, Calendar,
   ChevronRight, Filter, Eye, XCircle, CheckCircle2,
   Trash2, AlertCircle, FileText, CheckCircle,
   LayoutGrid, Utensils, CalendarClock, UserPlus, RotateCcw,
@@ -40,13 +40,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { ConfirmButton } from "@/components/ui/confirm-button"
+import { useRealtimeOrders } from "@/hooks/useRealtimeOrders"
 
 // Helper: format timestamp ke WIB menggunakan Intl.DateTimeFormat.formatToParts
 // Paling reliable — timezone eksplisit, tidak bergantung pada browser/OS
-const WIB_MONTHS: Record<string,string> = {
-  January:'Jan', February:'Feb', March:'Mar', April:'Apr', May:'Mei',
-  June:'Jun', July:'Jul', August:'Ags', September:'Sep',
-  October:'Okt', November:'Nov', December:'Des'
+const WIB_MONTHS: Record<string, string> = {
+  January: 'Jan', February: 'Feb', March: 'Mar', April: 'Apr', May: 'Mei',
+  June: 'Jun', July: 'Jul', August: 'Ags', September: 'Sep',
+  October: 'Okt', November: 'Nov', December: 'Des'
 }
 function formatWIB(isoString: string) {
   const d = new Date(isoString)
@@ -74,12 +75,12 @@ export default function AdminOrdersPage() {
   const [searchName, setSearchName] = useState("")
 
   // States for Refund (Admin)
-  const [isRefundOpen, setIsRefundOpen]       = useState(false)
-  const [refundOrder, setRefundOrder]         = useState<any>(null)
-  const [refundItems, setRefundItems]         = useState<string[]>([])
-  const [refundReason, setRefundReason]       = useState("VENDOR_LATE")
-  const [refundOther, setRefundOther]         = useState("")
-  const [refundImage, setRefundImage]         = useState<string | null>(null)
+  const [isRefundOpen, setIsRefundOpen] = useState(false)
+  const [refundOrder, setRefundOrder] = useState<any>(null)
+  const [refundItems, setRefundItems] = useState<string[]>([])
+  const [refundReason, setRefundReason] = useState("VENDOR_LATE")
+  const [refundOther, setRefundOther] = useState("")
+  const [refundImage, setRefundImage] = useState<string | null>(null)
   const [submittingRefund, setSubmittingRefund] = useState(false)
 
   // States for Add Order
@@ -129,6 +130,15 @@ export default function AdminOrdersPage() {
     }
   }, [selectedOrderForDetail])
 
+  // Realtime listener for orders & order items
+  useRealtimeOrders({
+    role: "ADMIN",
+    showToast: false, // Toast handled globally by RealtimeNotificationProvider in layout
+    onNewOrder: () => fetchOrders(true),
+    onOrderUpdated: () => fetchOrders(true),
+    onOrderItemChanged: () => fetchOrders(true),
+  })
+
   useEffect(() => {
     fetchOrders()
     fetchStudents()
@@ -137,32 +147,32 @@ export default function AdminOrdersPage() {
   }, [])
 
   async function fetchAdminFee() {
-      try {
-          const res = await fetch("/api/public/settings/admin-fee")
-          const data = await res.json()
-          if (data.fee !== undefined) setAdminFee(data.fee)
-      } catch { }
+    try {
+      const res = await fetch("/api/public/settings/admin-fee")
+      const data = await res.json()
+      if (data.fee !== undefined) setAdminFee(data.fee)
+    } catch { }
   }
 
   async function fetchStudents() {
     try {
       const res = await fetch("/api/admin/users/students")
       if (res.ok) setStudents(await res.json())
-    } catch {}
+    } catch { }
   }
 
   async function fetchMenus() {
     try {
       const res = await fetch("/api/admin/menus")
       if (res.ok) setAvailableMenus(await res.json())
-    } catch {}
+    } catch { }
   }
 
-  const filteredStudents = studentSearch.length > 1 
-    ? students.filter(s => 
-        s.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
-        s.nis?.includes(studentSearch)
-      ).slice(0, 5)
+  const filteredStudents = studentSearch.length > 1
+    ? students.filter(s =>
+      s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+      s.nis?.includes(studentSearch)
+    ).slice(0, 5)
     : []
 
   const DAY_ORDER: Record<string, number> = {
@@ -517,27 +527,27 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 rounded-xl border shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sm:gap-6 bg-white p-4 sm:p-6 rounded-xl border shadow-sm">
         <div className="space-y-1">
-          <h2 className="text-3xl font-bold tracking-tight text-primary">Data Pemesanan</h2>
-          <p className="text-muted-foreground text-sm">Kelola status pembayaran dan pesanan siswa.</p>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">Data Pemesanan</h2>
+          <p className="text-muted-foreground text-xs sm:text-sm">Kelola status pembayaran dan pesanan siswa.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        <div className="flex items-center gap-2 w-full md:w-auto">
           <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 h-10 gap-2">
+              <Button className="bg-blue-600 hover:bg-blue-700 h-10 px-3 sm:px-4 gap-1.5 shrink-0" title="Tambah Pesanan">
                 <Plus className="h-4 w-4" />
-                Tambah Pesanan
+                <span className="hidden sm:inline">Tambah Pesanan</span>
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-3xl p-0 h-[95vh] md:h-auto flex flex-col gap-0 border-none sm:border overflow-hidden">
-            <DialogHeader className="p-6 pb-2 border-b">
-              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-                <LayoutGrid className="h-5 w-5 text-blue-600" />
-                Buat Pesanan Manual (Admin)
-              </DialogTitle>
-            </DialogHeader>
+            <DialogContent className="max-w-3xl p-0 h-[95vh] md:h-auto flex flex-col gap-0 border-none sm:border overflow-hidden">
+              <DialogHeader className="p-6 pb-2 border-b">
+                <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                  <LayoutGrid className="h-5 w-5 text-blue-600" />
+                  Buat Pesanan Manual (Admin)
+                </DialogTitle>
+              </DialogHeader>
 
               <div className="flex-1 overflow-y-auto px-1 py-4">
                 <div className="space-y-8">
@@ -549,24 +559,24 @@ export default function AdminOrdersPage() {
                         <span className="bg-blue-600 text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px]">1</span>
                         Pilih Siswa
                       </Label>
-                      
+
                       {!selectedStudent ? (
                         <div className="relative">
                           <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                            <Input 
-                              placeholder="Ketik Nama atau NIS..." 
-                              value={studentSearch} 
+                            <Input
+                              placeholder="Ketik Nama atau NIS..."
+                              value={studentSearch}
                               onChange={(e) => setStudentSearch(e.target.value)}
                               className="pl-9 h-11 bg-slate-50 border-slate-200"
                             />
                           </div>
-                          
+
                           {filteredStudents.length > 0 && (
                             <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1">
                               {filteredStudents.map(s => (
-                                <button 
-                                  key={s.id} 
+                                <button
+                                  key={s.id}
                                   onClick={() => {
                                     setSelectedStudent(s)
                                     setStudentSearch("")
@@ -626,18 +636,18 @@ export default function AdminOrdersPage() {
 
                           <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold uppercase text-slate-500">Tanggal Makan</Label>
-                            <Input 
-                              type="date" 
-                              value={itemForm.date} 
+                            <Input
+                              type="date"
+                              value={itemForm.date}
                               onChange={(e) => setItemForm({ ...itemForm, date: e.target.value })}
                               className="bg-white"
                             />
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-[10px] font-bold uppercase text-slate-500">Jumlah (Porsi)</Label>
-                            <Input 
-                              type="number" min="1" 
-                              value={itemForm.quantity} 
+                            <Input
+                              type="number" min="1"
+                              value={itemForm.quantity}
                               onChange={(e) => setItemForm({ ...itemForm, quantity: parseInt(e.target.value) })}
                               className="bg-white"
                             />
@@ -645,23 +655,23 @@ export default function AdminOrdersPage() {
                         </div>
 
                         <div className="flex gap-2 items-end">
-                            <div className="space-y-1.5 flex-1">
-                                <Label className="text-[10px] font-bold uppercase text-slate-500">Catatan Khusus</Label>
-                                <Input 
-                                    placeholder="Tidak pedas, dll..." 
-                                    value={itemForm.note} 
-                                    onChange={(e) => setItemForm({ ...itemForm, note: e.target.value })}
-                                    className="bg-white h-10"
-                                />
-                            </div>
-                            <Button 
-                                type="button" 
-                                onClick={addItemToOrder}
-                                className="bg-slate-800 hover:bg-slate-900 h-10 px-4 sm:px-6 text-xs whitespace-nowrap"
-                            >
-                                <Plus className="h-4 w-4 sm:mr-2" />
-                                <span className="hidden sm:inline">Tambah</span>
-                            </Button>
+                          <div className="space-y-1.5 flex-1">
+                            <Label className="text-[10px] font-bold uppercase text-slate-500">Catatan Khusus</Label>
+                            <Input
+                              placeholder="Tidak pedas, dll..."
+                              value={itemForm.note}
+                              onChange={(e) => setItemForm({ ...itemForm, note: e.target.value })}
+                              className="bg-white h-10"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={addItemToOrder}
+                            className="bg-slate-800 hover:bg-slate-900 h-10 px-4 sm:px-6 text-xs whitespace-nowrap"
+                          >
+                            <Plus className="h-4 w-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Tambah</span>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -713,8 +723,8 @@ export default function AdminOrdersPage() {
                                     {item.quantity}
                                   </TableCell>
                                   <TableCell className="py-2 text-right px-3">
-                                    <Button 
-                                      variant="ghost" size="icon" 
+                                    <Button
+                                      variant="ghost" size="icon"
                                       onClick={() => removeItemFromOrder(item.id)}
                                       className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
                                     >
@@ -750,9 +760,9 @@ export default function AdminOrdersPage() {
                       <div className="space-y-1">
                         <Label className="text-[10px] font-bold uppercase text-blue-600 font-bold">Unggah Bukti Transfer</Label>
                         <div className="flex items-center gap-2">
-                          <Input 
-                            type="file" 
-                            accept="image/*" 
+                          <Input
+                            type="file"
+                            accept="image/*"
                             onChange={handleProofChange}
                             className="h-9 text-[10px] w-full sm:w-[200px] bg-blue-50 border-blue-200"
                           />
@@ -761,7 +771,7 @@ export default function AdminOrdersPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="text-left sm:text-right flex justify-between sm:block items-center bg-white sm:bg-transparent p-3 sm:p-0 rounded-lg border sm:border-0">
                     <p className="text-[10px] text-slate-500 uppercase font-medium">Total Harga Siswa</p>
                     <p className="text-xl font-black text-slate-900 leading-tight">
@@ -771,29 +781,29 @@ export default function AdminOrdersPage() {
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row gap-2">
-                    <Button variant="outline" className="w-full sm:flex-1 h-11 text-xs font-bold" onClick={() => setIsAddModalOpen(false)}>Batal</Button>
-                    <Button 
-                        className="w-full sm:flex-[2] bg-blue-600 hover:bg-blue-700 h-11 text-sm font-bold shadow-lg shadow-blue-200" 
-                        onClick={handleAddOrder} 
-                        disabled={isSubmitting || orderItems.length === 0}
-                    >
-                        {isSubmitting ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        ) : (
-                        <CheckCircle2 className="h-4 w-4 mr-2" />
-                        )}
-                        Simpan & Buat {orderItems.length} Pesanan
-                    </Button>
+                  <Button variant="outline" className="w-full sm:flex-1 h-11 text-xs font-bold" onClick={() => setIsAddModalOpen(false)}>Batal</Button>
+                  <Button
+                    className="w-full sm:flex-[2] bg-blue-600 hover:bg-blue-700 h-11 text-sm font-bold shadow-lg shadow-blue-200"
+                    onClick={handleAddOrder}
+                    disabled={isSubmitting || orderItems.length === 0}
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                    )}
+                    Simpan & Buat {orderItems.length} Pesanan
+                  </Button>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
 
-          <div className="h-10 w-[1px] bg-slate-200 mx-2 hidden md:block" />
+          <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden md:block" />
 
           {/* Filter Status & Payment */}
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[140px] h-10 border-slate-200 bg-white shadow-sm">
+            <SelectTrigger className="flex-1 md:w-[140px] md:flex-initial h-10 border-slate-200 bg-white shadow-sm text-xs sm:text-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -806,7 +816,7 @@ export default function AdminOrdersPage() {
           </Select>
 
           <Select value={filterPayment} onValueChange={setFilterPayment}>
-            <SelectTrigger className="w-[140px] h-10 border-slate-200 bg-white shadow-sm">
+            <SelectTrigger className="flex-1 md:w-[140px] md:flex-initial h-10 border-slate-200 bg-white shadow-sm text-xs sm:text-sm">
               <SelectValue placeholder="Metode" />
             </SelectTrigger>
             <SelectContent>
@@ -815,10 +825,6 @@ export default function AdminOrdersPage() {
               <SelectItem value="PAY_LATER">Pay Later</SelectItem>
             </SelectContent>
           </Select>
-          
-          <Button size="icon" variant="outline" className="h-10 w-10 text-primary border-slate-200" onClick={() => fetchOrders(true)} disabled={refreshing}>
-            {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Filter className="h-4 w-4" />}
-          </Button>
         </div>
       </div>
 
@@ -903,7 +909,7 @@ export default function AdminOrdersPage() {
                         {order.status === "PENDING" && <Badge variant="secondary">Pending</Badge>}
                         {order.status === "CANCELLED" && <Badge variant="destructive">Batal</Badge>}
                         {order.status === "COMPLETED" && <Badge variant="outline">Selesai</Badge>}
-                        
+
                         {isCancelRequested && (
                           <Badge variant="outline" className="text-orange-600 border-orange-600 bg-orange-50 animate-pulse">
                             Minta Pembatalkan
@@ -914,11 +920,11 @@ export default function AdminOrdersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2 items-center">
-                        <Button 
-                            variant="outline" size="sm" className="h-8 text-xs flex items-center gap-1"
-                            onClick={() => setSelectedOrderForDetail(order)}
+                        <Button
+                          variant="outline" size="sm" className="h-8 text-xs flex items-center gap-1"
+                          onClick={() => setSelectedOrderForDetail(order)}
                         >
-                            <Eye className="h-3 w-3" /> Detail
+                          <Eye className="h-3 w-3" /> Detail
                         </Button>
 
                         {/* Aksi Pembatalan */}
@@ -931,46 +937,46 @@ export default function AdminOrdersPage() {
                               <DialogHeader>
                                 <DialogTitle>Review Pengajuan Pembatalan</DialogTitle>
                               </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                  <div className="bg-muted p-3 rounded-lg border">
-                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Alasan Siswa:</label>
-                                    <p className="text-sm font-semibold mt-1">
-                                      {order.cancelReason?.startsWith('LAINNYA:') 
-                                        ? order.cancelReason.replace('LAINNYA:', '').trim() 
-                                        : order.cancelReason === 'VENDOR_LATE' 
-                                          ? 'Vendor Terlambat Datang' 
-                                          : order.cancelReason === 'DEFECTIVE_FOOD' 
-                                            ? 'Makanan Cacat Produksi' 
-                                            : order.cancelReason}
-                                    </p>
-                                  </div>
-
-                                  <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Makanan yang Dibatalkan:</label>
-                                    <div className="space-y-2 border rounded-lg p-2 bg-muted/30">
-                                      {order.items?.filter((i: any) => i.cancelStatus === 'PENDING').map((item: any) => (
-                                        <div key={item.id} className="flex justify-between items-center text-xs p-1.5 border-b last:border-0">
-                                          <div className="flex flex-col">
-                                            <span className="font-bold">{item.menu?.name}</span>
-                                            <span className="text-[10px] text-muted-foreground">{format(new Date(item.date), "EEEE, dd MMM")}</span>
-                                          </div>
-                                          <span className="font-mono font-bold text-primary">Rp {(item.price + item.adminFee).toLocaleString("id-ID")}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  {order.cancelImage && (
-                                    <div>
-                                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Bukti Foto:</label>
-                                      <img src={order.cancelImage} className="mt-2 rounded-lg border max-h-64 w-full object-contain bg-white" alt="Bukti Cacat" />
-                                    </div>
-                                  )}
+                              <div className="space-y-4 py-4">
+                                <div className="bg-muted p-3 rounded-lg border">
+                                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Alasan Siswa:</label>
+                                  <p className="text-sm font-semibold mt-1">
+                                    {order.cancelReason?.startsWith('LAINNYA:')
+                                      ? order.cancelReason.replace('LAINNYA:', '').trim()
+                                      : order.cancelReason === 'VENDOR_LATE'
+                                        ? 'Vendor Terlambat Datang'
+                                        : order.cancelReason === 'DEFECTIVE_FOOD'
+                                          ? 'Makanan Cacat Produksi'
+                                          : order.cancelReason}
+                                  </p>
                                 </div>
-                                <DialogFooter className="gap-2">
-                                  <Button variant="ghost" className="text-xs" onClick={() => handleCancelRequest(order.id, 'REJECT_CANCEL')}>Tolak Pembatalan</Button>
-                                  <Button variant="destructive" className="text-xs font-bold" onClick={() => handleCancelRequest(order.id, 'APPROVE_CANCEL')}>Setujui & Batalkan</Button>
-                                </DialogFooter>
+
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Makanan yang Dibatalkan:</label>
+                                  <div className="space-y-2 border rounded-lg p-2 bg-muted/30">
+                                    {order.items?.filter((i: any) => i.cancelStatus === 'PENDING').map((item: any) => (
+                                      <div key={item.id} className="flex justify-between items-center text-xs p-1.5 border-b last:border-0">
+                                        <div className="flex flex-col">
+                                          <span className="font-bold">{item.menu?.name}</span>
+                                          <span className="text-[10px] text-muted-foreground">{format(new Date(item.date), "EEEE, dd MMM")}</span>
+                                        </div>
+                                        <span className="font-mono font-bold text-primary">Rp {(item.price + item.adminFee).toLocaleString("id-ID")}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {order.cancelImage && (
+                                  <div>
+                                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Bukti Foto:</label>
+                                    <img src={order.cancelImage} className="mt-2 rounded-lg border max-h-64 w-full object-contain bg-white" alt="Bukti Cacat" />
+                                  </div>
+                                )}
+                              </div>
+                              <DialogFooter className="gap-2">
+                                <Button variant="ghost" className="text-xs" onClick={() => handleCancelRequest(order.id, 'REJECT_CANCEL')}>Tolak Pembatalan</Button>
+                                <Button variant="destructive" className="text-xs font-bold" onClick={() => handleCancelRequest(order.id, 'APPROVE_CANCEL')}>Setujui & Batalkan</Button>
+                              </DialogFooter>
                             </DialogContent>
                           </Dialog>
                         )}
@@ -1025,108 +1031,108 @@ export default function AdminOrdersPage() {
       {/* Pagination Controls */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border">
         <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Lihat per:</span>
-            <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
-                <SelectTrigger className="w-20 h-9 border-slate-200">
-                    <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-            </Select>
-            <span className="text-sm text-muted-foreground">data</span>
+          <span className="text-sm text-muted-foreground">Lihat per:</span>
+          <Select value={pageSize.toString()} onValueChange={(v) => setPageSize(parseInt(v))}>
+            <SelectTrigger className="w-20 h-9 border-slate-200">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground">data</span>
         </div>
 
         <div className="flex items-center gap-1">
-            <Button 
-                variant="outline" size="sm" 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="h-9 px-3"
-            >
-                Prev
-            </Button>
-            <div className="flex items-center gap-1 mx-2">
-                {(() => {
-                    // Compute unique page range: clamp start/end so no duplicates
-                    const maxShow = 5
-                    let start = Math.max(1, currentPage - Math.floor(maxShow / 2))
-                    let end = start + maxShow - 1
-                    if (end > totalPages) { end = totalPages; start = Math.max(1, end - maxShow + 1) }
-                    return Array.from({ length: end - start + 1 }, (_, i) => start + i)
-                })().map(pageNum => (
-                    <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={cn("h-9 w-9 p-0", currentPage === pageNum ? "bg-blue-600" : "")}
-                    >
-                        {pageNum}
-                    </Button>
-                ))}
-            </div>
-            <Button 
-                variant="outline" size="sm" 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="h-9 px-3"
-            >
-                Next
-            </Button>
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="h-9 px-3"
+          >
+            Prev
+          </Button>
+          <div className="flex items-center gap-1 mx-2">
+            {(() => {
+              // Compute unique page range: clamp start/end so no duplicates
+              const maxShow = 5
+              let start = Math.max(1, currentPage - Math.floor(maxShow / 2))
+              let end = start + maxShow - 1
+              if (end > totalPages) { end = totalPages; start = Math.max(1, end - maxShow + 1) }
+              return Array.from({ length: end - start + 1 }, (_, i) => start + i)
+            })().map(pageNum => (
+              <Button
+                key={pageNum}
+                variant={currentPage === pageNum ? "default" : "outline"}
+                size="sm"
+                onClick={() => setCurrentPage(pageNum)}
+                className={cn("h-9 w-9 p-0", currentPage === pageNum ? "bg-blue-600" : "")}
+              >
+                {pageNum}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="outline" size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="h-9 px-3"
+          >
+            Next
+          </Button>
         </div>
 
         <div className="text-xs text-muted-foreground">
-            Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredOrders.length)} dari {filteredOrders.length} data
+          Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredOrders.length)} dari {filteredOrders.length} data
         </div>
       </div>
 
       {/* Detail Dialog */}
       <Dialog open={!!selectedOrderForDetail} onOpenChange={(open) => !open && setSelectedOrderForDetail(null)}>
-        <DialogContent className="max-w-3xl w-[95vw] overflow-y-auto max-h-[90vh] [&>button]:hidden">
+        <DialogContent className="max-w-3xl w-[95vw] overflow-y-auto max-h-[90vh] min-w-0 [&>button]:hidden">
           <DialogHeader>
             <DialogTitle className="flex justify-between items-center">
               <span className="text-base font-bold">Detail Transaksi #{selectedOrderForDetail?.id.slice(-8).toUpperCase()}</span>
               {selectedOrderForDetail && (
                 <Badge variant={selectedOrderForDetail.status === 'PAID' ? 'default' : 'secondary'}>
-                    {selectedOrderForDetail.status}
+                  {selectedOrderForDetail.status}
                 </Badge>
               )}
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedOrderForDetail && (
             isEditMode ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <div>
-                        <Label className="text-[10px] uppercase font-bold text-slate-500">Pemesan</Label>
-                        <p className="font-bold text-slate-900">{selectedOrderForDetail.student?.name}</p>
-                        <p className="text-xs text-slate-600 uppercase">{selectedOrderForDetail.student?.class}</p>
-                    </div>
-                    <div className="space-y-1">
-                        <Label className="text-[10px] uppercase font-bold text-blue-600">Metode Pembayaran</Label>
-                        <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
-                          <SelectTrigger className="h-9 w-full bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="CASH_PAY_LATER">Bayar di Sekolah</SelectItem>
-                            <SelectItem value="TRANSFER">Transfer Manual</SelectItem>
-                          </SelectContent>
-                        </Select>
-                    </div>
+              <div className="space-y-6 w-full min-w-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 min-w-0">
+                  <div>
+                    <Label className="text-[10px] uppercase font-bold text-slate-500">Pemesan</Label>
+                    <p className="font-bold text-slate-900">{selectedOrderForDetail.student?.name}</p>
+                    <p className="text-xs text-slate-600 uppercase">{selectedOrderForDetail.student?.class}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase font-bold text-blue-600">Metode Pembayaran</Label>
+                    <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                      <SelectTrigger className="h-9 w-full bg-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="CASH_PAY_LATER">Bayar di Sekolah</SelectItem>
+                        <SelectItem value="TRANSFER">Transfer Manual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 min-w-0">
                   <Label className="text-xs font-bold uppercase text-blue-600">Tambah Menu ke Pesanan Ini</Label>
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                      <div className="space-y-1.5 sm:col-span-2">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4 min-w-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 min-w-0">
+                      <div className="space-y-1.5 sm:col-span-2 min-w-0">
                         <Label className="text-[10px] font-bold uppercase text-slate-500">Pilih Menu</Label>
                         <Select value={editItemForm.menuId} onValueChange={(val) => setEditItemForm({ ...editItemForm, menuId: val })}>
-                          <SelectTrigger className="bg-white"><SelectValue placeholder="Pilih menu..." /></SelectTrigger>
+                          <SelectTrigger className="bg-white w-full"><SelectValue placeholder="Pilih menu..." /></SelectTrigger>
                           <SelectContent>
                             {sortedMenus.map(m => (
                               <SelectItem key={m.id} value={m.id}>
@@ -1147,222 +1153,222 @@ export default function AdminOrdersPage() {
                         </Select>
                       </div>
 
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 min-w-0">
                         <Label className="text-[10px] font-bold uppercase text-slate-500">Tanggal Makan</Label>
-                        <Input 
-                          type="date" 
-                          value={editItemForm.date} 
+                        <Input
+                          type="date"
+                          value={editItemForm.date}
                           onChange={(e) => setEditItemForm({ ...editItemForm, date: e.target.value })}
-                          className="bg-white"
+                          className="bg-white w-full"
                         />
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 min-w-0">
                         <Label className="text-[10px] font-bold uppercase text-slate-500">Jumlah (Porsi)</Label>
-                        <Input 
-                          type="number" min="1" 
-                          value={editItemForm.quantity} 
+                        <Input
+                          type="number" min="1"
+                          value={editItemForm.quantity}
                           onChange={(e) => setEditItemForm({ ...editItemForm, quantity: parseInt(e.target.value) || 1 })}
-                          className="bg-white"
+                          className="bg-white w-full"
                         />
                       </div>
                     </div>
 
-                    <div className="flex gap-2 items-end">
-                        <div className="space-y-1.5 flex-1">
-                            <Label className="text-[10px] font-bold uppercase text-slate-500">Catatan Khusus</Label>
-                            <Input 
-                                placeholder="Tidak pedas, dll..." 
-                                value={editItemForm.note} 
-                                onChange={(e) => setEditItemForm({ ...editItemForm, note: e.target.value })}
-                                className="bg-white h-10"
-                            />
-                        </div>
-                        <Button 
-                            type="button" 
-                            onClick={addEditItem}
-                            className="bg-slate-800 hover:bg-slate-900 h-10 px-4 sm:px-6 text-xs whitespace-nowrap"
-                        >
-                            <Plus className="h-4 w-4 sm:mr-2" />
-                            Tambah
-                        </Button>
+                    <div className="flex gap-2 items-end min-w-0">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <Label className="text-[10px] font-bold uppercase text-slate-500">Catatan Khusus</Label>
+                        <Input
+                          placeholder="Tidak pedas, dll..."
+                          value={editItemForm.note}
+                          onChange={(e) => setEditItemForm({ ...editItemForm, note: e.target.value })}
+                          className="bg-white h-10 w-full"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={addEditItem}
+                        className="bg-slate-800 hover:bg-slate-900 h-10 px-4 sm:px-6 text-xs whitespace-nowrap shrink-0"
+                      >
+                        <Plus className="h-4 w-4 sm:mr-2" />
+                        Tambah
+                      </Button>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                    <Label className="text-xs font-bold uppercase text-blue-600">Rincian Menu ({editOrderItems.length})</Label>
-                    <div className="border rounded-xl overflow-hidden shadow-sm overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
-                                <TableRow>
-                                    <TableHead className="text-[10px]">Tgl Antar</TableHead>
-                                    <TableHead className="text-[10px]">Item</TableHead>
-                                    <TableHead className="text-[10px] text-center">Qty</TableHead>
-                                    <TableHead className="text-[10px] text-right">Harga</TableHead>
-                                    <TableHead className="text-[10px] text-right hidden sm:table-cell">Total</TableHead>
-                                    <TableHead className="w-10"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {editOrderItems.length === 0 ? (
-                                  <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-4 text-xs text-muted-foreground">
-                                      Belum ada menu. Tambahkan menu katering di atas.
-                                    </TableCell>
-                                  </TableRow>
-                                ) : (
-                                  editOrderItems.map((item: any, idx: number) => (
-                                      <TableRow key={item.id || idx}>
-                                          <TableCell className="text-xs">
-                                              <Input 
-                                                type="date"
-                                                value={item.date ? new Date(item.date).toISOString().slice(0, 10) : ""}
-                                                onChange={(e) => {
-                                                  const newItems = [...editOrderItems]
-                                                  newItems[idx].date = e.target.value
-                                                  setEditOrderItems(newItems)
-                                                }}
-                                                className="h-8 py-0.5 px-2 text-xs w-[130px] inline-block"
-                                              />
-                                          </TableCell>
-                                          <TableCell className="min-w-0 max-w-[120px] xs:max-w-[150px] sm:max-w-[220px]">
-                                              <div className="flex flex-col min-w-0">
-                                                  <span 
-                                                      className="text-xs font-bold truncate block"
-                                                      title={item.menuName || item.menu?.name}
-                                                  >
-                                                      {item.menuName || item.menu?.name}
-                                                  </span>
-                                                  <span 
-                                                      className="text-[10px] text-muted-foreground italic truncate block"
-                                                      title={item.vendorName || item.menu?.vendor?.vendorName}
-                                                  >
-                                                      {item.vendorName || item.menu?.vendor?.vendorName}
-                                                  </span>
-                                              </div>
-                                          </TableCell>
-                                          <TableCell className="text-center text-xs">
-                                              <Input 
-                                                type="number"
-                                                min="1"
-                                                value={item.quantity}
-                                                onChange={(e) => {
-                                                  const newItems = [...editOrderItems]
-                                                  newItems[idx].quantity = parseInt(e.target.value) || 1
-                                                  setEditOrderItems(newItems)
-                                                }}
-                                                className="h-8 py-0.5 px-2 text-xs w-16 text-center inline-block"
-                                              />
-                                          </TableCell>
-                                          <TableCell className="text-right text-xs">Rp {(item.price + (item.adminFee || adminFee)).toLocaleString()}</TableCell>
-                                          <TableCell className="text-right text-xs font-bold hidden sm:table-cell">Rp {((item.price + (item.adminFee || adminFee)) * item.quantity).toLocaleString()}</TableCell>
-                                          <TableCell className="text-right">
-                                              <Button 
-                                                variant="ghost" size="icon" 
-                                                onClick={() => removeEditItem(item.id)}
-                                                className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                              >
-                                                <XCircle className="h-4 w-4" />
-                                              </Button>
-                                          </TableCell>
-                                      </TableRow>
-                                  ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                <div className="space-y-3 min-w-0 w-full">
+                  <Label className="text-xs font-bold uppercase text-blue-600">Rincian Menu ({editOrderItems.length})</Label>
+                  <div className="border rounded-xl shadow-sm bg-white overflow-x-auto w-full max-w-full min-w-0">
+                    <Table className="min-w-[520px] w-full">
+                      <TableHeader className="bg-slate-50">
+                        <TableRow>
+                          <TableHead className="text-[10px] whitespace-nowrap">Tgl Antar</TableHead>
+                          <TableHead className="text-[10px]">Item</TableHead>
+                          <TableHead className="text-[10px] text-center whitespace-nowrap">Qty</TableHead>
+                          <TableHead className="text-[10px] text-right whitespace-nowrap">Harga</TableHead>
+                          <TableHead className="text-[10px] text-right hidden sm:table-cell whitespace-nowrap">Total</TableHead>
+                          <TableHead className="w-10"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {editOrderItems.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-4 text-xs text-muted-foreground">
+                              Belum ada menu. Tambahkan menu katering di atas.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          editOrderItems.map((item: any, idx: number) => (
+                            <TableRow key={item.id || idx}>
+                              <TableCell className="text-xs whitespace-nowrap">
+                                <Input
+                                  type="date"
+                                  value={item.date ? new Date(item.date).toISOString().slice(0, 10) : ""}
+                                  onChange={(e) => {
+                                    const newItems = [...editOrderItems]
+                                    newItems[idx].date = e.target.value
+                                    setEditOrderItems(newItems)
+                                  }}
+                                  className="h-8 py-0.5 px-2 text-xs w-[130px] inline-block bg-white"
+                                />
+                              </TableCell>
+                              <TableCell className="min-w-[120px] max-w-[160px] sm:max-w-[220px]">
+                                <div className="flex flex-col min-w-0">
+                                  <span
+                                    className="text-xs font-bold truncate block"
+                                    title={item.menuName || item.menu?.name}
+                                  >
+                                    {item.menuName || item.menu?.name}
+                                  </span>
+                                  <span
+                                    className="text-[10px] text-muted-foreground italic truncate block"
+                                    title={item.vendorName || item.menu?.vendor?.vendorName}
+                                  >
+                                    {item.vendorName || item.menu?.vendor?.vendorName}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center text-xs whitespace-nowrap">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const newItems = [...editOrderItems]
+                                    newItems[idx].quantity = parseInt(e.target.value) || 1
+                                    setEditOrderItems(newItems)
+                                  }}
+                                  className="h-8 py-0.5 px-2 text-xs w-16 text-center inline-block bg-white"
+                                />
+                              </TableCell>
+                              <TableCell className="text-right text-xs whitespace-nowrap">Rp {(item.price + (item.adminFee || adminFee)).toLocaleString()}</TableCell>
+                              <TableCell className="text-right text-xs font-bold hidden sm:table-cell whitespace-nowrap">Rp {((item.price + (item.adminFee || adminFee)) * item.quantity).toLocaleString()}</TableCell>
+                              <TableCell className="text-right whitespace-nowrap">
+                                <Button
+                                  variant="ghost" size="icon"
+                                  onClick={() => removeEditItem(item.id)}
+                                  className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-4 border-t gap-4 flex-wrap">
-                    <div className="flex flex-col gap-1 w-full sm:w-auto">
-                        <Label className="text-[10px] uppercase font-bold text-slate-500">Catatan Khusus (Notes)</Label>
-                        <Input 
-                          placeholder="Catatan keseluruhan..."
-                          value={selectedOrderForDetail.adminNote || ""}
-                          onChange={(e) => {
-                            setSelectedOrderForDetail({ ...selectedOrderForDetail, adminNote: e.target.value })
-                          }}
-                          className="h-9 w-full sm:w-[280px]"
-                        />
-                    </div>
-                    <div className="flex flex-col items-end shrink-0 ml-auto">
-                        <p className="text-xs text-muted-foreground font-semibold">Total Keseluruhan</p>
-                        <p className="text-2xl font-black text-blue-600">
-                          Rp {editOrderItems.reduce((acc, item) => acc + ((item.price + (item.adminFee || adminFee)) * item.quantity), 0).toLocaleString()}
-                        </p>
-                    </div>
+                <div className="flex justify-between items-center pt-4 border-t gap-4 flex-wrap min-w-0">
+                  <div className="flex flex-col gap-1 w-full sm:w-auto min-w-0">
+                    <Label className="text-[10px] uppercase font-bold text-slate-500">Catatan Khusus (Notes)</Label>
+                    <Input
+                      placeholder="Catatan keseluruhan..."
+                      value={selectedOrderForDetail.adminNote || ""}
+                      onChange={(e) => {
+                        setSelectedOrderForDetail({ ...selectedOrderForDetail, adminNote: e.target.value })
+                      }}
+                      className="h-9 w-full sm:w-[280px]"
+                    />
+                  </div>
+                  <div className="flex flex-col items-end shrink-0 ml-auto">
+                    <p className="text-xs text-muted-foreground font-semibold">Total Keseluruhan</p>
+                    <p className="text-2xl font-black text-blue-600">
+                      Rp {editOrderItems.reduce((acc, item) => acc + ((item.price + (item.adminFee || adminFee)) * item.quantity), 0).toLocaleString()}
+                    </p>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <div>
-                        <Label className="text-[10px] uppercase font-bold text-slate-500">Pemesan</Label>
-                        <p className="font-bold text-slate-900">{selectedOrderForDetail.student?.name}</p>
-                        <p className="text-xs text-slate-600 uppercase">{selectedOrderForDetail.student?.class}</p>
-                    </div>
-                    <div>
-                        <Label className="text-[10px] uppercase font-bold text-slate-500">Metode Pembayaran</Label>
-                        <p className="font-bold text-slate-900">{selectedOrderForDetail.paymentMethod === 'TRANSFER' ? 'Transfer Bank' : 'Bayar di Sekolah'}</p>
-                        <p className="text-xs text-slate-600">Waktu Order: {formatWIB(selectedOrderForDetail.createdAt)}</p>
-                    </div>
+                  <div>
+                    <Label className="text-[10px] uppercase font-bold text-slate-500">Pemesan</Label>
+                    <p className="font-bold text-slate-900">{selectedOrderForDetail.student?.name}</p>
+                    <p className="text-xs text-slate-600 uppercase">{selectedOrderForDetail.student?.class}</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] uppercase font-bold text-slate-500">Metode Pembayaran</Label>
+                    <p className="font-bold text-slate-900">{selectedOrderForDetail.paymentMethod === 'TRANSFER' ? 'Transfer Bank' : 'Bayar di Sekolah'}</p>
+                    <p className="text-xs text-slate-600">Waktu Order: {formatWIB(selectedOrderForDetail.createdAt)}</p>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
-                    <Label className="text-xs font-bold uppercase text-blue-600">Rincian Menu</Label>
-                    <div className="border rounded-xl overflow-hidden shadow-sm overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
-                                <TableRow>
-                                    <TableHead className="text-[10px] whitespace-nowrap">Tgl Antar</TableHead>
-                                    <TableHead className="text-[10px]">Item</TableHead>
-                                    <TableHead className="text-[10px] text-center whitespace-nowrap">Qty</TableHead>
-                                    <TableHead className="text-[10px] text-right whitespace-nowrap">Harga</TableHead>
-                                    <TableHead className="text-[10px] text-right hidden sm:table-cell whitespace-nowrap">Total</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {selectedOrderForDetail.items?.map((item: any) => (
-                                    <TableRow key={item.id}>
-                                        <TableCell className="text-xs whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
-                                        <TableCell className="min-w-0 max-w-[120px] xs:max-w-[150px] sm:max-w-[220px]">
-                                            <div className="flex flex-col min-w-0">
-                                                <span 
-                                                    className="text-xs font-bold truncate block"
-                                                    title={item.menuName || item.menu?.name}
-                                                >
-                                                    {item.menuName || item.menu?.name}
-                                                </span>
-                                                <span 
-                                                    className="text-[10px] text-muted-foreground italic truncate block"
-                                                    title={item.vendorName || item.menu?.vendor?.vendorName}
-                                                >
-                                                    {item.vendorName || item.menu?.vendor?.vendorName}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-center text-xs font-bold whitespace-nowrap">{item.quantity}</TableCell>
-                                        <TableCell className="text-right text-xs whitespace-nowrap">Rp {(item.price + item.adminFee).toLocaleString()}</TableCell>
-                                        <TableCell className="text-right text-xs font-bold hidden sm:table-cell whitespace-nowrap">Rp {((item.price + item.adminFee) * item.quantity).toLocaleString()}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                  <Label className="text-xs font-bold uppercase text-blue-600">Rincian Menu</Label>
+                  <div className="border rounded-xl overflow-hidden shadow-sm overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-slate-50">
+                        <TableRow>
+                          <TableHead className="text-[10px] whitespace-nowrap">Tgl Antar</TableHead>
+                          <TableHead className="text-[10px]">Item</TableHead>
+                          <TableHead className="text-[10px] text-center whitespace-nowrap">Qty</TableHead>
+                          <TableHead className="text-[10px] text-right whitespace-nowrap">Harga</TableHead>
+                          <TableHead className="text-[10px] text-right hidden sm:table-cell whitespace-nowrap">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedOrderForDetail.items?.map((item: any) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="text-xs whitespace-nowrap">{format(new Date(item.date), "dd/MM/yyyy")}</TableCell>
+                            <TableCell className="min-w-0 max-w-[120px] xs:max-w-[150px] sm:max-w-[220px]">
+                              <div className="flex flex-col min-w-0">
+                                <span
+                                  className="text-xs font-bold truncate block"
+                                  title={item.menuName || item.menu?.name}
+                                >
+                                  {item.menuName || item.menu?.name}
+                                </span>
+                                <span
+                                  className="text-[10px] text-muted-foreground italic truncate block"
+                                  title={item.vendorName || item.menu?.vendor?.vendorName}
+                                >
+                                  {item.vendorName || item.menu?.vendor?.vendorName}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center text-xs font-bold whitespace-nowrap">{item.quantity}</TableCell>
+                            <TableCell className="text-right text-xs whitespace-nowrap">Rp {(item.price + item.adminFee).toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-xs font-bold hidden sm:table-cell whitespace-nowrap">Rp {((item.price + item.adminFee) * item.quantity).toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-4 border-t">
-                    <div className="flex flex-col items-end">
-                        <p className="text-xs text-muted-foreground">Total Keseluruhan</p>
-                        <p className="text-2xl font-black text-blue-600">Rp {selectedOrderForDetail.totalAmount.toLocaleString()}</p>
-                    </div>
+                  <div className="flex flex-col items-end">
+                    <p className="text-xs text-muted-foreground">Total Keseluruhan</p>
+                    <p className="text-2xl font-black text-blue-600">Rp {selectedOrderForDetail.totalAmount.toLocaleString()}</p>
+                  </div>
                 </div>
 
                 {selectedOrderForDetail.adminNote && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
-                        <p className="text-[10px] font-bold uppercase text-amber-600 tracking-wider">Catatan untuk Admin</p>
-                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedOrderForDetail.adminNote}</p>
-                    </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
+                    <p className="text-[10px] font-bold uppercase text-amber-600 tracking-wider">Catatan untuk Admin</p>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedOrderForDetail.adminNote}</p>
+                  </div>
                 )}
               </div>
             )
@@ -1396,10 +1402,10 @@ export default function AdminOrdersPage() {
             <DialogTitle className="text-base font-bold flex items-center justify-between">
               <span>Bukti Transfer</span>
               {selectedProof && (
-                <a 
-                  href={selectedProof} 
-                  target="_blank" 
-                  rel="noreferrer" 
+                <a
+                  href={selectedProof}
+                  target="_blank"
+                  rel="noreferrer"
                   className="text-xs font-normal text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                 >
                   <ExternalLink className="h-3.5 w-3.5" /> Buka Penuh
@@ -1407,13 +1413,13 @@ export default function AdminOrdersPage() {
               )}
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="flex-1 overflow-y-auto min-h-0 py-2 flex items-center justify-center bg-slate-100/60 rounded-xl my-2 p-2">
             {selectedProof && (
-              <img 
-                src={selectedProof} 
-                className="max-h-[65vh] w-auto max-w-full rounded-lg object-contain shadow-sm" 
-                alt="Bukti Transfer" 
+              <img
+                src={selectedProof}
+                className="max-h-[65vh] w-auto max-w-full rounded-lg object-contain shadow-sm"
+                alt="Bukti Transfer"
               />
             )}
           </div>

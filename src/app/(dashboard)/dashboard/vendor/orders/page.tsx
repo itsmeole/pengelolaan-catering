@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, ChefHat, CalendarDays, User, Utensils, CalendarClock, Download } from "lucide-react"
 import { toast } from "sonner"
 import * as XLSX from "xlsx"
+import { useRealtimeOrders } from "@/hooks/useRealtimeOrders"
 
 export default function VendorOrdersPage() {
   const [items, setItems] = useState<any[]>([])
@@ -28,6 +29,14 @@ export default function VendorOrdersPage() {
   const thisWeekEnd = endOfWeek(now, { weekStartsOn: 1 })
   const nextWeekStart = startOfWeek(addWeeks(now, 1), { weekStartsOn: 1 })
   const nextWeekEnd = endOfWeek(addWeeks(now, 1), { weekStartsOn: 1 })
+
+  // Realtime listener for vendor orders
+  useRealtimeOrders({
+    role: "VENDOR",
+    showToast: false, // Toast handled globally by RealtimeNotificationProvider in layout
+    onOrderItemChanged: () => fetchItems(),
+    onOrderUpdated: () => fetchItems(),
+  })
 
   useEffect(() => {
     fetchItems()
@@ -133,23 +142,23 @@ export default function VendorOrdersPage() {
           <p className="text-muted-foreground">Jadwal persiapan menu berdasarkan pesanan siswa.</p>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-center gap-3">
+        <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-3 w-full md:w-auto">
           <div className="flex bg-slate-100 p-1 rounded-lg w-fit border">
             <button 
               onClick={() => setFilter('this_week')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'this_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'this_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Minggu Ini
             </button>
             <button 
               onClick={() => setFilter('next_week')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'next_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'next_week' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Minggu Depan
             </button>
             <button 
               onClick={() => setFilter('all')}
-              className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+              className={`px-3 sm:px-4 py-1.5 text-xs font-bold rounded-md transition-all ${filter === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
             >
               Semua
             </button>
@@ -158,10 +167,11 @@ export default function VendorOrdersPage() {
           <button 
             onClick={handleExportExcel}
             disabled={filteredItems.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Ekspor Excel"
+            className="flex items-center justify-center gap-2 p-2 sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
           >
             <Download className="h-4 w-4" />
-            Ekspor Excel
+            <span className="hidden sm:inline">Ekspor Excel</span>
           </button>
         </div>
       </div>

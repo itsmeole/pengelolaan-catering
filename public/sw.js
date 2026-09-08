@@ -17,13 +17,14 @@ self.addEventListener('push', function(event) {
     }
   }
   
-  const title = data.title || 'Pesanan Baru!';
+  const title = data.title || 'Go Catering Notifikasi';
   const options = {
-    body: data.body || 'Anda mendapatkan pesanan katering baru.',
+    body: data.body || 'Ada pembaruan status pesanan katering.',
     icon: '/logo-kujang.png',
     badge: '/logo-kujang.png',
+    vibrate: [100, 50, 100],
     data: {
-      url: data.url || '/dashboard/vendor'
+      url: data.url || '/dashboard'
     }
   };
 
@@ -32,18 +33,18 @@ self.addEventListener('push', function(event) {
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/dashboard';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // If a window is already open, focus it
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
-        if (client.url.includes('/dashboard/vendor') && 'focus' in client) {
+        if (client.url && client.url.includes(targetUrl) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise open a new window
       if (clients.openWindow) {
-        return clients.openWindow(event.notification.data.url);
+        return clients.openWindow(targetUrl);
       }
     })
   );

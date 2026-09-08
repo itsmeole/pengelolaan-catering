@@ -223,7 +223,26 @@ export async function PUT(req: Request) {
 
         if (error) throw error
 
+        // Ambil studentId dari order untuk kirim notifikasi push ke siswa
+        const { data: currentOrder } = await supabase
+            .from('Order')
+            .select('studentId')
+            .eq('id', orderId)
+            .single()
+
+        const studentId = currentOrder?.studentId
+
         if (updateData.status === 'PAID') {
+            // 1. Notifikasi ke Siswa
+            if (studentId) {
+                sendPushNotification(studentId, {
+                    title: ' Pembayaran Dikonfirmasi!',
+                    body: 'Pembayaran pesanan katering Anda telah diverifikasi dan disetujui.',
+                    url: '/dashboard/student/history'
+                }).catch(err => console.error('Error sending push notification to student:', err))
+            }
+
+            // 2. Notifikasi ke Vendor
             const { data: orderItems } = await supabase
                 .from('OrderItem')
                 .select('vendorId')
@@ -233,12 +252,24 @@ export async function PUT(req: Request) {
                 const uniqueVendorIds = Array.from(new Set(orderItems.map((item: any) => item.vendorId).filter(Boolean)))
                 for (const vId of uniqueVendorIds) {
                     sendPushNotification(vId as string, {
-                        title: 'Pesanan Baru (Telah Dibayar)!',
+                        title: '📦 Pesanan Baru (Lunas)!',
                         body: 'Pembayaran transfer untuk pesanan baru telah disetujui admin.',
-                        url: '/dashboard/vendor'
-                    }).catch(err => console.error('Error sending push notification:', err))
+                        url: '/dashboard/vendor/orders'
+                    }).catch(err => console.error('Error sending push notification to vendor:', err))
                 }
             }
+        } else if (type === 'REJECT_PROOF' && studentId) {
+            sendPushNotification(studentId, {
+                title: '⚠️ Bukti Pembayaran Ditolak',
+                body: `Bukti transfer ditolak: ${rejectionReason || 'Harap upload ulang bukti transfer yang valid.'}`,
+                url: '/dashboard/student/history'
+            }).catch(err => console.error('Error sending push notification to student:', err))
+        } else if (type === 'APPROVE_CANCEL' && studentId) {
+            sendPushNotification(studentId, {
+                title: ' Pembatalan Pesanan Disetujui',
+                body: 'Pengajuan pembatalan pesanan Anda telah disetujui oleh admin.',
+                url: '/dashboard/student/history'
+            }).catch(err => console.error('Error sending push notification to student:', err))
         }
 
         return NextResponse.json({ success: true })

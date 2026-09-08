@@ -128,6 +128,58 @@ export default function InstantOrderPage() {
         return now <= deadline
     }
 
+    const checkDayStatus = (dayName: string, week: 'THIS_WEEK' | 'NEXT_WEEK') => {
+        const cDate = getDeliveryDate(dayName, week)
+        const isEnabled = checkIsDayEnabled(dayName)
+        const isHoliday = checkIsHoliday(cDate)
+        const isCutoffOpen = checkIsAvailable(cDate)
+
+        const dayMenus = menus.filter(m => 
+            m.availableDays?.includes(dayName) || 
+            (!m.availableDays && (dayName !== "Sabtu" && dayName !== "Minggu"))
+        )
+
+        const deliveryDateOnly = new Date(cDate)
+        deliveryDateOnly.setHours(0, 0, 0, 0)
+
+        const hasValidMenu = dayMenus.some(menu => {
+            const expDate = menu.expiredDate ? new Date(menu.expiredDate) : null
+            if (expDate) expDate.setHours(0, 0, 0, 0)
+            const isExpired = expDate ? expDate.getTime() < deliveryDateOnly.getTime() : false
+            return !isExpired
+        })
+
+        const isOpen = isEnabled && !isHoliday && isCutoffOpen && (dayMenus.length === 0 || hasValidMenu)
+
+        return {
+            cDate,
+            isEnabled,
+            isHoliday,
+            isCutoffOpen,
+            hasValidMenu,
+            isOpen
+        }
+    }
+
+    const isWeekAvailable = (week: 'THIS_WEEK' | 'NEXT_WEEK') => {
+        const days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
+        return days.some(day => checkDayStatus(day, week).isOpen)
+    }
+
+    const isThisWeekOpen = isWeekAvailable('THIS_WEEK')
+    const isNextWeekOpen = isWeekAvailable('NEXT_WEEK')
+
+    useEffect(() => {
+        if (!systemConfig || menus.length === 0) return
+        if (!isThisWeekOpen && isNextWeekOpen && orderWeek === 'THIS_WEEK') {
+            setOrderWeek('NEXT_WEEK')
+            setSelectedMenus({})
+        } else if (isThisWeekOpen && !isNextWeekOpen && orderWeek === 'NEXT_WEEK') {
+            setOrderWeek('THIS_WEEK')
+            setSelectedMenus({})
+        }
+    }, [systemConfig, menus, isThisWeekOpen, isNextWeekOpen])
+
     // Search Students
     useEffect(() => {
         if (searchQuery.length >= 3) {
@@ -348,26 +400,39 @@ export default function InstantOrderPage() {
 
                         {step === 2 && (
                             <div className="space-y-10">
-                                {/* Week toggle — styled like payment method */}
                                 <div className="space-y-2 max-w-md mx-auto">
                                     <p className="text-sm font-semibold text-slate-600 text-center">Pilih Minggu Pemesanan</p>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div
-                                            onClick={() => { setOrderWeek('THIS_WEEK'); setSelectedMenus({}); }}
-                                            className={`cursor-pointer p-4 border-2 rounded-xl transition-all text-center ${
-                                                orderWeek === 'THIS_WEEK'
-                                                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20'
-                                                    : 'border-slate-200 hover:border-slate-300'
+                                            onClick={() => { 
+                                                if (isThisWeekOpen) {
+                                                    setOrderWeek('THIS_WEEK'); 
+                                                    setSelectedMenus({}); 
+                                                }
+                                            }}
+                                            className={`p-4 border-2 rounded-xl transition-all text-center ${
+                                                !isThisWeekOpen
+                                                    ? 'opacity-40 bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed pointer-events-none'
+                                                    : orderWeek === 'THIS_WEEK'
+                                                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20 cursor-pointer'
+                                                        : 'border-slate-200 hover:border-slate-300 cursor-pointer'
                                             }`}
                                         >
                                             <p className="font-bold text-sm">Untuk Minggu Ini</p>
                                         </div>
                                         <div
-                                            onClick={() => { setOrderWeek('NEXT_WEEK'); setSelectedMenus({}); }}
-                                            className={`cursor-pointer p-4 border-2 rounded-xl transition-all text-center ${
-                                                orderWeek === 'NEXT_WEEK'
-                                                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20'
-                                                    : 'border-slate-200 hover:border-slate-300'
+                                            onClick={() => { 
+                                                if (isNextWeekOpen) {
+                                                    setOrderWeek('NEXT_WEEK'); 
+                                                    setSelectedMenus({}); 
+                                                }
+                                            }}
+                                            className={`p-4 border-2 rounded-xl transition-all text-center ${
+                                                !isNextWeekOpen
+                                                    ? 'opacity-40 bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed pointer-events-none'
+                                                    : orderWeek === 'NEXT_WEEK'
+                                                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500/20 cursor-pointer'
+                                                        : 'border-slate-200 hover:border-slate-300 cursor-pointer'
                                             }`}
                                         >
                                             <p className="font-bold text-sm">Untuk Minggu Depan</p>
@@ -402,7 +467,7 @@ export default function InstantOrderPage() {
                                             <div key={day} className={`space-y-6 ${!isAvailable ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
                                                 <div className="flex items-center gap-4">
                                                     <h3 className="text-xl font-extrabold text-slate-800 border-l-4 border-blue-500 pl-4">
-                                                        {day} {!isAvailable && <span className="text-red-500 text-sm italic font-normal ml-2">(Ditutup)</span>}
+                                                        {day}
                                                     </h3>
                                                     <Separator className="flex-1" />
                                                 </div>

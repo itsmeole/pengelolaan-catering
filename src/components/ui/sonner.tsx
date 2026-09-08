@@ -18,18 +18,32 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        success: <CircleCheckIcon className="size-4 text-emerald-600" />,
+        info: <InfoIcon className="size-4 text-blue-600" />,
+        warning: <TriangleAlertIcon className="size-4 text-amber-600" />,
+        error: <OctagonXIcon className="size-4 text-red-600" />,
+        loading: <Loader2Icon className="size-4 animate-spin text-slate-900" />,
+      }}
+      toastOptions={{
+        classNames: {
+          toast: "bg-white text-slate-900 border border-slate-200 shadow-lg rounded-xl p-4",
+          title: "text-slate-900 font-bold text-sm",
+          description: "!text-slate-900 font-medium text-xs !opacity-100 mt-1 leading-snug",
+          actionButton: "bg-slate-900 text-white font-medium",
+          cancelButton: "bg-slate-100 text-slate-700 font-medium",
+          closeButton: "bg-white border-slate-200 text-slate-700 hover:text-slate-900",
+        },
+        style: {
+          color: "#0f172a",
+        }
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--normal-bg": "#ffffff",
+          "--normal-text": "#0f172a",
+          "--normal-border": "#e2e8f0",
+          "--description-color": "#0f172a",
+          "--border-radius": "0.75rem",
         } as React.CSSProperties
       }
       {...props}
