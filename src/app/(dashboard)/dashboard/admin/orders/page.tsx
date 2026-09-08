@@ -541,89 +541,137 @@ export default function AdminOrdersPage() {
                 <span className="hidden sm:inline">Tambah Pesanan</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl p-0 h-[95vh] md:h-auto flex flex-col gap-0 border-none sm:border overflow-hidden">
-              <DialogHeader className="p-6 pb-2 border-b">
-                <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-                  <LayoutGrid className="h-5 w-5 text-blue-600" />
-                  Buat Pesanan Manual (Admin)
+            <DialogContent showCloseButton={false} className="max-w-4xl lg:max-w-5xl p-0 max-h-[92vh] flex flex-col gap-0 border-none sm:border overflow-hidden rounded-2xl shadow-2xl">
+              <DialogHeader className="p-4 sm:p-5 pb-3 sm:pb-4 border-b bg-white">
+                <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-900">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    <LayoutGrid className="h-5 w-5" />
+                  </div>
+                  <span>Buat Pesanan Manual (Admin)</span>
                 </DialogTitle>
+                <p className="text-xs text-slate-500 mt-0.5 ml-11">
+                  Pilih siswa, tentukan menu harian, dan konfirmasi pesanan katering secara manual.
+                </p>
               </DialogHeader>
 
-              <div className="flex-1 overflow-y-auto px-1 py-4">
-                <div className="space-y-8">
-                  {/* Bagian Atas: Input & Selector */}
-                  <div className="space-y-6">
-                    {/* 1. Pilih Siswa */}
-                    <div className="space-y-3">
-                      <Label className="text-xs font-bold uppercase text-blue-600 flex items-center gap-2">
-                        <span className="bg-blue-600 text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px]">1</span>
-                        Pilih Siswa
-                      </Label>
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/40">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6 items-start">
+                  
+                  {/* KOLOM KIRI: Step 1 (Pilih Siswa) & Step 2 (Form Tambah Menu) */}
+                  <div className="md:col-span-7 space-y-4 sm:space-y-5">
+                    
+                    {/* Step 1: Pilih Siswa */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-blue-600 flex items-center gap-2">
+                          <span className="bg-blue-600 text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
+                          Pilih Siswa
+                        </Label>
+                        {selectedStudent && (
+                          <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200 font-medium">
+                            Siswa Terpilih
+                          </Badge>
+                        )}
+                      </div>
 
                       {!selectedStudent ? (
                         <div className="relative">
                           <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <Input
-                              placeholder="Ketik Nama atau NIS..."
+                              placeholder="Ketik Nama atau NIS siswa..."
                               value={studentSearch}
                               onChange={(e) => setStudentSearch(e.target.value)}
-                              className="pl-9 h-11 bg-slate-50 border-slate-200"
+                              className="pl-9 h-10 bg-slate-50/70 border-slate-200 text-sm focus:bg-white"
                             />
                           </div>
 
                           {filteredStudents.length > 0 && (
-                            <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                            <div className="absolute z-20 w-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto animate-in fade-in slide-in-from-top-1 divide-y divide-slate-100">
                               {filteredStudents.map(s => (
                                 <button
                                   key={s.id}
+                                  type="button"
                                   onClick={() => {
                                     setSelectedStudent(s)
                                     setStudentSearch("")
                                   }}
-                                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors border-b last:border-0 flex flex-col"
+                                  className="w-full text-left px-3.5 py-2.5 hover:bg-blue-50/70 transition-colors flex items-center justify-between group"
                                 >
-                                  <span className="font-bold text-sm">{s.name}</span>
-                                  <span className="text-[10px] text-muted-foreground uppercase">{s.class} • NIS: {s.nis || '-'}</span>
+                                  <div className="flex flex-col">
+                                    <span className="font-semibold text-xs sm:text-sm text-slate-800 group-hover:text-blue-600 transition-colors">{s.name}</span>
+                                    <span className="text-[10px] text-slate-400">NIS: {s.nis || '-'}</span>
+                                  </div>
+                                  <Badge variant="secondary" className="text-[10px] font-medium bg-slate-100 group-hover:bg-blue-100 text-slate-600 group-hover:text-blue-700">
+                                    {s.class}
+                                  </Badge>
                                 </button>
                               ))}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex justify-between items-center group">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-blue-900">{selectedStudent.name}</span>
-                            <span className="text-[10px] text-blue-700 uppercase">{selectedStudent.class}</span>
+                        <div className="bg-blue-50/60 border border-blue-200/80 p-3 rounded-xl flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                              {selectedStudent.name?.charAt(0)?.toUpperCase() || "S"}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-sm text-blue-950 leading-tight">{selectedStudent.name}</span>
+                              <span className="text-[11px] text-blue-700/80 font-medium">Kelas {selectedStudent.class}</span>
+                            </div>
                           </div>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedStudent(null)} className="h-7 text-blue-600 hover:text-blue-700 hover:bg-blue-100 px-2 text-xs">Ganti</Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedStudent(null)}
+                            className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-100/70 px-2.5 text-xs font-semibold rounded-lg"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                            Ganti
+                          </Button>
                         </div>
                       )}
                     </div>
 
-                    {/* 2. Tambah Menu (Hanya jika siswa dipilih) */}
-                    <div className={cn("space-y-4 pt-2 transition-opacity", !selectedStudent && "opacity-30 pointer-events-none")}>
-                      <Label className="text-xs font-bold uppercase text-blue-600 flex items-center gap-2">
-                        <span className="bg-blue-600 text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px]">2</span>
-                        Tambah ke Daftar
+                    {/* Step 2: Tambah Menu */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-blue-600 flex items-center gap-2">
+                        <span className="bg-blue-600 text-white h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
+                        Tambah Menu ke Daftar
                       </Label>
 
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                          <div className="space-y-1.5 sm:col-span-2">
-                            <Label className="text-[10px] font-bold uppercase text-slate-500">Pilih Menu</Label>
+                      {!selectedStudent ? (
+                        <div className="py-6 px-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-center">
+                          <User className="h-8 w-8 text-slate-300 mx-auto mb-1.5" />
+                          <p className="text-xs text-slate-500 font-medium">Pilih siswa terlebih dahulu pada Langkah 1 untuk memilih menu.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {/* Pilih Menu */}
+                          <div className="space-y-1.5">
+                            <Label className="text-[11px] font-semibold text-slate-600">Pilih Menu Katering</Label>
                             <Select value={itemForm.menuId} onValueChange={(val) => setItemForm({ ...itemForm, menuId: val })}>
-                              <SelectTrigger className="bg-white"><SelectValue placeholder="Pilih menu..." /></SelectTrigger>
-                              <SelectContent>
+                              <SelectTrigger className="bg-white h-10 text-xs sm:text-sm border-slate-200 w-full">
+                                <SelectValue placeholder="Pilih menu katering..." />
+                              </SelectTrigger>
+                              <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] min-w-[280px] max-h-60">
                                 {sortedMenus.map(m => (
-                                  <SelectItem key={m.id} value={m.id}>
-                                    <div className="flex flex-col gap-0.5">
-                                      <span className="font-semibold">{m.name} (Rp {(m.price + adminFee).toLocaleString()})</span>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded italic font-medium">
-                                          Vendor: {m.vendor?.vendorName || m.vendor?.name || "Anonim"}
+                                  <SelectItem key={m.id} value={m.id} className="cursor-pointer py-2 w-full">
+                                    <div className="w-full min-w-0 flex flex-col gap-1 pr-1">
+                                      <div className="flex items-center justify-between gap-3 w-full min-w-0">
+                                        <span className="font-semibold text-xs sm:text-sm text-slate-800 truncate flex-1 min-w-0" title={m.name}>
+                                          {m.name}
                                         </span>
-                                        <span className="text-[10px] text-slate-500 italic">
+                                        <span className="font-bold text-xs text-blue-600 shrink-0 tabular-nums">
+                                          Rp {(m.price + adminFee).toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-[10px] text-slate-500 w-full min-w-0">
+                                        <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">
+                                          {m.vendor?.vendorName || m.vendor?.name || "Anonim"}
+                                        </span>
+                                        <span className="truncate flex-1 min-w-0">
                                           Hari: {m.availableDays && m.availableDays.length > 0 ? m.availableDays.join(", ") : "Semua Hari"}
                                         </span>
                                       </div>
@@ -634,166 +682,183 @@ export default function AdminOrdersPage() {
                             </Select>
                           </div>
 
-                          <div className="space-y-1.5">
-                            <Label className="text-[10px] font-bold uppercase text-slate-500">Tanggal Makan</Label>
-                            <Input
-                              type="date"
-                              value={itemForm.date}
-                              onChange={(e) => setItemForm({ ...itemForm, date: e.target.value })}
-                              className="bg-white"
-                            />
+                          {/* Grid Tanggal Makan & Jumlah Porsi */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] font-semibold text-slate-600">Tanggal Makan</Label>
+                              <Input
+                                type="date"
+                                value={itemForm.date}
+                                onChange={(e) => setItemForm({ ...itemForm, date: e.target.value })}
+                                className="bg-white h-10 text-xs sm:text-sm border-slate-200"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] font-semibold text-slate-600">Jumlah (Porsi)</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={itemForm.quantity}
+                                onChange={(e) => setItemForm({ ...itemForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                                className="bg-white h-10 text-xs sm:text-sm border-slate-200"
+                              />
+                            </div>
                           </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-[10px] font-bold uppercase text-slate-500">Jumlah (Porsi)</Label>
-                            <Input
-                              type="number" min="1"
-                              value={itemForm.quantity}
-                              onChange={(e) => setItemForm({ ...itemForm, quantity: parseInt(e.target.value) })}
-                              className="bg-white"
-                            />
-                          </div>
-                        </div>
 
-                        <div className="flex gap-2 items-end">
-                          <div className="space-y-1.5 flex-1">
-                            <Label className="text-[10px] font-bold uppercase text-slate-500">Catatan Khusus</Label>
+                          {/* Catatan Khusus */}
+                          <div className="space-y-1.5">
+                            <Label className="text-[11px] font-semibold text-slate-600">Catatan Khusus (Opsional)</Label>
                             <Input
-                              placeholder="Tidak pedas, dll..."
+                              placeholder="Contoh: Tidak pedas, kuah dipisah, dll..."
                               value={itemForm.note}
                               onChange={(e) => setItemForm({ ...itemForm, note: e.target.value })}
-                              className="bg-white h-10"
+                              className="bg-white h-10 text-xs sm:text-sm border-slate-200"
                             />
                           </div>
+
                           <Button
                             type="button"
                             onClick={addItemToOrder}
-                            className="bg-slate-800 hover:bg-slate-900 h-10 px-4 sm:px-6 text-xs whitespace-nowrap"
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold h-10 text-xs sm:text-sm shadow-sm gap-1.5 mt-1"
                           >
-                            <Plus className="h-4 w-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Tambah</span>
+                            <Plus className="h-4 w-4" />
+                            Tambah ke Daftar Pesanan
                           </Button>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Bagian Bawah: Daftar Pesanan (Summary) */}
-                  <div className="space-y-4 pt-4 border-t">
-                    <div className="flex justify-between items-center">
-                      <Label className="text-xs font-bold uppercase text-slate-600 flex items-center gap-2">
-                        Daftar Pesanan ({orderItems.length})
-                      </Label>
-                      {orderItems.length > 0 && (
-                        <div className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                          Total: Rp {orderItems.reduce((acc, item) => acc + (item.price * item.quantity), 0).toLocaleString()}
+                  {/* KOLOM KANAN: Daftar Pesanan, Pembayaran & Total */}
+                  <div className="md:col-span-5 space-y-4">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-4">
+                      
+                      {/* Header Ringkasan Pesanan */}
+                      <div className="flex justify-between items-center pb-2.5 border-b">
+                        <div className="flex items-center gap-1.5">
+                          <Utensils className="h-4 w-4 text-slate-600" />
+                          <Label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Daftar Pesanan ({orderItems.length})
+                          </Label>
                         </div>
-                      )}
-                    </div>
+                        {orderItems.length > 0 && (
+                          <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {orderItems.reduce((acc, item) => acc + item.quantity, 0)} Total Porsi
+                          </span>
+                        )}
+                      </div>
 
-                    <div className="border rounded-xl overflow-hidden bg-slate-50/50 flex flex-col min-h-[150px]">
-                      {orderItems.length === 0 ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-                          <Utensils className="h-10 w-10 text-slate-200 mb-2" />
-                          <p className="text-[11px] text-slate-400">Belum ada menu yang ditambahkan.</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-y-auto max-h-[250px]">
-                          <Table>
-                            <TableHeader className="bg-white sticky top-0 z-10">
-                              <TableRow className="bg-slate-100/50 h-8">
-                                <TableHead className="text-[10px] h-8 px-3">Tanggal</TableHead>
-                                <TableHead className="text-[10px] h-8">Menu</TableHead>
-                                <TableHead className="text-[10px] h-8 text-center text-blue-600">Qty</TableHead>
-                                <TableHead className="text-[10px] h-8 text-right px-3"></TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {orderItems.map((item) => (
-                                <TableRow key={item.id} className="bg-white">
-                                  <TableCell className="py-2 text-[11px] px-3">
+                      {/* List Item Pesanan */}
+                      <div className="min-h-[140px] max-h-[220px] md:max-h-[250px] overflow-y-auto space-y-2 pr-0.5">
+                        {orderItems.length === 0 ? (
+                          <div className="h-[140px] flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-xl bg-slate-50/60">
+                            <Utensils className="h-7 w-7 text-slate-300 mb-1.5" />
+                            <p className="text-xs font-medium text-slate-500">Keranjang masih kosong</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Tambahkan menu di formulir sebelah kiri</p>
+                          </div>
+                        ) : (
+                          orderItems.map((item) => (
+                            <div key={item.id} className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-lg flex items-start justify-between gap-2 hover:border-slate-300 transition-colors">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-blue-50/80 text-blue-700 border-blue-200 font-semibold shrink-0">
                                     {format(new Date(item.date), "EEE, dd MMM")}
-                                  </TableCell>
-                                  <TableCell className="py-2 text-[11px]">
-                                    <div className="flex flex-col">
-                                      <span className="font-bold">{item.menuName}</span>
-                                      {item.note && <span className="text-[9px] text-blue-600 italic">"{item.note}"</span>}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="py-2 text-center font-black text-blue-600 font-mono">
-                                    {item.quantity}
-                                  </TableCell>
-                                  <TableCell className="py-2 text-right px-3">
-                                    <Button
-                                      variant="ghost" size="icon"
-                                      onClick={() => removeItemFromOrder(item.id)}
-                                      className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                    >
-                                      <XCircle className="h-4 w-4" />
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 sm:p-6 bg-slate-50 rounded-b-lg border-t space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-4">
-                    <div className="space-y-1">
-                      <Label className="text-[10px] font-bold uppercase text-slate-500">Metode Pembayaran</Label>
-                      <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                        <SelectTrigger className="h-9 w-full sm:w-[180px] text-xs bg-white"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CASH_PAY_LATER">Bayar di Sekolah</SelectItem>
-                          <SelectItem value="TRANSFER">Transfer Manual</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {paymentMethod === 'TRANSFER' && (
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase text-blue-600 font-bold">Unggah Bukti Transfer</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleProofChange}
-                            className="h-9 text-[10px] w-full sm:w-[200px] bg-blue-50 border-blue-200"
-                          />
-                          {proofImage && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                        </div>
+                                  </Badge>
+                                  <span className="font-bold text-xs text-slate-800 truncate">{item.menuName}</span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                                  <span className="font-semibold text-blue-600">{item.quantity} porsi</span>
+                                  <span>•</span>
+                                  <span>Rp {((item.price + adminFee) * item.quantity).toLocaleString()}</span>
+                                </div>
+                                {item.note && (
+                                  <p className="text-[10px] text-amber-600 italic bg-amber-50/60 px-1.5 py-0.5 rounded mt-1 line-clamp-1">
+                                    "{item.note}"
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeItemFromOrder(item.id)}
+                                className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                                title="Hapus menu"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))
+                        )}
                       </div>
-                    )}
+
+                      {/* Metode Pembayaran */}
+                      <div className="pt-3 border-t space-y-2.5">
+                        <div className="space-y-1.5">
+                          <Label className="text-[11px] font-semibold text-slate-600">Metode Pembayaran</Label>
+                          <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                            <SelectTrigger className="h-9 w-full text-xs bg-slate-50/70 border-slate-200">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="CASH_PAY_LATER">Bayar di Sekolah (Tunai)</SelectItem>
+                              <SelectItem value="TRANSFER">Transfer Manual</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {paymentMethod === 'TRANSFER' && (
+                          <div className="space-y-1.5 animate-in fade-in">
+                            <Label className="text-[11px] font-semibold text-blue-600">Unggah Bukti Transfer</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleProofChange}
+                                className="h-9 text-[10px] flex-1 bg-blue-50/50 border-blue-200 file:mr-2 file:text-xs"
+                              />
+                              {proofImage && <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Total Harga Box */}
+                      <div className="bg-slate-900 text-white p-3.5 rounded-xl flex items-center justify-between shadow-sm">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Total Tagihan</span>
+                          <span className="text-xs text-slate-300">{orderItems.length} menu katering</span>
+                        </div>
+                        <span className="text-lg sm:text-xl font-black text-white">
+                          Rp {orderSubtotal.toLocaleString()}
+                        </span>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          className="w-full sm:w-1/3 h-10 text-xs font-semibold border-slate-200 hover:bg-slate-100"
+                          onClick={() => setIsAddModalOpen(false)}
+                        >
+                          Batal
+                        </Button>
+                        <Button
+                          className="w-full sm:w-2/3 bg-blue-600 hover:bg-blue-700 text-white h-10 text-xs sm:text-sm font-bold shadow-md shadow-blue-200 gap-1.5"
+                          onClick={handleAddOrder}
+                          disabled={isSubmitting || orderItems.length === 0 || !selectedStudent}
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          Simpan & Buat Pesanan
+                        </Button>
+                      </div>
+
+                    </div>
                   </div>
 
-                  <div className="text-left sm:text-right flex justify-between sm:block items-center bg-white sm:bg-transparent p-3 sm:p-0 rounded-lg border sm:border-0">
-                    <p className="text-[10px] text-slate-500 uppercase font-medium">Total Harga Siswa</p>
-                    <p className="text-xl font-black text-slate-900 leading-tight">
-                      Rp {orderSubtotal.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col-reverse sm:flex-row gap-2">
-                  <Button variant="outline" className="w-full sm:flex-1 h-11 text-xs font-bold" onClick={() => setIsAddModalOpen(false)}>Batal</Button>
-                  <Button
-                    className="w-full sm:flex-[2] bg-blue-600 hover:bg-blue-700 h-11 text-sm font-bold shadow-lg shadow-blue-200"
-                    onClick={handleAddOrder}
-                    disabled={isSubmitting || orderItems.length === 0}
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                    )}
-                    Simpan & Buat {orderItems.length} Pesanan
-                  </Button>
                 </div>
               </div>
             </DialogContent>
@@ -1133,16 +1198,23 @@ export default function AdminOrdersPage() {
                         <Label className="text-[10px] font-bold uppercase text-slate-500">Pilih Menu</Label>
                         <Select value={editItemForm.menuId} onValueChange={(val) => setEditItemForm({ ...editItemForm, menuId: val })}>
                           <SelectTrigger className="bg-white w-full"><SelectValue placeholder="Pilih menu..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent position="popper" className="w-[var(--radix-select-trigger-width)] min-w-[280px] max-h-60">
                             {sortedMenus.map(m => (
-                              <SelectItem key={m.id} value={m.id}>
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="font-semibold">{m.name} (Rp {(m.price + adminFee).toLocaleString()})</span>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded italic font-medium">
-                                      Vendor: {m.vendor?.vendorName || m.vendor?.name || "Anonim"}
+                              <SelectItem key={m.id} value={m.id} className="cursor-pointer py-2 w-full">
+                                <div className="w-full min-w-0 flex flex-col gap-1 pr-1">
+                                  <div className="flex items-center justify-between gap-3 w-full min-w-0">
+                                    <span className="font-semibold text-xs sm:text-sm text-slate-800 truncate flex-1 min-w-0" title={m.name}>
+                                      {m.name}
                                     </span>
-                                    <span className="text-[10px] text-slate-500 italic">
+                                    <span className="font-bold text-xs text-blue-600 shrink-0 tabular-nums">
+                                      Rp {(m.price + adminFee).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[10px] text-slate-500 w-full min-w-0">
+                                    <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium shrink-0">
+                                      {m.vendor?.vendorName || m.vendor?.name || "Anonim"}
+                                    </span>
+                                    <span className="truncate flex-1 min-w-0">
                                       Hari: {m.availableDays && m.availableDays.length > 0 ? m.availableDays.join(", ") : "Semua Hari"}
                                     </span>
                                   </div>
