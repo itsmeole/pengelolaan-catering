@@ -342,15 +342,15 @@ export default function InstantOrderPage() {
                         </CardDescription>
                     </CardHeader>
                     
-                    <CardContent className="p-8">
+                    <CardContent className="p-6 sm:p-8 pt-6 sm:pt-8">
                         {step === 1 && (
-                            <div className="space-y-6 max-w-lg mx-auto">
+                            <div className="space-y-6 max-w-lg mx-auto py-2 sm:py-4">
                                 <div className="space-y-4">
                                     <div className="relative">
-                                        <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                                         <Input 
                                             placeholder="Cari Nama Lengkap Siswa..." 
-                                            className="pl-10 h-12"
+                                            className="pl-11 h-12 bg-white border-slate-200 rounded-xl text-sm sm:text-base focus:border-blue-500 shadow-2xs"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                         />
@@ -383,10 +383,10 @@ export default function InstantOrderPage() {
                                         <div className="pt-4 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                                             <Label className="text-slate-700 font-semibold">Nomor WhatsApp</Label>
                                             <div className="relative">
-                                                <Phone className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                                 <Input 
                                                     placeholder="08xxxxxxxxxx" 
-                                                    className="pl-10 h-12"
+                                                    className="pl-11 h-12 bg-white border-slate-200 rounded-xl text-sm"
                                                     value={phone}
                                                     onChange={(e) => {
                                                         const newVal = e.target.value.replace(/\D/g, "")
@@ -490,42 +490,42 @@ export default function InstantOrderPage() {
                                                             <div className="aspect-video relative overflow-hidden bg-slate-100 shrink-0">
                                                                 <img 
                                                                     src={menu.imageUrl || "/placeholder-food.jpg"} 
-                                                                    className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-500"
+                                                                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                                                                 />
-                                                                <div className="absolute top-2 left-2">
-                                                                    <Badge className="bg-white/90 text-blue-600 font-bold backdrop-blur-sm border-none shadow-sm">
+                                                                <div className="absolute top-2.5 left-2.5">
+                                                                    <Badge className="bg-white/95 text-blue-600 font-bold backdrop-blur-sm border-none shadow-sm text-xs px-2.5 py-1">
                                                                         Rp {(menu.price + adminFee).toLocaleString("id-ID")}
                                                                     </Badge>
                                                                 </div>
-                                                                <div className="absolute bottom-2 left-2">
-                                                                    <Badge className="bg-blue-600/90 text-white border-none backdrop-blur-sm px-2 py-0.5 text-[10px] uppercase tracking-wider">
+                                                                <div className="absolute bottom-2.5 left-2.5">
+                                                                    <Badge className="bg-blue-600/95 text-white border-none backdrop-blur-sm px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider shadow-xs">
                                                                         {day}
                                                                     </Badge>
                                                                 </div>
                                                             </div>
-                                                            <CardContent className="p-4 flex flex-col flex-grow gap-3">
-                                                                <div className="flex-1">
-                                                                    <h3 className="font-bold text-slate-900 leading-snug">{menu.name}</h3>
+                                                            <CardContent className="p-4 sm:p-5 pt-4 sm:pt-4 flex flex-col flex-grow justify-between gap-3">
+                                                                <div className="flex-1 space-y-1.5">
+                                                                    <h3 className="font-bold text-sm sm:text-base text-slate-900 leading-snug group-hover:text-blue-600 transition-colors">{menu.name}</h3>
                                                                     {menu.description && (
-                                                                        <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{menu.description}</p>
+                                                                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{menu.description}</p>
                                                                     )}
-                                                                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-1.5">
-                                                                        By: <span className="font-semibold text-blue-600">{menu.vendor?.vendorName}</span>
+                                                                    <p className="text-xs text-slate-500 flex items-center gap-1 pt-1">
+                                                                        <span className="text-slate-400">By:</span> <span className="font-semibold text-blue-600">{menu.vendor?.vendorName}</span>
                                                                     </p>
                                                                 </div>
-                                                                <div className="flex items-center justify-between gap-2 pt-2 mt-auto">
-                                                                    <div className="flex items-center gap-2 border rounded-full px-2 py-1 bg-slate-50">
+                                                                <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 mt-auto">
+                                                                    <div className="flex items-center gap-2 border rounded-full px-2 py-1 bg-slate-50 shadow-2xs">
                                                                         <Button 
-                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-white"
+                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-white active:scale-95 transition-all"
                                                                             disabled={isExpired || !isAvailable}
                                                                             onClick={() => {
                                                                                 const cur = selectedMenus[menu.id] || 0
                                                                                 if (cur > 0) setSelectedMenus({...selectedMenus, [menu.id]: cur - 1})
                                                                             }}
                                                                         >-</Button>
-                                                                        <span className="w-6 text-center font-bold text-slate-700">{selectedMenus[menu.id] || 0}</span>
+                                                                        <span className="w-6 text-center font-bold text-slate-700 text-sm">{selectedMenus[menu.id] || 0}</span>
                                                                         <Button 
-                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-white"
+                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-white active:scale-95 transition-all"
                                                                             disabled={isExpired || !isAvailable}
                                                                             onClick={() => setSelectedMenus({...selectedMenus, [menu.id]: (selectedMenus[menu.id] || 0) + 1})}
                                                                         >+</Button>
@@ -546,7 +546,7 @@ export default function InstantOrderPage() {
 
                         {step === 3 && (
                             <div className="max-w-xl mx-auto space-y-8">
-                                <div className="bg-blue-600 text-white p-6 rounded-xl space-y-4 shadow-lg shadow-blue-200 -mt-8">
+                                <div className="bg-blue-600 text-white p-6 rounded-xl space-y-4 shadow-lg shadow-blue-200">
                                     <h4 className="font-bold text-center opacity-90 text-xl">Ringkasan Pesanan</h4>
                                     {/* Nama & Kelas siswa di dalam kotak ringkasan */}
                                     {selectedStudent && (

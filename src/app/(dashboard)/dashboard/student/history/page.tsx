@@ -233,10 +233,15 @@ export default function StudentHistoryPage() {
                                     </div>
 
                                     {/* Footer & Aksi */}
-                                    <div className="flex flex-col sm:flex-row justify-between items-center border-t pt-4 mt-2 gap-4">
-                                        <div className="flex flex-col">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-t pt-4 mt-2 gap-3 sm:gap-4">
+                                        <div className="flex flex-col items-start text-left">
                                             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Total Pembayaran</span>
                                             <span className="font-bold text-primary text-xl">Rp {order.totalAmount.toLocaleString("id-ID")}</span>
+                                            {order.serviceFee > 0 && (
+                                                <span className="text-[10px] text-muted-foreground mt-0.5">
+                                                    (Termasuk biaya layanan Rp {order.serviceFee.toLocaleString("id-ID")})
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="flex gap-2 w-full sm:w-auto mt-2">

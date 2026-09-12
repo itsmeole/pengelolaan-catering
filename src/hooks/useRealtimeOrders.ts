@@ -74,7 +74,7 @@ export function useRealtimeOrders({
           const newOrder = payload.new
           if (role === "ADMIN" && showToast) {
             const title = "🛒 Pesanan Baru Masuk!"
-            const desc = `Pesanan #${newOrder.id ? newOrder.id.slice(-6).toUpperCase() : ""} (${newOrder.paymentMethod === 'TRANSFER' ? 'Transfer' : 'Bayar di Sekolah'}) berhasil dibuat.`
+            const desc = `Pesanan #${newOrder.id ? newOrder.id.slice(0, 8).toUpperCase() : ""} (${newOrder.paymentMethod === 'TRANSFER' ? 'Transfer' : 'Bayar di Sekolah'}) berhasil dibuat.`
             toast.success(title, {
               id: `admin-new-${newOrder.id}`,
               description: desc
@@ -105,7 +105,7 @@ export function useRealtimeOrders({
                 updatedOrder.status === 'CANCELLED' ? 'Dibatalkan' : updatedOrder.status
 
               const title = "Status Pesanan Diperbarui"
-              const desc = `Pesanan #${updatedOrder.id ? updatedOrder.id.slice(-6).toUpperCase() : ""} sekarang berstatus: ${statusLabel}`
+              const desc = `Pesanan #${updatedOrder.id ? updatedOrder.id.slice(0, 8).toUpperCase() : ""} sekarang berstatus: ${statusLabel}`
               toast.info(title, {
                 id: `student-status-${updatedOrder.id}`,
                 description: desc
@@ -117,7 +117,7 @@ export function useRealtimeOrders({
           else if (role === "ADMIN" && showToast) {
             if (oldOrder?.status !== updatedOrder.status) {
               const title = "Status Pesanan Berubah"
-              const desc = `Pesanan #${updatedOrder.id ? updatedOrder.id.slice(-6).toUpperCase() : ""} menjadi ${updatedOrder.status}.`
+              const desc = `Pesanan #${updatedOrder.id ? updatedOrder.id.slice(0, 8).toUpperCase() : ""} menjadi ${updatedOrder.status}.`
               toast.info(title, {
                 id: `admin-status-${updatedOrder.id}`,
                 description: desc
@@ -137,7 +137,7 @@ export function useRealtimeOrders({
 
               if (vendorItems && vendorItems.length > 0) {
                 const title = "📦 Pesanan Baru Dikonfirmasi Lunas!"
-                const desc = `Pesanan #${updatedOrder.id ? updatedOrder.id.slice(-6).toUpperCase() : ""} telah lunas dan siap disiapkan.`
+                const desc = `Pesanan #${updatedOrder.id ? updatedOrder.id.slice(0, 8).toUpperCase() : ""} telah lunas dan siap disiapkan.`
                 toast.success(title, {
                   id: `vendor-paid-${updatedOrder.id}`,
                   description: desc

@@ -1154,7 +1154,7 @@ export default function AdminOrdersPage() {
                 const isCancelRequested = order.cancelStatus === 'PENDING';
                 return (
                   <TableRow key={order.id} className={isCancelRequested ? "bg-orange-50/50" : ""}>
-                    <TableCell className="font-medium">#{order.id.slice(-8).toUpperCase()}</TableCell>
+                    <TableCell className="font-medium">#{order.id.slice(0, 8).toUpperCase()}</TableCell>
                     <TableCell>
                       <div className="font-bold">{order.student?.name}</div>
                       <div className="text-xs text-muted-foreground">{order.student?.class}</div>
@@ -1355,7 +1355,7 @@ export default function AdminOrdersPage() {
         <DialogContent className="max-w-3xl w-[95vw] overflow-y-auto max-h-[90vh] min-w-0 [&>button]:hidden">
           <DialogHeader>
             <DialogTitle className="flex justify-between items-center">
-              <span className="text-base font-bold">Detail Transaksi #{selectedOrderForDetail?.id.slice(-8).toUpperCase()}</span>
+              <span className="text-base font-bold">Detail Transaksi #{selectedOrderForDetail?.id.slice(0, 8).toUpperCase()}</span>
               {selectedOrderForDetail && (
                 <Badge variant={selectedOrderForDetail.status === 'PAID' ? 'default' : 'secondary'}>
                   {selectedOrderForDetail.status}
@@ -1561,14 +1561,27 @@ export default function AdminOrdersPage() {
                       className="h-9 w-full sm:w-[280px]"
                     />
                   </div>
-                  <div className="flex flex-col items-end shrink-0 ml-auto">
+                  <div className="flex flex-col items-end shrink-0 ml-auto w-full sm:w-auto">
+                    {(selectedOrderForDetail?.serviceFee || 0) > 0 && (
+                      <div className="w-full sm:w-64 space-y-1.5 text-xs border-b border-slate-100 pb-2.5 mb-2">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Subtotal Menu</span>
+                          <span className="font-semibold text-slate-700">
+                            Rp {editOrderItems.reduce((acc, item) => acc + ((item.price + (item.adminFee || adminFee)) * item.quantity), 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-slate-500">
+                          <span>Biaya Layanan</span>
+                          <span className="font-semibold text-slate-700">
+                            Rp {selectedOrderForDetail.serviceFee.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground font-semibold">Total Keseluruhan</p>
                     <p className="text-2xl font-black text-blue-600">
                       Rp {(editOrderItems.reduce((acc, item) => acc + ((item.price + (item.adminFee || adminFee)) * item.quantity), 0) + (selectedOrderForDetail?.serviceFee || 0)).toLocaleString()}
                     </p>
-                    {(selectedOrderForDetail?.serviceFee || 0) > 0 && (
-                      <span className="text-[10px] text-slate-500">Termasuk Biaya Layanan Rp {selectedOrderForDetail.serviceFee.toLocaleString()}</span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -1649,19 +1662,35 @@ export default function AdminOrdersPage() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-4 border-t">
-                  <div className="flex flex-col items-end">
-                    <p className="text-xs text-muted-foreground">Total Keseluruhan</p>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end pt-4 border-t gap-4">
+                  {selectedOrderForDetail.adminNote ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 space-y-1 max-w-md w-full sm:w-auto">
+                      <p className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">Catatan untuk Admin</p>
+                      <p className="text-xs text-slate-700 whitespace-pre-wrap">{selectedOrderForDetail.adminNote}</p>
+                    </div>
+                  ) : <div />}
+
+                  <div className="flex flex-col items-end shrink-0 ml-auto w-full sm:w-auto">
+                    {(selectedOrderForDetail.serviceFee || 0) > 0 && (
+                      <div className="w-full sm:w-64 space-y-1.5 text-xs border-b border-slate-100 pb-2.5 mb-2">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Subtotal Menu</span>
+                          <span className="font-semibold text-slate-700">
+                            Rp {(selectedOrderForDetail.totalAmount - selectedOrderForDetail.serviceFee).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-slate-500">
+                          <span>Biaya Layanan</span>
+                          <span className="font-semibold text-slate-700">
+                            Rp {selectedOrderForDetail.serviceFee.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground font-semibold">Total Keseluruhan</p>
                     <p className="text-2xl font-black text-blue-600">Rp {selectedOrderForDetail.totalAmount.toLocaleString()}</p>
                   </div>
                 </div>
-
-                {selectedOrderForDetail.adminNote && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
-                    <p className="text-[10px] font-bold uppercase text-amber-600 tracking-wider">Catatan untuk Admin</p>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedOrderForDetail.adminNote}</p>
-                  </div>
-                )}
               </div>
             )
           )}
@@ -1670,7 +1699,7 @@ export default function AdminOrdersPage() {
               <div className="flex items-center justify-between w-full gap-3">
                 <ConfirmButton
                   title="Hapus Pesanan Permanen?"
-                  description={`Pesanan #${selectedOrderForDetail?.id.slice(-8).toUpperCase()} beserta seluruh item di dalamnya akan dihapus permanen dari database.`}
+                  description={`Pesanan #${selectedOrderForDetail?.id.slice(0, 8).toUpperCase()} beserta seluruh item di dalamnya akan dihapus permanen dari database.`}
                   confirmText="Ya, Hapus Pesanan"
                   cancelText="Batal"
                   variant="destructive"
@@ -1779,7 +1808,7 @@ export default function AdminOrdersPage() {
             {/* Info pesanan */}
             <div className="bg-red-50 border border-red-100 rounded-lg p-3 text-sm">
               <p className="font-bold text-red-700">{refundOrder?.student?.name}</p>
-              <p className="text-xs text-red-500">Invoice #{refundOrder?.id?.slice(-8).toUpperCase()} · Rp {refundOrder?.totalAmount?.toLocaleString("id-ID")}</p>
+              <p className="text-xs text-red-500">Invoice #{refundOrder?.id?.slice(0, 8).toUpperCase()} · Rp {refundOrder?.totalAmount?.toLocaleString("id-ID")}</p>
             </div>
 
             {/* Pilih item */}
