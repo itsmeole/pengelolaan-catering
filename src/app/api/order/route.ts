@@ -234,8 +234,26 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Jumlah porsi tidak valid (minimal 1)' }, { status: 400 })
         }
 
-        const itemsTotal = items.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0)
-        const totalAmount = itemsTotal + serviceFee
+        // ── Validasi Harga dari SERVER (tidak percaya harga dari client) ──────────
+        // Ambil harga menu dari DB untuk recalculate totalAmount yang benar
+        const menuIds = items.map((i: any) => i.menuId)
+        const { data: menuDetails } = await supabase
+            .from('MenuItem')
+            .select('id, name, price, vendor:profiles!vendorId(id, "vendorName", name)')
+            .in('id', menuIds)
+
+        if (!menuDetails || menuDetails.length === 0) {
+            return NextResponse.json({ error: 'Menu tidak ditemukan' }, { status: 400 })
+        }
+
+        // Hitung ulang total dari harga DB + adminFee dari DB (bukan dari client)
+        let serverItemsTotal = 0
+        for (const item of items) {
+            const menuDetail = menuDetails.find((m: any) => m.id === item.menuId)
+            if (!menuDetail) continue
+            serverItemsTotal += (menuDetail.price + adminFee) * item.quantity
+        }
+        const totalAmount = serverItemsTotal + serviceFee
 
         const { data: order, error: orderError } = await supabase
             .from('Order')
@@ -252,15 +270,8 @@ export async function POST(req: Request) {
 
         if (orderError || !order) throw orderError
 
-        // 3. Fetch Menu Details for Snapshotting
-        const menuIds = items.map((i: any) => i.menuId)
-        const { data: menuDetails } = await supabase
-            .from('MenuItem')
-            .select('id, name, vendor:profiles!vendorId(id, "vendorName", name)')
-            .in('id', menuIds)
-
         const orderItems = items.map((item: any) => {
-            const detail = menuDetails?.find(m => m.id === item.menuId)
+            const detail = menuDetails?.find((m: any) => m.id === item.menuId)
             const vendor: any = Array.isArray(detail?.vendor) ? detail?.vendor[0] : detail?.vendor
 
             return {
@@ -269,8 +280,8 @@ export async function POST(req: Request) {
                 date: new Date(item.date).toISOString(),
                 quantity: item.quantity,
                 note: item.note || null,
-                price: item.price - adminFee,
-                adminFee: adminFee,
+                price: detail?.price ?? 0,   // harga bersih menu dari DB
+                adminFee: adminFee,           // fee admin dari DB
                 menuName: detail?.name || 'Menu Terhapus',
                 vendorName: vendor?.vendorName || vendor?.name || 'Vendor Terhapus',
                 vendorId: vendor?.id

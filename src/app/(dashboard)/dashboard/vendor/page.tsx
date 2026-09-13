@@ -163,10 +163,10 @@ export default function VendorDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* 2. 7 Days Sales Bar Chart */}
+                {/* 2. Weekly Daily Portions Bar Chart */}
                 <Card className="shadow-sm border-none p-4 lg:col-span-1 min-w-0 overflow-hidden">
                     <CardHeader className="px-2 pb-4">
-                        <CardTitle className="text-base sm:text-lg font-bold text-slate-800">Penjualan 7 Hari Terakhir</CardTitle>
+                        <CardTitle className="text-base sm:text-lg font-bold text-slate-800">Porsi Terjual Minggu Ini</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[320px] sm:h-[350px] px-0">
                         {stats.chartData && stats.chartData.length > 0 ? (
@@ -174,15 +174,21 @@ export default function VendorDashboard() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <ReBarChart data={stats.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                         <XAxis dataKey="name" stroke="#888888" fontSize={11} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} width={45} tickFormatter={(value) => `Rp${value / 1000}k`} />
-                                        <Tooltip formatter={(value: any) => formatCurrency(value || 0)} cursor={{ fill: 'transparent' }} />
+                                        <YAxis stroke="#888888" fontSize={11} tickLine={false} axisLine={false} width={35} allowDecimals={false} tickFormatter={(value) => `${value}`} />
+                                        <Tooltip 
+                                            formatter={(value: any, _name: any, entry: any) => [
+                                                `${value} Porsi${entry?.payload?.revenue ? ` (${formatCurrency(entry.payload.revenue)})` : ''}`, 
+                                                'Jumlah Porsi'
+                                            ]} 
+                                            cursor={{ fill: '#f1f5f9', opacity: 0.5 }} 
+                                        />
                                         <Bar dataKey="total" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                                     </ReBarChart>
                                 </ResponsiveContainer>
                             </div>
                         ) : (
                             <div className="flex h-full items-center justify-center">
-                                <p className="text-muted-foreground text-sm">Belum ada data penjualan.</p>
+                                <p className="text-muted-foreground text-sm">Belum ada pesanan minggu ini.</p>
                             </div>
                         )}
                     </CardContent>

@@ -265,10 +265,16 @@ export default function InstantOrderPage() {
         }
     }
 
-    const itemsSubtotal = menus.reduce((acc, menu) => {
+    // Subtotal murni harga menu (tanpa fee admin)
+    const menuSubtotal = menus.reduce((acc, menu) => {
         const qty = selectedMenus[menu.id] || 0
-        return acc + (qty * (menu.price + adminFee))
+        return acc + (qty * menu.price)
     }, 0)
+    // Total fee admin (jumlah porsi × fee per porsi)
+    const totalPorsi = menus.reduce((acc, menu) => acc + (selectedMenus[menu.id] || 0), 0)
+    const totalAdminFee = totalPorsi * adminFee
+    // itemsSubtotal = harga menu + fee admin (untuk kompatibilitas backward)
+    const itemsSubtotal = menuSubtotal + totalAdminFee
     const totalAmount = itemsSubtotal + (itemsSubtotal > 0 ? serviceFee : 0)
 
     if (step === 4) {
@@ -587,12 +593,20 @@ export default function InstantOrderPage() {
                                      <div className="space-y-1.5 text-xs">
                                          <div className="flex justify-between opacity-90">
                                              <span>Subtotal Menu</span>
-                                             <span>Rp {itemsSubtotal.toLocaleString("id-ID")}</span>
+                                             <span>Rp {menuSubtotal.toLocaleString("id-ID")}</span>
                                          </div>
-                                         <div className="flex justify-between opacity-90">
-                                             <span>Biaya Layanan</span>
-                                             <span>Rp {serviceFee.toLocaleString("id-ID")}</span>
-                                         </div>
+                                         {adminFee > 0 && totalPorsi > 0 && (
+                                             <div className="flex justify-between opacity-90">
+                                                 <span>Fee Admin ({totalPorsi} porsi × Rp {adminFee.toLocaleString("id-ID")})</span>
+                                                 <span>Rp {totalAdminFee.toLocaleString("id-ID")}</span>
+                                             </div>
+                                         )}
+                                         {serviceFee > 0 && (
+                                             <div className="flex justify-between opacity-90">
+                                                 <span>Biaya Layanan</span>
+                                                 <span>Rp {serviceFee.toLocaleString("id-ID")}</span>
+                                             </div>
+                                         )}
                                      </div>
                                      <div className="flex justify-between items-center bg-white/10 p-3 rounded-lg">
                                          <p className="font-bold text-lg">Total Bayar</p>
