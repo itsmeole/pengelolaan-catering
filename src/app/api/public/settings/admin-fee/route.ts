@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from '@supabase/supabase-js'
 
-// Cache the route heavily since admin fee rarely changes
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 export async function GET() {
     try {
@@ -24,6 +24,10 @@ export async function GET() {
         return NextResponse.json({
             fee: parsed.fee !== undefined ? Number(parsed.fee) : 1000,
             serviceFee: parsed.serviceFee !== undefined ? Number(parsed.serviceFee) : 0
+        }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
+            }
         })
     } catch (e) {
         return NextResponse.json({ fee: 1000, serviceFee: 0 })

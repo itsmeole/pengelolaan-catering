@@ -552,14 +552,8 @@ export default function StudentOrderPage() {
                             <div className="space-y-1.5 bg-slate-50 p-3 rounded-lg border text-sm">
                                 <div className="flex justify-between text-slate-600">
                                     <span>Subtotal Menu ({totalCartPorsi} porsi)</span>
-                                    <span>Rp {menuSubtotalCart.toLocaleString()}</span>
+                                    <span>Rp {itemsSubtotal.toLocaleString()}</span>
                                 </div>
-                                {adminFee > 0 && totalCartPorsi > 0 && (
-                                    <div className="flex justify-between text-slate-600">
-                                        <span>Fee Admin ({totalCartPorsi} porsi × Rp {adminFee.toLocaleString()})</span>
-                                        <span>Rp {totalAdminFeeCart.toLocaleString()}</span>
-                                    </div>
-                                )}
                                 {serviceFee > 0 && (
                                     <div className="flex justify-between text-slate-600">
                                         <span>Biaya Layanan</span>

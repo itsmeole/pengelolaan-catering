@@ -39,11 +39,11 @@ export default function InstantOrderPage() {
             .then(res => res.json())
             .then(data => setMenus(data))
         
-        fetch("/api/public/settings/admin-fee")
+        fetch("/api/public/settings/admin-fee", { cache: "no-store" })
             .then(res => res.json())
             .then(data => {
-                if (data.fee !== undefined) setAdminFee(data.fee)
-                if (data.serviceFee !== undefined) setServiceFee(data.serviceFee)
+                if (data.fee !== undefined) setAdminFee(Number(data.fee))
+                if (data.serviceFee !== undefined) setServiceFee(Number(data.serviceFee))
             }).catch(() => {})
 
         fetch("/api/admin/settings/working-days")
@@ -593,14 +593,8 @@ export default function InstantOrderPage() {
                                      <div className="space-y-1.5 text-xs">
                                          <div className="flex justify-between opacity-90">
                                              <span>Subtotal Menu</span>
-                                             <span>Rp {menuSubtotal.toLocaleString("id-ID")}</span>
+                                             <span>Rp {itemsSubtotal.toLocaleString("id-ID")}</span>
                                          </div>
-                                         {adminFee > 0 && totalPorsi > 0 && (
-                                             <div className="flex justify-between opacity-90">
-                                                 <span>Fee Admin ({totalPorsi} porsi × Rp {adminFee.toLocaleString("id-ID")})</span>
-                                                 <span>Rp {totalAdminFee.toLocaleString("id-ID")}</span>
-                                             </div>
-                                         )}
                                          {serviceFee > 0 && (
                                              <div className="flex justify-between opacity-90">
                                                  <span>Biaya Layanan</span>
