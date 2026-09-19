@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { format, addDays, nextDay } from "date-fns"
 import { id as idLocale } from "date-fns/locale"
-import { ShoppingCart, Loader2, UtensilsCrossed } from "lucide-react"
+import { ShoppingCart, Loader2, UtensilsCrossed, Plus } from "lucide-react"
 import { uploadImage } from "@/lib/uploadImage"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -409,7 +409,7 @@ export default function StudentOrderPage() {
             </Tabs>
 
             {/* Tab Hari */}
-            <div className="flex gap-2 flex-wrap border-b pb-3">
+            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 border-b scrollbar-none">
                 {DAYS_ORDER.map((day) => {
                     const status = checkDayStatus(day, orderWeek)
                     const isDayOpen = status.isOpen
@@ -420,20 +420,15 @@ export default function StudentOrderPage() {
                             disabled={!isDayOpen}
                             onClick={() => isDayOpen && setActiveDay(day)}
                             className={cn(
-                                "px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5",
+                                "px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all whitespace-nowrap shrink-0",
                                 activeDay === day
-                                    ? "bg-primary text-white shadow"
+                                    ? "bg-primary text-white shadow-xs font-semibold"
                                     : isDayOpen
                                         ? "bg-muted text-muted-foreground hover:bg-muted/80"
                                         : "bg-slate-100 text-slate-400 border border-slate-200 opacity-40 cursor-not-allowed pointer-events-none"
                             )}
                         >
                             <span>{day}</span>
-                            {isDayOpen && menuByDay[day].length > 0 && (
-                                <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full ${activeDay === day ? "bg-white/20" : "bg-primary/10 text-primary"}`}>
-                                    {menuByDay[day].length}
-                                </span>
-                            )}
                         </button>
                     )
                 })}
@@ -446,7 +441,7 @@ export default function StudentOrderPage() {
                     <p className="text-sm">Tidak ada menu tersedia untuk hari <strong>{activeDay}</strong>.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {menuByDay[activeDay].map((menu) => {
                         const deliveryDate = getDeliveryDate(activeDay, orderWeek)
                         const deliveryDateOnly = new Date(deliveryDate)
@@ -461,36 +456,55 @@ export default function StudentOrderPage() {
                         const isDisabled = isExpired || (!isAvailableTime && userRole === 'STUDENT')
 
                         return (
-                        <Card key={menu.id} className={cn("overflow-hidden hover:shadow-md transition-shadow flex flex-col", isDisabled && "opacity-60 grayscale")}>
+                        <Card key={menu.id} className={cn("overflow-hidden group hover:ring-2 hover:ring-primary/50 transition-all border-slate-200 flex flex-col h-full shadow-sm", isDisabled && "opacity-60 grayscale")}>
                             {/* Gambar */}
-                            <div className="h-24 w-full bg-muted relative flex-shrink-0">
+                            <div className="aspect-video relative overflow-hidden bg-slate-100 shrink-0">
                                 {menu.imageUrl ? (
-                                    <img src={menu.imageUrl} alt={menu.name} className="object-cover w-full h-full" />
+                                    <img src={menu.imageUrl} alt={menu.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
                                 ) : (
                                     <div className="flex items-center justify-center h-full text-muted-foreground bg-gray-100 text-xs">
                                         No Image
                                     </div>
                                 )}
-                                <div className="absolute top-1.5 right-1.5 bg-white/90 px-1.5 py-0.5 rounded text-[11px] font-bold text-primary shadow-sm">
-                                    Rp {(menu.price + adminFee).toLocaleString()}
-                                </div>
+                                {isDisabled && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                        <span className="bg-red-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm">
+                                            {isExpired ? "Expired" : "Batas Waktu Habis"}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                             {/* Konten */}
-                            <div className="flex flex-col flex-1 p-2.5 gap-1">
-                                <p className="font-semibold text-sm leading-tight line-clamp-1">{menu.name}</p>
-                                <p className="text-[11px] text-muted-foreground line-clamp-1">{menu.vendor?.vendorName || menu.vendor?.name || "Vendor"}</p>
-                                <p className="text-[11px] text-gray-500 line-clamp-2 flex-1">{menu.description}</p>
-                                <Button 
-                                    size="sm" 
-                                    className="w-full mt-2 text-xs h-7" 
-                                    disabled={isDisabled}
-                                    onClick={() => {
-                                        setSelectedMenu(menu)
-                                        setIsAddOpen(true)
-                                    }}
-                                >
-                                    {isExpired ? "Expired" : (isAvailableTime || userRole === 'ADMIN' ? "Pilih" : "Batas Waktu Habis")}
-                                </Button>
+                            <div className="flex flex-col flex-1 p-4 sm:p-5 pt-4 sm:pt-4 justify-between gap-3">
+                                <div className="space-y-1.5 flex-1">
+                                    <p className="font-bold text-sm sm:text-base text-slate-900 leading-snug group-hover:text-primary transition-colors line-clamp-1">{menu.name}</p>
+                                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                                        <span className="text-slate-400">By:</span> <span className="font-semibold text-primary">{menu.vendor?.vendorName || menu.vendor?.name || "Vendor"}</span>
+                                    </p>
+                                    {menu.description && (
+                                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{menu.description}</p>
+                                    )}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 mt-auto">
+                                    <div className="flex items-baseline gap-1">
+                                        <p className="text-base font-extrabold text-primary leading-tight">
+                                            Rp {(menu.price + adminFee).toLocaleString("id-ID")}
+                                        </p>
+                                        <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">/porsi</span>
+                                    </div>
+                                    <Button 
+                                        size="icon" 
+                                        className="h-8 w-8 rounded-full bg-primary hover:bg-primary/90 text-white shadow-xs active:scale-95 transition-all font-bold shrink-0" 
+                                        disabled={isDisabled}
+                                        onClick={() => {
+                                            setSelectedMenu(menu)
+                                            setIsAddOpen(true)
+                                        }}
+                                        title={isExpired ? "Expired" : (isAvailableTime || userRole === 'ADMIN' ? "Pilih Menu" : "Batas Waktu Habis")}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
                         </Card>
                         )

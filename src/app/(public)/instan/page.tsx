@@ -498,16 +498,6 @@ export default function InstantOrderPage() {
                                                                     src={menu.imageUrl || "/placeholder-food.jpg"} 
                                                                     className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                                                                 />
-                                                                <div className="absolute top-2.5 left-2.5">
-                                                                    <Badge className="bg-white/95 text-blue-600 font-bold backdrop-blur-sm border-none shadow-sm text-xs px-2.5 py-1">
-                                                                        Rp {(menu.price + adminFee).toLocaleString("id-ID")}
-                                                                    </Badge>
-                                                                </div>
-                                                                <div className="absolute bottom-2.5 left-2.5">
-                                                                    <Badge className="bg-blue-600/95 text-white border-none backdrop-blur-sm px-2.5 py-0.5 text-[10px] uppercase font-bold tracking-wider shadow-xs">
-                                                                        {day}
-                                                                    </Badge>
-                                                                </div>
                                                             </div>
                                                             <CardContent className="p-4 sm:p-5 pt-4 sm:pt-4 flex flex-col flex-grow justify-between gap-3">
                                                                 <div className="flex-1 space-y-1.5">
@@ -520,23 +510,28 @@ export default function InstantOrderPage() {
                                                                     </p>
                                                                 </div>
                                                                 <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 mt-auto">
-                                                                    <div className="flex items-center gap-2 border rounded-full px-2 py-1 bg-slate-50 shadow-2xs">
+                                                                    <div className="flex items-baseline gap-1">
+                                                                        <p className="text-base font-extrabold text-blue-600 leading-tight">
+                                                                            Rp {(menu.price + adminFee).toLocaleString("id-ID")}
+                                                                        </p>
+                                                                        <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">/porsi</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-1 border border-slate-200 rounded-full p-0.5 bg-slate-50 shadow-2xs">
                                                                         <Button 
-                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-white active:scale-95 transition-all"
+                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-white active:scale-95 transition-all text-slate-600"
                                                                             disabled={isExpired || !isAvailable}
                                                                             onClick={() => {
                                                                                 const cur = selectedMenus[menu.id] || 0
                                                                                 if (cur > 0) setSelectedMenus({...selectedMenus, [menu.id]: cur - 1})
                                                                             }}
                                                                         >-</Button>
-                                                                        <span className="w-6 text-center font-bold text-slate-700 text-sm">{selectedMenus[menu.id] || 0}</span>
+                                                                        <span className="w-6 text-center font-bold text-slate-800 text-sm">{selectedMenus[menu.id] || 0}</span>
                                                                         <Button 
-                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-white active:scale-95 transition-all"
+                                                                            variant="ghost" size="icon" className="h-7 w-7 rounded-full text-blue-600 hover:bg-white active:scale-95 transition-all font-bold"
                                                                             disabled={isExpired || !isAvailable}
                                                                             onClick={() => setSelectedMenus({...selectedMenus, [menu.id]: (selectedMenus[menu.id] || 0) + 1})}
                                                                         >+</Button>
                                                                     </div>
-                                                                    <p className="text-xs font-semibold text-slate-400">Porsi</p>
                                                                 </div>
                                                             </CardContent>
                                                         </Card>
