@@ -25,7 +25,7 @@ export async function GET() {
             .select(`
                 id, status, paymentMethod, createdAt,
                 items:OrderItem(
-                    id, date, quantity, price, adminFee, menuName, vendorName, vendorId, cancelStatus,
+                    id, date, quantity, price, adminFee, menuName, vendorName, vendorId, cancelStatus, receivedAt,
                     menu:MenuItem(id, name, imageUrl, description)
                 )
             `)
@@ -38,6 +38,8 @@ export async function GET() {
         let thisWeekPortions = 0
         const thisWeekDaysSet = new Set<string>()
         let tomorrowItems: any[] = []
+        let hasOrderToday = false
+        let todayOrdersDone = true
         const vendorCount: Record<string, { name: string; vendorName: string; count: number }> = {}
 
         const isValidOrderStatus = (status: string, method: string) => {
@@ -55,6 +57,15 @@ export async function GET() {
 
                 const itemDate = new Date(item.date)
                 
+                // Cek apakah item hari ini
+                if (isSameDay(itemDate, now)) {
+                    hasOrderToday = true
+                    const isItemDone = item.receivedAt !== null || item.cancelStatus === 'APPROVED' || order.status === 'COMPLETED'
+                    if (!isItemDone) {
+                        todayOrdersDone = false
+                    }
+                }
+
                 // Cek apakah masuk minggu ini
                 if (itemDate >= thisWeekStart && itemDate <= thisWeekEnd) {
                     thisWeekPortions += item.quantity || 1
@@ -174,6 +185,8 @@ export async function GET() {
                 thisWeekPortions,
                 thisWeekDaysCount: thisWeekDaysSet.size
             },
+            hasOrderToday,
+            todayOrdersDone: hasOrderToday ? todayOrdersDone : true,
             adminFee,
             recommendedMenu: recommendedMenu ? {
                 ...recommendedMenu,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChefHat, TrendingUp, Calendar, AlertCircle, DollarSign } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SystemStatus } from "@/components/dashboard/system-status"
 import { Bar, BarChart as ReBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, LineChart, Line, PieChart, Pie, Cell, Legend } from "recharts"
 import { format } from "date-fns"
@@ -69,8 +70,7 @@ export default function VendorDashboard() {
         setShowAcademicYearAlert(false)
     }
 
-    if (loading) return <div className="p-8">Loading stats...</div>
-    if (!stats) return <div className="p-8 text-red-500">Gagal memuat data statistik.</div>
+    if (!loading && !stats) return <div className="p-8 text-red-500">Gagal memuat data statistik.</div>
 
     const formatCurrency = (val: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(val)
 
@@ -80,7 +80,7 @@ export default function VendorDashboard() {
 
             {/* 4 Cards Top Row */}
             <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="border-l-4 border-l-blue-500 shadow-sm">
+                <Card className="border-l-4 border-l-blue-500 shadow-sm flex flex-col justify-between">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-xs sm:text-sm font-medium text-slate-500">Order Minggu Depan</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
@@ -88,12 +88,21 @@ export default function VendorDashboard() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-xl sm:text-2xl font-bold text-slate-800">{stats.nextWeekOrderCount ?? 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Total pesanan minggu depan</p>
+                        {loading ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-7 w-20" />
+                                <Skeleton className="h-3.5 w-36" />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-xl sm:text-2xl font-bold text-slate-800">{stats?.nextWeekOrderCount ?? 0}</div>
+                                <p className="text-xs text-muted-foreground mt-1">Total pesanan minggu depan</p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-orange-500 shadow-sm">
+                <Card className="border-l-4 border-l-orange-500 shadow-sm flex flex-col justify-between">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-xs sm:text-sm font-medium text-slate-500">Order Minggu Ini</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
@@ -101,12 +110,21 @@ export default function VendorDashboard() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-xl sm:text-2xl font-bold text-slate-800">{stats.weeklyOrderCount}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Total pesanan minggu ini</p>
+                        {loading ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-7 w-20" />
+                                <Skeleton className="h-3.5 w-32" />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-xl sm:text-2xl font-bold text-slate-800">{stats?.weeklyOrderCount ?? 0}</div>
+                                <p className="text-xs text-muted-foreground mt-1">Total pesanan minggu ini</p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-green-500 shadow-sm">
+                <Card className="border-l-4 border-l-green-500 shadow-sm flex flex-col justify-between">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-xs sm:text-sm font-medium text-slate-500">Pendapatan Bersih</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-green-50 flex items-center justify-center text-green-600">
@@ -114,14 +132,23 @@ export default function VendorDashboard() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-xl sm:text-2xl font-bold text-slate-800 truncate" title={formatCurrency(stats.allTimeNetRevenue || 0)}>
-                            {formatCurrency(stats.allTimeNetRevenue || 0)}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">Akumulasi seluruh waktu</p>
+                        {loading ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-7 w-32" />
+                                <Skeleton className="h-3.5 w-28" />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-xl sm:text-2xl font-bold text-slate-800 truncate" title={formatCurrency(stats?.allTimeNetRevenue || 0)}>
+                                    {formatCurrency(stats?.allTimeNetRevenue || 0)}
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">Akumulasi seluruh waktu</p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
-                <SystemStatus />
+                <SystemStatus role="VENDOR" />
             </div>
 
             {/* Split Row for Schedule and Charts */}
@@ -132,7 +159,22 @@ export default function VendorDashboard() {
                         <CardTitle className="text-base sm:text-lg font-bold text-slate-800">Perbandingan Penjualan Bulanan</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[320px] sm:h-[350px] px-0">
-                        {stats.monthlyChartData && stats.monthlyChartData.length > 0 ? (
+                        {loading ? (
+                            <div className="h-full w-full p-4 flex flex-col justify-between">
+                                <div className="flex justify-end gap-2">
+                                    <Skeleton className="h-4 w-16" />
+                                    <Skeleton className="h-4 w-16" />
+                                </div>
+                                <Skeleton className="h-[210px] w-full rounded-lg" />
+                                <div className="flex justify-between pt-2">
+                                    <Skeleton className="h-3 w-8" />
+                                    <Skeleton className="h-3 w-8" />
+                                    <Skeleton className="h-3 w-8" />
+                                    <Skeleton className="h-3 w-8" />
+                                    <Skeleton className="h-3 w-8" />
+                                </div>
+                            </div>
+                        ) : stats?.monthlyChartData && stats.monthlyChartData.length > 0 ? (
                             <div className="w-full h-full min-w-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={stats.monthlyChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -169,7 +211,22 @@ export default function VendorDashboard() {
                         <CardTitle className="text-base sm:text-lg font-bold text-slate-800">Porsi Terjual Minggu Ini</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[320px] sm:h-[350px] px-0">
-                        {stats.chartData && stats.chartData.length > 0 ? (
+                        {loading ? (
+                            <div className="h-full w-full p-4 flex flex-col justify-between">
+                                <div className="flex items-end justify-between gap-2 h-[220px] pt-4">
+                                    {[60, 40, 75, 50, 90, 30, 20].map((h, idx) => (
+                                        <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                                            <Skeleton className="w-full rounded-t-md" style={{ height: `${h}%` }} />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex justify-between pt-2">
+                                    {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map((day, idx) => (
+                                        <Skeleton key={idx} className="h-3 w-6" />
+                                    ))}
+                                </div>
+                            </div>
+                        ) : stats?.chartData && stats.chartData.length > 0 ? (
                             <div className="w-full h-full min-w-0">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <ReBarChart data={stats.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -200,7 +257,19 @@ export default function VendorDashboard() {
                         <CardTitle className="text-base sm:text-lg font-bold text-slate-800">Porsi Terbanyak per Kelas</CardTitle>
                     </CardHeader>
                     <CardContent className="h-[320px] sm:h-[350px] flex flex-col justify-between">
-                        {stats.classPieData && stats.classPieData.length > 0 ? (
+                        {loading ? (
+                            <div className="h-full w-full flex flex-col items-center justify-between p-2">
+                                <div className="flex items-center justify-center h-[190px] w-full">
+                                    <Skeleton className="h-[140px] w-[140px] rounded-full" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 w-full pt-2">
+                                    <Skeleton className="h-6 w-full rounded-md" />
+                                    <Skeleton className="h-6 w-full rounded-md" />
+                                    <Skeleton className="h-6 w-full rounded-md" />
+                                    <Skeleton className="h-6 w-full rounded-md" />
+                                </div>
+                            </div>
+                        ) : stats?.classPieData && stats.classPieData.length > 0 ? (
                             <>
                                 <div className="h-[200px] w-full min-w-0">
                                     <ResponsiveContainer width="100%" height="100%">

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DollarSign, ShoppingBag, TrendingUp, CreditCard, Plus, Pencil, Trash2, Check, X, StickyNote } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SystemStatus } from "@/components/dashboard/system-status"
 import { toast } from "sonner"
 import { useRealtimeOrders } from "@/hooks/useRealtimeOrders"
@@ -39,6 +40,7 @@ function formatWIBShort(isoString: string) {
 // ── Catatan Pribadi Widget ──────────────────────────────────────────────────
 function PersonalNotes() {
     const [notes, setNotes] = useState<any[]>([])
+    const [loadingNotes, setLoadingNotes] = useState(true)
     const [newText, setNewText] = useState("")
     const [adding, setAdding] = useState(false)
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -52,7 +54,9 @@ function PersonalNotes() {
         try {
             const res = await fetch("/api/admin/notes")
             if (res.ok) setNotes(await res.json())
-        } catch {}
+        } catch {} finally {
+            setLoadingNotes(false)
+        }
     }
 
     async function handleAdd() {
@@ -150,7 +154,12 @@ function PersonalNotes() {
                 )}
 
                 {/* Notes list */}
-                {notes.length === 0 && !adding ? (
+                {loadingNotes ? (
+                    <div className="space-y-2 py-1">
+                        <Skeleton className="h-16 w-full rounded-lg" />
+                        <Skeleton className="h-16 w-full rounded-lg" />
+                    </div>
+                ) : notes.length === 0 && !adding ? (
                     <div className="flex flex-col items-center justify-center flex-1 py-8 text-center text-slate-400">
                         <StickyNote className="h-8 w-8 mb-2 opacity-30" />
                         <p className="text-xs">Belum ada catatan.<br />Klik + untuk mulai menulis.</p>
@@ -232,8 +241,7 @@ export default function AdminDashboard() {
         }
     }
 
-    if (loading) return <div className="p-8">Loading dashboard...</div>
-    if (!stats) return <div className="p-8 text-red-500">Gagal memuat data statistik.</div>
+    if (!loading && !stats) return <div className="p-8 text-red-500">Gagal memuat data statistik.</div>
 
     const formatCurrency = (val: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(val)
 
@@ -245,7 +253,7 @@ export default function AdminDashboard() {
 
             {/* Stats Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="border-l-4 border-l-blue-500 shadow-sm">
+                <Card className="border-l-4 border-l-blue-500 shadow-sm flex flex-col justify-between">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-slate-500">Total Pesanan (7 Hari ke Depan)</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
@@ -253,16 +261,29 @@ export default function AdminDashboard() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold text-slate-800">{stats.weeklyOrders.count}</div>
-                        <p className="text-xs text-slate-400 font-medium mt-1">Akumulasi porsi mingguan</p>
-                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-                            <p className="text-xs text-slate-400">Jumlah Siswa Pemesan</p>
-                            <p className="text-sm font-bold text-blue-600">{stats.weeklyOrders.uniqueStudents ?? '-'} siswa</p>
-                        </div>
+                        {loading ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-8 w-24" />
+                                <Skeleton className="h-3.5 w-36" />
+                                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <Skeleton className="h-3 w-28" />
+                                    <Skeleton className="h-4 w-16" />
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-3xl font-bold text-slate-800">{stats?.weeklyOrders?.count ?? 0}</div>
+                                <p className="text-xs text-slate-400 font-medium mt-1">Akumulasi porsi mingguan</p>
+                                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <p className="text-xs text-slate-400">Jumlah Siswa Pemesan</p>
+                                    <p className="text-sm font-bold text-blue-600">{stats?.weeklyOrders?.uniqueStudents ?? '-'} siswa</p>
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-orange-500 shadow-sm">
+                <Card className="border-l-4 border-l-orange-500 shadow-sm flex flex-col justify-between">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-slate-500">Keseluruhan Uang Masuk (Kotor)</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
@@ -270,15 +291,27 @@ export default function AdminDashboard() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-slate-800">{formatCurrency(stats.revenue.gross)}</div>
-                        <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-                            <p className="text-xs text-slate-400">Pendapatan Bersih</p>
-                            <p className="text-sm font-bold text-green-600">{formatCurrency(stats.revenue.net)}</p>
-                        </div>
+                        {loading ? (
+                            <div className="space-y-2">
+                                <Skeleton className="h-8 w-36" />
+                                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <Skeleton className="h-3 w-24" />
+                                    <Skeleton className="h-4 w-28" />
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="text-2xl font-bold text-slate-800">{formatCurrency(stats?.revenue?.gross || 0)}</div>
+                                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <p className="text-xs text-slate-400">Pendapatan Bersih</p>
+                                    <p className="text-sm font-bold text-green-600">{formatCurrency(stats?.revenue?.net || 0)}</p>
+                                </div>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
-                <Card className="border-l-4 border-l-green-500 shadow-sm">
+                <Card className="border-l-4 border-l-green-500 shadow-sm flex flex-col justify-between">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium text-slate-500">Keseluruhan Rincian Metode Bayar</CardTitle>
                         <div className="h-8 w-8 rounded-full bg-green-50 flex items-center justify-center text-green-600">
@@ -286,19 +319,35 @@ export default function AdminDashboard() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <p className="text-xs text-slate-500">Uang Masuk (TF)</p>
-                            <p className="text-sm font-bold text-blue-600">{formatCurrency(stats.revenue.grossTF || 0)}</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <p className="text-xs text-slate-500">Uang Masuk (Cash)</p>
-                            <p className="text-sm font-bold text-orange-600">{formatCurrency(stats.revenue.grossCash || 0)}</p>
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-1">Berdasarkan metode pembayaran</p>
+                        {loading ? (
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Skeleton className="h-3.5 w-24" />
+                                    <Skeleton className="h-4 w-28" />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <Skeleton className="h-3.5 w-28" />
+                                    <Skeleton className="h-4 w-28" />
+                                </div>
+                                <Skeleton className="h-2.5 w-36 mt-1" />
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-slate-500">Uang Masuk (TF)</p>
+                                    <p className="text-sm font-bold text-blue-600">{formatCurrency(stats?.revenue?.grossTF || 0)}</p>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-slate-500">Uang Masuk (Cash)</p>
+                                    <p className="text-sm font-bold text-orange-600">{formatCurrency(stats?.revenue?.grossCash || 0)}</p>
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-1">Berdasarkan metode pembayaran</p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
-                <SystemStatus />
+                <SystemStatus role="ADMIN" />
             </div>
 
             {/* Bottom Section: Notes | Activity (2 cols) | Top 5 */}
@@ -314,41 +363,63 @@ export default function AdminDashboard() {
                         <Link href="/dashboard/admin/orders" className="text-blue-600 text-xs sm:text-sm font-medium hover:underline">Lihat Semua</Link>
                     </CardHeader>
                     <CardContent className="p-3 sm:px-6 sm:pb-6">
-                        <div className="space-y-3 sm:space-y-4">
-                            {stats.recentActivity.map((activity: any, idx: number) => (
-                                <div key={activity.id} className="flex items-center justify-between gap-2.5 sm:gap-4 p-3 sm:p-4 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition-shadow">
-                                    <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
-                                        <div className={cn("h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0",
-                                            idx % 2 === 0 ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
-                                        )}>
-                                            {idx % 2 === 0 ? <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" /> : <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />}
+                        {loading ? (
+                            <div className="space-y-3 sm:space-y-4">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <div key={i} className="flex items-center justify-between gap-2.5 sm:gap-4 p-3 sm:p-4 bg-white border border-slate-100 rounded-xl">
+                                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                                            <Skeleton className="h-9 w-9 sm:h-10 sm:w-10 rounded-full shrink-0" />
+                                            <div className="space-y-1.5 flex-1">
+                                                <Skeleton className="h-4 w-1/3" />
+                                                <Skeleton className="h-3 w-1/2" />
+                                            </div>
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-xs sm:text-sm font-bold text-slate-800 truncate" title={activity.studentName}>
-                                                {activity.studentName}
-                                            </p>
-                                            <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-                                                {activity.itemsCount} menu • {formatCurrency(activity.total)}
-                                            </p>
-                                        </div>
+                                        <Skeleton className="h-6 w-16 rounded-full shrink-0" />
                                     </div>
-                                    <Badge
-                                        variant="secondary"
-                                        className={cn("font-semibold text-[10px] sm:text-xs shrink-0 px-2 py-0.5",
-                                            activity.status === 'PAID' || activity.status === 'COMPLETED'
-                                                ? "bg-green-100 text-green-700 hover:bg-green-100"
-                                                : activity.status === 'CANCELLED'
-                                                ? "bg-red-100 text-red-700 hover:bg-red-100"
-                                                : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
-                                        )}
-                                    >
-                                        {activity.status === 'PAID' || activity.status === 'COMPLETED' ? 'Lunas'
-                                        : activity.status === 'CANCELLED' ? 'Dibatalkan'
-                                        : 'Menunggu'}
-                                    </Badge>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        ) : stats?.recentActivity && stats.recentActivity.length > 0 ? (
+                            <div className="space-y-3 sm:space-y-4">
+                                {stats.recentActivity.map((activity: any, idx: number) => (
+                                    <div key={activity.id} className="flex items-center justify-between gap-2.5 sm:gap-4 p-3 sm:p-4 bg-white border border-slate-100 rounded-xl hover:shadow-sm transition-shadow">
+                                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                                            <div className={cn("h-9 w-9 sm:h-10 sm:w-10 rounded-full flex items-center justify-center shrink-0",
+                                                idx % 2 === 0 ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
+                                            )}>
+                                                {idx % 2 === 0 ? <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" /> : <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs sm:text-sm font-bold text-slate-800 truncate" title={activity.studentName}>
+                                                    {activity.studentName}
+                                                </p>
+                                                <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                                                    {activity.itemsCount} menu • {formatCurrency(activity.total)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Badge
+                                            variant="secondary"
+                                            className={cn("font-semibold text-[10px] sm:text-xs shrink-0 px-2 py-0.5",
+                                                activity.status === 'PAID' || activity.status === 'COMPLETED'
+                                                    ? "bg-green-100 text-green-700 hover:bg-green-100"
+                                                    : activity.status === 'CANCELLED'
+                                                    ? "bg-red-100 text-red-700 hover:bg-red-100"
+                                                    : "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
+                                            )}
+                                        >
+                                            {activity.status === 'PAID' || activity.status === 'COMPLETED' ? 'Lunas'
+                                            : activity.status === 'CANCELLED' ? 'Dibatalkan'
+                                            : 'Menunggu'}
+                                        </Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-8 text-center text-slate-400">
+                                <ShoppingBag className="h-8 w-8 mb-2 opacity-30" />
+                                <p className="text-xs">Belum ada aktivitas pesanan.</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -359,7 +430,20 @@ export default function AdminDashboard() {
                         <TrendingUp className="h-4 w-4 text-green-500 shrink-0" />
                     </CardHeader>
                     <CardContent className="p-2 sm:px-2 sm:pb-6">
-                        {stats.topWeeklyMenus && stats.topWeeklyMenus.length > 0 ? (
+                        {loading ? (
+                            <div className="space-y-3 p-3">
+                                {[1, 2, 3, 4, 5].map(i => (
+                                    <div key={i} className="flex items-center justify-between gap-3 py-1.5">
+                                        <Skeleton className="h-4 w-6" />
+                                        <div className="flex-1 space-y-1.5">
+                                            <Skeleton className="h-3.5 w-3/4" />
+                                            <Skeleton className="h-2.5 w-1/2" />
+                                        </div>
+                                        <Skeleton className="h-6 w-10 rounded-full shrink-0" />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : stats?.topWeeklyMenus && stats.topWeeklyMenus.length > 0 ? (
                             <div className="overflow-y-auto max-h-[350px] px-2 pr-3 scrollbar-thin">
                                 <Table>
                                     <TableHeader>

@@ -6,6 +6,7 @@ import { id as idLocale } from "date-fns/locale"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar, Medal, Trophy, Sparkles, Utensils, CheckCircle2, ArrowRight } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { SystemStatus } from "@/components/dashboard/system-status"
 
 export default function StudentDashboard() {
@@ -17,6 +18,10 @@ export default function StudentDashboard() {
     const [recommendedMenu, setRecommendedMenu] = useState<any>(null)
     const [tomorrowMenu, setTomorrowMenu] = useState<any[]>([])
     const [topVendors, setTopVendors] = useState<{ name: string; count: number; vendorName: string }[]>([])
+    const [todayOrderStatus, setTodayOrderStatus] = useState({
+        hasOrderToday: false,
+        todayOrdersDone: true
+    })
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -32,6 +37,12 @@ export default function StudentDashboard() {
                 if (data.recommendedMenu) setRecommendedMenu(data.recommendedMenu)
                 if (Array.isArray(data.tomorrowMenu)) setTomorrowMenu(data.tomorrowMenu)
                 if (Array.isArray(data.topVendors)) setTopVendors(data.topVendors)
+                if (data.hasOrderToday !== undefined) {
+                    setTodayOrderStatus({
+                        hasOrderToday: Boolean(data.hasOrderToday),
+                        todayOrdersDone: Boolean(data.todayOrdersDone)
+                    })
+                }
             }
         } catch (e) {
             console.error("Gagal memuat data dashboard siswa:", e)
@@ -68,7 +79,19 @@ export default function StudentDashboard() {
                     </CardHeader>
                     <CardContent className="space-y-1.5">
                         {loading ? (
-                            <div className="h-12 rounded-lg bg-slate-100 animate-pulse" />
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                                    <div className="space-y-1.5 flex-1">
+                                        <Skeleton className="h-3.5 w-3/4" />
+                                        <Skeleton className="h-3 w-1/2" />
+                                    </div>
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                                    <Skeleton className="h-2.5 w-20" />
+                                    <Skeleton className="h-3 w-12" />
+                                </div>
+                            </div>
                         ) : recommendedMenu ? (
                             <div>
                                 <div className="flex items-center gap-3">
@@ -112,7 +135,10 @@ export default function StudentDashboard() {
                     </CardHeader>
                     <CardContent>
                         {loading ? (
-                            <div className="h-12 rounded-lg bg-slate-100 animate-pulse" />
+                            <div className="space-y-2">
+                                <Skeleton className="h-8 w-20" />
+                                <Skeleton className="h-3.5 w-32" />
+                            </div>
                         ) : (
                             <>
                                 <div className="text-2xl font-bold text-slate-800">
@@ -136,7 +162,10 @@ export default function StudentDashboard() {
                     </CardHeader>
                     <CardContent>
                         {loading ? (
-                            <div className="h-12 rounded-lg bg-slate-100 animate-pulse" />
+                            <div className="space-y-2">
+                                <Skeleton className="h-8 w-16" />
+                                <Skeleton className="h-3.5 w-36" />
+                            </div>
                         ) : (
                             <>
                                 <div className="text-2xl font-bold text-slate-800">{stats.totalOrders}</div>
@@ -147,7 +176,11 @@ export default function StudentDashboard() {
                 </Card>
 
                 {/* Card 4: Status Sistem */}
-                <SystemStatus />
+                <SystemStatus 
+                    role="STUDENT" 
+                    hasOrderToday={todayOrderStatus.hasOrderToday} 
+                    studentOrdersDone={todayOrderStatus.todayOrdersDone} 
+                />
             </div>
 
             {/* Bottom Section */}
@@ -163,7 +196,17 @@ export default function StudentDashboard() {
                     </CardHeader>
                     <CardContent className="pt-4">
                         {loading ? (
-                            <div className="h-20 rounded-lg bg-slate-100 animate-pulse" />
+                            <div className="space-y-3">
+                                {[1, 2].map(i => (
+                                    <div key={i} className="flex items-center space-x-3.5 border border-slate-100 p-3 rounded-xl bg-slate-50/50">
+                                        <Skeleton className="h-14 w-14 rounded-lg shrink-0" />
+                                        <div className="space-y-2 flex-1">
+                                            <Skeleton className="h-4 w-1/2" />
+                                            <Skeleton className="h-3 w-1/3" />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         ) : tomorrowMenu.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
                                 <Calendar className="h-10 w-10 mb-2 opacity-20" />
@@ -204,7 +247,16 @@ export default function StudentDashboard() {
                         {loading ? (
                             <div className="space-y-3">
                                 {[1, 2, 3].map(i => (
-                                    <div key={i} className="h-14 rounded-lg bg-slate-100 animate-pulse" />
+                                    <div key={i} className="flex items-center justify-between rounded-xl px-4 py-3 border border-slate-100 bg-slate-50/50">
+                                        <div className="flex items-center gap-3 flex-1">
+                                            <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+                                            <div className="space-y-1.5 flex-1">
+                                                <Skeleton className="h-4 w-1/3" />
+                                                <Skeleton className="h-3 w-1/4" />
+                                            </div>
+                                        </div>
+                                        <Skeleton className="h-5 w-8 rounded-full" />
+                                    </div>
                                 ))}
                             </div>
                         ) : topVendors.length === 0 ? (
