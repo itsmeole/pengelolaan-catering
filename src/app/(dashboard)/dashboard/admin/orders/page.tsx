@@ -428,9 +428,13 @@ export default function AdminOrdersPage() {
 
       if (res.ok) {
         toast.success("Pembayaran berhasil dikonfirmasi sebagai LUNAS")
-        fetchOrders()
+        // Update state lokal langsung agar tabel tidak perlu reload ulang/berkedip
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: "PAID" } : o))
+        // Sinkronisasi data latar belakang tanpa mereset tabel ke tampilan 'Loading...'
+        await fetchOrders(true)
       } else {
-        toast.error("Gagal memperbarui status pembayaran")
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || "Gagal memperbarui status pembayaran")
       }
     } catch (e) {
       console.error(e)
@@ -446,7 +450,7 @@ export default function AdminOrdersPage() {
       })
       if (res.ok) {
         toast.success("Bukti transfer ditolak. Siswa akan diminta upload ulang.")
-        fetchOrders()
+        await fetchOrders()
       }
     } catch (e) { toast.error("Gagal menolak bukti") }
   }
