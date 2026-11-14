@@ -11,58 +11,97 @@ function getClient(cookieStore: any) {
     )
 }
 
-// GET: Semua pesanan seluruh siswa untuk Admin
+// GET: Semua pesanan seluruh siswa untuk Admin (mendukung server-side pagination & filter)
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
         const start = searchParams.get('start')
         const end = searchParams.get('end')
+        const status = searchParams.get('status')
+        const payment = searchParams.get('payment')
+        const search = searchParams.get('search')?.trim() || ''
+        const pageParam = searchParams.get('page')
+        const limitParam = searchParams.get('limit')
+        const skipAutoConfirm = searchParams.get('skipAutoConfirm') === 'true'
+
+        const isPaginated = pageParam !== null && limitParam !== null
+        const page = Math.max(1, parseInt(pageParam || '1', 10) || 1)
+        const limit = Math.max(1, Math.min(200, parseInt(limitParam || '10', 10) || 10))
 
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
 
-        // OTOMASI: Konfirmasi per-item setelah 1x24 jam dari jadwal antar untuk seluruh siswa
-        const oneDayAgo = new Date()
-        oneDayAgo.setDate(oneDayAgo.getDate() - 1)
+        // OTOMASI: Konfirmasi per-item setelah 1x24 jam dari jadwal antar (hanya saat diperlukan, menggunakan 1 query join tanpa N+1)
+        if (!skipAutoConfirm) {
+            const oneDayAgo = new Date()
+            oneDayAgo.setDate(oneDayAgo.getDate() - 1)
 
-        // 1. Ambil ID order yang masih berstatus PAID
-        const { data: paidOrders } = await supabase
-            .from('Order')
-            .select('id')
-            .eq('status', 'PAID')
-
-        const paidOrderIds = (paidOrders || []).map((o: any) => o.id)
-
-        if (paidOrderIds.length > 0) {
-            // 2. Cari item katering dari order PAID yang sudah lewat 24 jam dan belum dikonfirmasi
             const { data: overdueItems } = await supabase
                 .from('OrderItem')
-                .select('id, orderId')
+                .select('id, orderId, order:Order!inner(id, status)')
+                .eq('order.status', 'PAID')
                 .lt('date', oneDayAgo.toISOString())
                 .is('receivedAt', null)
                 .neq('cancelStatus', 'APPROVED')
-                .in('orderId', paidOrderIds)
 
             if (overdueItems && overdueItems.length > 0) {
+                const nowIso = new Date().toISOString()
                 const overdueIds = overdueItems.map((i: any) => i.id)
                 await supabase
                     .from('OrderItem')
-                    .update({ receivedAt: new Date().toISOString() })
+                    .update({ receivedAt: nowIso })
                     .in('id', overdueIds)
 
-                // Cek apakah semua item per order sudah ada receivedAt
                 const affectedOrderIds = Array.from(new Set(overdueItems.map((i: any) => i.orderId)))
-                for (const oId of affectedOrderIds) {
-                    const { data: allItems } = await supabase
-                        .from('OrderItem')
-                        .select('receivedAt, cancelStatus')
-                        .eq('orderId', oId)
-                    const allDone = (allItems || []).every((i: any) => i.receivedAt !== null || i.cancelStatus === 'APPROVED')
-                    if (allDone) {
-                        await supabase.from('Order').update({ status: 'COMPLETED', updatedAt: new Date().toISOString() })
-                            .eq('id', oId).eq('status', 'PAID')
+                const { data: allItems } = await supabase
+                    .from('OrderItem')
+                    .select('orderId, receivedAt, cancelStatus')
+                    .in('orderId', affectedOrderIds)
+
+                if (allItems) {
+                    const itemsByOrder = new Map<string, any[]>()
+                    for (const item of allItems) {
+                        const list = itemsByOrder.get(item.orderId) || []
+                        list.push(item)
+                        itemsByOrder.set(item.orderId, list)
+                    }
+                    const completedOrderIds = affectedOrderIds.filter(oId => {
+                        const list = itemsByOrder.get(oId) || []
+                        return list.length > 0 && list.every((i: any) => i.receivedAt !== null || i.cancelStatus === 'APPROVED')
+                    })
+                    if (completedOrderIds.length > 0) {
+                        await supabase
+                            .from('Order')
+                            .update({ status: 'COMPLETED', updatedAt: nowIso })
+                            .in('id', completedOrderIds)
+                            .eq('status', 'PAID')
                     }
                 }
+            }
+        }
+
+        // Jika ada pencarian nama/kelas/NIS siswa, cari ID siswa yang cocok terlebih dahulu
+        let matchingStudentIds: string[] | null = null
+        if (search) {
+            const safeSearch = search.replace(/[%_]/g, '\\$&')
+            const { data: matchedStudents } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('role', 'STUDENT')
+                .or(`name.ilike.%${safeSearch}%,class.ilike.%${safeSearch}%,nis.ilike.%${safeSearch}%`)
+
+            matchingStudentIds = (matchedStudents || []).map((s: any) => s.id)
+            if (matchingStudentIds.length === 0) {
+                if (isPaginated) {
+                    return NextResponse.json({
+                        data: [],
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0
+                    })
+                }
+                return NextResponse.json([])
             }
         }
 
@@ -78,21 +117,53 @@ export async function GET(req: Request) {
                         vendor:profiles!vendorId(id, name, "vendorName")
                     )
                 )
-            `)
+            `, isPaginated ? { count: 'exact' } : undefined)
 
+        if (matchingStudentIds !== null) {
+            query = query.in('studentId', matchingStudentIds)
+        }
+        if (status && status !== 'ALL') {
+            query = query.eq('status', status)
+        }
+        if (payment === 'PAY_LATER') {
+            query = query.eq('paymentMethod', 'CASH_PAY_LATER')
+        } else if (payment === 'TRANSFER') {
+            query = query.eq('paymentMethod', 'TRANSFER')
+        }
         if (start) {
-            query = query.gte('createdAt', new Date(start).toISOString())
+            const startDate = new Date(start)
+            startDate.setHours(0, 0, 0, 0)
+            query = query.gte('createdAt', startDate.toISOString())
         }
         if (end) {
-            // Set end to end of day
             const endDate = new Date(end)
             endDate.setHours(23, 59, 59, 999)
             query = query.lte('createdAt', endDate.toISOString())
         }
 
-        const { data, error } = await query.order('createdAt', { ascending: false })
+        query = query.order('createdAt', { ascending: false })
+
+        if (isPaginated) {
+            const from = (page - 1) * limit
+            const to = from + limit - 1
+            query = query.range(from, to)
+        }
+
+        const { data, error, count } = await query
 
         if (error) throw error
+
+        if (isPaginated) {
+            const total = count ?? 0
+            return NextResponse.json({
+                data: data || [],
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            })
+        }
+
         return NextResponse.json(data || [])
     } catch (e) {
         console.error('ADMIN GET ORDERS ERROR:', e)

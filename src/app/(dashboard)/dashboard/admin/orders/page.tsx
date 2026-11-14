@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import {
   Table,
   TableBody,
@@ -108,6 +108,9 @@ export default function AdminOrdersPage() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [totalOrders, setTotalOrders] = useState(0)
+  const [debouncedSearchName, setDebouncedSearchName] = useState("")
+  const hasRunAutoConfirmRef = useRef(false)
   const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<any>(null)
 
   // States for Edit Order
@@ -132,6 +135,55 @@ export default function AdminOrdersPage() {
     }
   }, [selectedOrderForDetail])
 
+  // Debounce search input agar tidak menembak API setiap ketikan huruf
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchName(searchName)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchName])
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterStatus, filterPayment, debouncedSearchName, filterDateFrom, filterDateTo, pageSize])
+
+  const fetchOrders = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+
+    try {
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(pageSize),
+        status: filterStatus,
+        payment: filterPayment,
+      })
+      if (debouncedSearchName.trim()) params.set("search", debouncedSearchName.trim())
+      if (filterDateFrom) params.set("start", filterDateFrom)
+      if (filterDateTo) params.set("end", filterDateTo)
+      if (hasRunAutoConfirmRef.current) params.set("skipAutoConfirm", "true")
+
+      const res = await fetch(`/api/admin/orders?${params.toString()}`)
+      if (res.ok) {
+        const result = await res.json()
+        hasRunAutoConfirmRef.current = true
+        if (Array.isArray(result)) {
+          setOrders(result)
+          setTotalOrders(result.length)
+        } else {
+          setOrders(result.data || [])
+          setTotalOrders(result.total || 0)
+        }
+      }
+    } catch (e) {
+      toast.error("Gagal memuat data pesanan")
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [currentPage, pageSize, filterStatus, filterPayment, debouncedSearchName, filterDateFrom, filterDateTo])
+
   // Realtime listener for orders & order items
   useRealtimeOrders({
     role: "ADMIN",
@@ -143,10 +195,31 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchOrders()
-    fetchStudents()
+  }, [fetchOrders])
+
+  useEffect(() => {
     fetchMenus()
     fetchAdminFee()
   }, [])
+
+  // Lazy search siswa saat admin mengetik di modal Buat Pesanan Manual (tanpa load seluruh siswa di awal)
+  useEffect(() => {
+    const q = studentSearch.trim()
+    if (q.length <= 1) {
+      setStudents([])
+      return
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/admin/users/students?search=${encodeURIComponent(q)}&limit=5`)
+        if (res.ok) {
+          const data = await res.json()
+          setStudents(Array.isArray(data) ? data : (data.data || []))
+        }
+      } catch { }
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [studentSearch])
 
   async function fetchAdminFee() {
     try {
@@ -157,13 +230,6 @@ export default function AdminOrdersPage() {
     } catch { }
   }
 
-  async function fetchStudents() {
-    try {
-      const res = await fetch("/api/admin/users/students")
-      if (res.ok) setStudents(await res.json())
-    } catch { }
-  }
-
   async function fetchMenus() {
     try {
       const res = await fetch("/api/admin/menus")
@@ -171,12 +237,7 @@ export default function AdminOrdersPage() {
     } catch { }
   }
 
-  const filteredStudents = studentSearch.length > 1
-    ? students.filter(s =>
-      s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      s.nis?.includes(studentSearch)
-    ).slice(0, 5)
-    : []
+  const filteredStudents = students
 
   const DAY_ORDER: Record<string, number> = {
     "Senin": 1,
@@ -401,22 +462,8 @@ export default function AdminOrdersPage() {
     }
   }
 
-  async function fetchOrders(isRefresh = false) {
-    if (isRefresh) setRefreshing(true)
-    else setLoading(true)
-
-    try {
-      const res = await fetch(`/api/admin/orders`)
-      if (res.ok) {
-        setOrders(await res.json())
-      }
-    } catch (e) {
-      toast.error("Gagal memuat data pesanan")
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
+  const totalPages = Math.ceil(totalOrders / pageSize)
+  const paginatedOrders = orders
 
   async function confirmPayment(orderId: string) {
     try {
@@ -525,39 +572,6 @@ export default function AdminOrdersPage() {
       })
       .catch((err: any) => toast.error(err.message || "Gagal upload", { id: 'upload-refund' }))
   }
-
-  const filteredOrders = orders.filter(order => {
-    if (filterStatus !== "ALL" && order.status !== filterStatus) return false;
-    if (filterPayment === "PAY_LATER" && order.paymentMethod !== "CASH_PAY_LATER") return false;
-    if (filterPayment === "TRANSFER" && order.paymentMethod !== "TRANSFER") return false;
-    if (searchName.trim() !== "") {
-      const q = searchName.toLowerCase()
-      const name = (order.student?.name || "").toLowerCase()
-      const kelas = (order.student?.class || "").toLowerCase()
-      if (!name.includes(q) && !kelas.includes(q)) return false;
-    }
-    if (filterDateFrom) {
-      const orderDate = new Date(order.createdAt)
-      const from = new Date(filterDateFrom)
-      from.setHours(0, 0, 0, 0)
-      if (orderDate < from) return false;
-    }
-    if (filterDateTo) {
-      const orderDate = new Date(order.createdAt)
-      const to = new Date(filterDateTo)
-      to.setHours(23, 59, 59, 999)
-      if (orderDate > to) return false;
-    }
-    return true;
-  })
-
-  const totalPages = Math.ceil(filteredOrders.length / pageSize)
-  const paginatedOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [filterStatus, filterPayment, searchName, filterDateFrom, filterDateTo])
 
   const todayStr = format(new Date(), "yyyy-MM-dd")
   const sevenDaysAgoStr = format(subDays(new Date(), 6), "yyyy-MM-dd")
@@ -1350,7 +1364,7 @@ export default function AdminOrdersPage() {
         </div>
 
         <div className="text-xs text-muted-foreground">
-          Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredOrders.length)} dari {filteredOrders.length} data
+          Menampilkan {totalOrders === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, totalOrders)} dari {totalOrders} data
         </div>
       </div>
 

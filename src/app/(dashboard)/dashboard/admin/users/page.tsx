@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -54,6 +54,8 @@ function StudentManager() {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [totalStudents, setTotalStudents] = useState(0)
+  const [debouncedSearch, setDebouncedSearch] = useState("")
 
   // Sort state
   const [sortField, setSortField] = useState<string>('class')
@@ -69,16 +71,43 @@ function StudentManager() {
     setCurrentPage(1)
   }
 
-  useEffect(() => { fetchStudents() }, [])
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
-  async function fetchStudents() {
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearch, pageSize])
+
+  const fetchStudents = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/users/students")
-      if (res.ok) setStudents(await res.json())
+      const params = new URLSearchParams({
+        page: String(currentPage),
+        limit: String(pageSize),
+        sortField,
+        sortDir,
+      })
+      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim())
+      const res = await fetch(`/api/admin/users/students?${params.toString()}`)
+      if (res.ok) {
+        const result = await res.json()
+        if (Array.isArray(result)) {
+          setStudents(result)
+          setTotalStudents(result.length)
+        } else {
+          setStudents(result.data || [])
+          setTotalStudents(result.total || 0)
+        }
+      }
     } catch (e) { toast.error("Gagal load data siswa") }
     finally { setLoading(false) }
-  }
+  }, [currentPage, pageSize, debouncedSearch, sortField, sortDir])
+
+  useEffect(() => { fetchStudents() }, [fetchStudents])
 
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault()
@@ -215,23 +244,8 @@ function StudentManager() {
     }
   }
 
-  const filtered = students.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.nis.includes(search) ||
-    s.class.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const sorted = [...filtered].sort((a, b) => {
-    const va = (a[sortField] ?? '').toString().toLowerCase()
-    const vb = (b[sortField] ?? '').toString().toLowerCase()
-    // Numeric-aware compare for 'class' and 'nis'
-    const numA = parseFloat(va), numB = parseFloat(vb)
-    const cmp = !isNaN(numA) && !isNaN(numB) ? numA - numB : va.localeCompare(vb)
-    return sortDir === 'asc' ? cmp : -cmp
-  })
-
-  const totalPages = Math.ceil(sorted.length / pageSize)
-  const paginated  = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(totalStudents / pageSize)
+  const paginated  = students
 
   // Helper komponen header sortable
   const SortHead = ({ field, children, className = '' }: { field: string; children: React.ReactNode; className?: string }) => (
@@ -247,11 +261,6 @@ function StudentManager() {
       </span>
     </TableHead>
   )
-
-  // Reset page when search changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [search])
 
   return (
     <div className="space-y-4">
@@ -334,7 +343,9 @@ function StudentManager() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginated.length === 0 ? (
+            {loading ? (
+              <TableRow><TableCell colSpan={6} className="text-center h-24">Loading...</TableCell></TableRow>
+            ) : paginated.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center h-24">Tidak ada data</TableCell></TableRow>
             ) : (
               paginated.map(s => (
@@ -438,7 +449,7 @@ function StudentManager() {
         </div>
         <div className="flex items-center gap-4">
             <span className="text-xs text-muted-foreground">
-                Hal {currentPage} dari {totalPages || 1}
+                Hal {currentPage} dari {totalPages || 1} ({totalStudents} siswa)
             </span>
             <div className="flex gap-1">
                 <Button 
@@ -464,18 +475,38 @@ function StudentManager() {
 
 function VendorManager() {
   const [vendors, setVendors] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [formData, setFormData] = useState<any>({ name: "", email: "", vendorName: "", password: "" })
 
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [totalVendors, setTotalVendors] = useState(0)
 
-  useEffect(() => { fetchVendors() }, [])
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [pageSize])
 
-  async function fetchVendors() {
-    const res = await fetch("/api/admin/users/vendors")
-    if (res.ok) setVendors(await res.json())
-  }
+  const fetchVendors = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/users/vendors?page=${currentPage}&limit=${pageSize}`)
+      if (res.ok) {
+        const result = await res.json()
+        if (Array.isArray(result)) {
+          setVendors(result)
+          setTotalVendors(result.length)
+        } else {
+          setVendors(result.data || [])
+          setTotalVendors(result.total || 0)
+        }
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, pageSize])
+
+  useEffect(() => { fetchVendors() }, [fetchVendors])
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -599,7 +630,12 @@ function VendorManager() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {vendors.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(v => (
+            {loading ? (
+              <TableRow><TableCell colSpan={5} className="text-center h-24">Loading...</TableCell></TableRow>
+            ) : vendors.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center h-24">Tidak ada data</TableCell></TableRow>
+            ) : (
+              vendors.map(v => (
               <TableRow key={v.id} className={v.isActive === false ? 'opacity-60 bg-amber-50/40' : ''}>
                 <TableCell className="font-medium">{v.vendorName}</TableCell>
                 <TableCell>{v.name}</TableCell>
@@ -668,7 +704,8 @@ function VendorManager() {
                   </ConfirmButton>
                 </TableCell>
               </TableRow>
-            ))}
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -686,17 +723,22 @@ function VendorManager() {
                 <option value={50}>50</option>
             </select>
         </div>
-        <div className="flex gap-1">
-            <Button 
-                variant="outline" size="sm" className="h-8 text-xs"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-            >Prev</Button>
-            <Button 
-                variant="outline" size="sm" className="h-8 text-xs"
-                onClick={() => setCurrentPage(p => Math.min(Math.ceil(vendors.length / pageSize), p + 1))}
-                disabled={currentPage >= Math.ceil(vendors.length / pageSize)}
-            >Next</Button>
+        <div className="flex items-center gap-4">
+            <span className="text-xs text-muted-foreground">
+                Hal {currentPage} dari {Math.ceil(totalVendors / pageSize) || 1} ({totalVendors} vendor)
+            </span>
+            <div className="flex gap-1">
+                <Button 
+                    variant="outline" size="sm" className="h-8 text-xs"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                >Prev</Button>
+                <Button 
+                    variant="outline" size="sm" className="h-8 text-xs"
+                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(totalVendors / pageSize), p + 1))}
+                    disabled={currentPage >= Math.ceil(totalVendors / pageSize) || totalVendors === 0}
+                >Next</Button>
+            </div>
         </div>
       </div>
     </div>

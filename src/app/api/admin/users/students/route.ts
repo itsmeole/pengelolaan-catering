@@ -16,17 +16,62 @@ function getClient(cookieStore: any) {
     )
 }
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        const { searchParams } = new URL(req.url)
+        const pageParam = searchParams.get('page')
+        const limitParam = searchParams.get('limit')
+        const search = searchParams.get('search')?.trim() || ''
+        const sortFieldParam = searchParams.get('sortField') || 'class'
+        const sortDirParam = searchParams.get('sortDir') === 'desc' ? 'desc' : 'asc'
+
+        const allowedSortFields = ['nis', 'name', 'class', 'email', 'phone', 'createdAt']
+        const sortField = allowedSortFields.includes(sortFieldParam) ? sortFieldParam : 'class'
+        const isPaginated = pageParam !== null
+        const page = Math.max(1, parseInt(pageParam || '1', 10) || 1)
+        const limit = Math.max(1, Math.min(200, parseInt(limitParam || '10', 10) || 10))
+
         const cookieStore = await cookies()
         const supabase = getClient(cookieStore)
-        const { data, error } = await supabase
+
+        let query = supabase
             .from('profiles')
-            .select('*')
+            .select('*', isPaginated ? { count: 'exact' } : undefined)
             .eq('role', 'STUDENT')
-            .order('class', { ascending: true })
+
+        if (search) {
+            const safeSearch = search.replace(/[%_]/g, '\\$&')
+            query = query.or(`name.ilike.%${safeSearch}%,nis.ilike.%${safeSearch}%,class.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`)
+        }
+
+        query = query.order(sortField, { ascending: sortDirParam === 'asc' })
+        if (sortField !== 'name') {
+            query = query.order('name', { ascending: true })
+        }
+
+        if (isPaginated) {
+            const from = (page - 1) * limit
+            const to = from + limit - 1
+            query = query.range(from, to)
+        } else if (limitParam !== null) {
+            query = query.limit(limit)
+        }
+
+        const { data, error, count } = await query
 
         if (error) throw error
+
+        if (isPaginated) {
+            const total = count ?? 0
+            return NextResponse.json({
+                data: data || [],
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            })
+        }
+
         return NextResponse.json(data || [])
     } catch (e) {
         return NextResponse.json({ error: "System Error" }, { status: 500 })
