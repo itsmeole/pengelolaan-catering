@@ -62,6 +62,10 @@ function formatWIB(isoString: string) {
   return `${get('day')} ${month} ${get('year')}, ${hour}:${get('minute')} WIB`
 }
 
+// Cache in-memory di browser untuk menyimpan hasil per halaman/filter
+// Sehingga saat kembali ke halaman sebelumnya atau berpindah antar halaman yang sudah pernah dibuka, data tampil instan (0ms delay)
+const ordersPageCache = new Map<string, { data: any[]; total: number }>()
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -148,33 +152,78 @@ export default function AdminOrdersPage() {
     setCurrentPage(1)
   }, [filterStatus, filterPayment, debouncedSearchName, filterDateFrom, filterDateTo, pageSize])
 
-  const fetchOrders = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true)
-    else setLoading(true)
+  const buildOrderParams = useCallback((targetPage: number) => {
+    const params = new URLSearchParams({
+      page: String(targetPage),
+      limit: String(pageSize),
+      status: filterStatus,
+      payment: filterPayment,
+    })
+    if (debouncedSearchName.trim()) params.set("search", debouncedSearchName.trim())
+    if (filterDateFrom) params.set("start", filterDateFrom)
+    if (filterDateTo) params.set("end", filterDateTo)
+    return params
+  }, [pageSize, filterStatus, filterPayment, debouncedSearchName, filterDateFrom, filterDateTo])
+
+  // Prefetch halaman berikutnya di latar belakang agar klik Next juga instan
+  const prefetchOrderPage = useCallback(async (targetPage: number, totalCount: number) => {
+    const maxPage = Math.ceil(totalCount / pageSize)
+    if (targetPage < 1 || targetPage > maxPage) return
+    const params = buildOrderParams(targetPage)
+    const cacheKey = params.toString()
+    if (ordersPageCache.has(cacheKey)) return
 
     try {
-      const params = new URLSearchParams({
-        page: String(currentPage),
-        limit: String(pageSize),
-        status: filterStatus,
-        payment: filterPayment,
-      })
-      if (debouncedSearchName.trim()) params.set("search", debouncedSearchName.trim())
-      if (filterDateFrom) params.set("start", filterDateFrom)
-      if (filterDateTo) params.set("end", filterDateTo)
+      params.set("skipAutoConfirm", "true")
+      const res = await fetch(`/api/admin/orders?${params.toString()}`)
+      if (res.ok) {
+        const result = await res.json()
+        if (!Array.isArray(result)) {
+          ordersPageCache.set(cacheKey, {
+            data: result.data || [],
+            total: result.total || 0,
+          })
+        }
+      }
+    } catch { }
+  }, [pageSize, buildOrderParams])
+
+  const fetchOrders = useCallback(async (isRefresh = false) => {
+    const params = buildOrderParams(currentPage)
+    const cacheKey = params.toString()
+
+    // Jika mutasi data / realtime update, bersihkan cache agar sinkron dengan server
+    if (isRefresh) {
+      ordersPageCache.clear()
+      setRefreshing(true)
+    } else if (ordersPageCache.has(cacheKey)) {
+      // Langsung tampilkan dari cache browser tanpa loading ulang (0ms delay)
+      const cached = ordersPageCache.get(cacheKey)!
+      setOrders(cached.data)
+      setTotalOrders(cached.total)
+      setLoading(false)
+      prefetchOrderPage(currentPage + 1, cached.total)
+      return
+    } else {
+      setLoading(true)
+    }
+
+    try {
       if (hasRunAutoConfirmRef.current) params.set("skipAutoConfirm", "true")
 
       const res = await fetch(`/api/admin/orders?${params.toString()}`)
       if (res.ok) {
         const result = await res.json()
         hasRunAutoConfirmRef.current = true
-        if (Array.isArray(result)) {
-          setOrders(result)
-          setTotalOrders(result.length)
-        } else {
-          setOrders(result.data || [])
-          setTotalOrders(result.total || 0)
-        }
+        const data = Array.isArray(result) ? result : (result.data || [])
+        const total = Array.isArray(result) ? result.length : (result.total || 0)
+
+        ordersPageCache.set(cacheKey, { data, total })
+        setOrders(data)
+        setTotalOrders(total)
+
+        // Prefetch halaman selanjutnya di belakang layar
+        prefetchOrderPage(currentPage + 1, total)
       }
     } catch (e) {
       toast.error("Gagal memuat data pesanan")
@@ -182,7 +231,7 @@ export default function AdminOrdersPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [currentPage, pageSize, filterStatus, filterPayment, debouncedSearchName, filterDateFrom, filterDateTo])
+  }, [currentPage, buildOrderParams, prefetchOrderPage])
 
   // Realtime listener for orders & order items
   useRealtimeOrders({
@@ -361,7 +410,7 @@ export default function AdminOrdersPage() {
         toast.success("Pesanan berhasil diperbarui")
         setIsEditMode(false)
         setSelectedOrderForDetail(null)
-        fetchOrders()
+        fetchOrders(true)
       } else {
         const data = await res.json()
         toast.error(data.error || "Gagal memperbarui pesanan")
@@ -384,7 +433,7 @@ export default function AdminOrdersPage() {
         toast.success("Pesanan berhasil dihapus permanen dari database")
         setSelectedOrderForDetail(null)
         setIsEditMode(false)
-        fetchOrders()
+        fetchOrders(true)
       } else {
         toast.error(data.error || "Gagal menghapus pesanan")
       }
@@ -424,7 +473,7 @@ export default function AdminOrdersPage() {
       if (res.ok) {
         toast.success(`Berhasil membuat ${orderItems.length} pesanan. Status: PENDING`)
         setIsAddModalOpen(false)
-        fetchOrders()
+        fetchOrders(true)
         // Reset all states
         setSelectedStudent(null)
         setStudentSearch("")
@@ -453,7 +502,7 @@ export default function AdminOrdersPage() {
       })
       if (res.ok) {
         toast.success(`Status berhasil diubah ke ${status}`)
-        fetchOrders()
+        fetchOrders(true)
       } else {
         toast.error("Gagal mengubah status")
       }
@@ -497,7 +546,7 @@ export default function AdminOrdersPage() {
       })
       if (res.ok) {
         toast.success("Bukti transfer ditolak. Siswa akan diminta upload ulang.")
-        await fetchOrders()
+        await fetchOrders(true)
       }
     } catch (e) { toast.error("Gagal menolak bukti") }
   }
@@ -510,7 +559,7 @@ export default function AdminOrdersPage() {
       })
       if (res.ok) {
         toast.success(type === 'APPROVE_CANCEL' ? "Pembatalan disetujui" : "Pembatalan ditolak")
-        fetchOrders()
+        fetchOrders(true)
       }
     } catch (e) { toast.error("Gagal memproses pembatalan") }
   }
@@ -537,7 +586,7 @@ export default function AdminOrdersPage() {
       if (res.ok) {
         toast.success("Refund disetujui & pesanan dibatalkan")
         setIsRefundOpen(false)
-        fetchOrders()
+        fetchOrders(true)
       } else {
         toast.error(data.error || "Gagal memproses refund")
       }

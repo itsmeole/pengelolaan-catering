@@ -15,6 +15,11 @@ import { ConfirmButton } from "@/components/ui/confirm-button"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 
+// Cache in-memory di browser untuk menyimpan hasil paginasi Siswa & Vendor
+// Sehingga berpindah ke halaman sebelumnya/berikutnya yang sudah dimuat berlangsung instan (0ms delay)
+const studentsPageCache = new Map<string, { data: any[]; total: number }>()
+const vendorsPageCache = new Map<string, { data: any[]; total: number }>()
+
 export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
@@ -82,30 +87,70 @@ function StudentManager() {
     setCurrentPage(1)
   }, [debouncedSearch, pageSize])
 
-  const fetchStudents = useCallback(async () => {
-    setLoading(true)
+  const buildStudentParams = useCallback((targetPage: number) => {
+    const params = new URLSearchParams({
+      page: String(targetPage),
+      limit: String(pageSize),
+      sortField,
+      sortDir,
+    })
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim())
+    return params
+  }, [pageSize, sortField, sortDir, debouncedSearch])
+
+  const prefetchStudentPage = useCallback(async (targetPage: number, totalCount: number) => {
+    const maxPage = Math.ceil(totalCount / pageSize)
+    if (targetPage < 1 || targetPage > maxPage) return
+    const params = buildStudentParams(targetPage)
+    const cacheKey = params.toString()
+    if (studentsPageCache.has(cacheKey)) return
+
     try {
-      const params = new URLSearchParams({
-        page: String(currentPage),
-        limit: String(pageSize),
-        sortField,
-        sortDir,
-      })
-      if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim())
-      const res = await fetch(`/api/admin/users/students?${params.toString()}`)
+      const res = await fetch(`/api/admin/users/students?${cacheKey}`)
       if (res.ok) {
         const result = await res.json()
-        if (Array.isArray(result)) {
-          setStudents(result)
-          setTotalStudents(result.length)
-        } else {
-          setStudents(result.data || [])
-          setTotalStudents(result.total || 0)
+        if (!Array.isArray(result)) {
+          studentsPageCache.set(cacheKey, {
+            data: result.data || [],
+            total: result.total || 0,
+          })
         }
+      }
+    } catch { }
+  }, [pageSize, buildStudentParams])
+
+  const fetchStudents = useCallback(async (forceInvalidate = false) => {
+    const params = buildStudentParams(currentPage)
+    const cacheKey = params.toString()
+
+    if (forceInvalidate) {
+      studentsPageCache.clear()
+    } else if (studentsPageCache.has(cacheKey)) {
+      const cached = studentsPageCache.get(cacheKey)!
+      setStudents(cached.data)
+      setTotalStudents(cached.total)
+      setLoading(false)
+      prefetchStudentPage(currentPage + 1, cached.total)
+      return
+    } else {
+      setLoading(true)
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/students?${cacheKey}`)
+      if (res.ok) {
+        const result = await res.json()
+        const data = Array.isArray(result) ? result : (result.data || [])
+        const total = Array.isArray(result) ? result.length : (result.total || 0)
+
+        studentsPageCache.set(cacheKey, { data, total })
+        setStudents(data)
+        setTotalStudents(total)
+        prefetchStudentPage(currentPage + 1, total)
       }
     } catch (e) { toast.error("Gagal load data siswa") }
     finally { setLoading(false) }
-  }, [currentPage, pageSize, debouncedSearch, sortField, sortDir])
+  }, [currentPage, buildStudentParams, prefetchStudentPage])
 
   useEffect(() => { fetchStudents() }, [fetchStudents])
 
@@ -119,7 +164,7 @@ function StudentManager() {
       })
       if (res.ok) {
         toast.success("Data siswa diperbarui")
-        fetchStudents()
+        fetchStudents(true)
       } else {
         toast.error("Gagal update siswa")
       }
@@ -139,7 +184,7 @@ function StudentManager() {
         toast.success("Siswa berhasil ditambahkan", { id: toastId })
         setIsAddOpen(false)
         setFormData({ name: "", email: "", nis: "", class: "" })
-        fetchStudents()
+        fetchStudents(true)
       } else {
         toast.error(data.error || "Gagal tambah siswa. Email/NIS mungkin duplikat.", { id: toastId })
       }
@@ -209,7 +254,7 @@ function StudentManager() {
             console.error("Import Errors:", resData.errors)
             toast.warning(`${resData.errors.length} baris bermasalah (misal: email duplikat). Cek konsol (F12) untuk rincian.`)
           }
-          fetchStudents()
+          fetchStudents(true)
         } else {
           toast.error(resData.error || "Gagal mengimpor data siswa.", { id: toastId })
         }
@@ -226,7 +271,7 @@ function StudentManager() {
     try {
       await fetch(`/api/admin/users/students?id=${id}`, { method: "DELETE" })
       toast.success("Data siswa berhasil dihapus")
-      fetchStudents()
+      fetchStudents(true)
     } catch (e) {
       toast.error("Gagal menghapus siswa")
     }
@@ -487,24 +532,58 @@ function VendorManager() {
     setCurrentPage(1)
   }, [pageSize])
 
-  const fetchVendors = useCallback(async () => {
-    setLoading(true)
+  const prefetchVendorPage = useCallback(async (targetPage: number, totalCount: number) => {
+    const maxPage = Math.ceil(totalCount / pageSize)
+    if (targetPage < 1 || targetPage > maxPage) return
+    const cacheKey = `page=${targetPage}&limit=${pageSize}`
+    if (vendorsPageCache.has(cacheKey)) return
+
     try {
-      const res = await fetch(`/api/admin/users/vendors?page=${currentPage}&limit=${pageSize}`)
+      const res = await fetch(`/api/admin/users/vendors?${cacheKey}`)
       if (res.ok) {
         const result = await res.json()
-        if (Array.isArray(result)) {
-          setVendors(result)
-          setTotalVendors(result.length)
-        } else {
-          setVendors(result.data || [])
-          setTotalVendors(result.total || 0)
+        if (!Array.isArray(result)) {
+          vendorsPageCache.set(cacheKey, {
+            data: result.data || [],
+            total: result.total || 0,
+          })
         }
+      }
+    } catch { }
+  }, [pageSize])
+
+  const fetchVendors = useCallback(async (forceInvalidate = false) => {
+    const cacheKey = `page=${currentPage}&limit=${pageSize}`
+
+    if (forceInvalidate) {
+      vendorsPageCache.clear()
+    } else if (vendorsPageCache.has(cacheKey)) {
+      const cached = vendorsPageCache.get(cacheKey)!
+      setVendors(cached.data)
+      setTotalVendors(cached.total)
+      setLoading(false)
+      prefetchVendorPage(currentPage + 1, cached.total)
+      return
+    } else {
+      setLoading(true)
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users/vendors?${cacheKey}`)
+      if (res.ok) {
+        const result = await res.json()
+        const data = Array.isArray(result) ? result : (result.data || [])
+        const total = Array.isArray(result) ? result.length : (result.total || 0)
+
+        vendorsPageCache.set(cacheKey, { data, total })
+        setVendors(data)
+        setTotalVendors(total)
+        prefetchVendorPage(currentPage + 1, total)
       }
     } finally {
       setLoading(false)
     }
-  }, [currentPage, pageSize])
+  }, [currentPage, pageSize, prefetchVendorPage])
 
   useEffect(() => { fetchVendors() }, [fetchVendors])
 
@@ -521,7 +600,7 @@ function VendorManager() {
         toast.success("Vendor berhasil dibuat", { id: toastId })
         setIsAddOpen(false)
         setFormData({ name: "", email: "", vendorName: "", password: "" })
-        fetchVendors()
+        fetchVendors(true)
       } else {
         toast.error(data.error || "Gagal buat vendor", { id: toastId })
       }
@@ -541,10 +620,7 @@ function VendorManager() {
       if (res.ok) {
         toast.success("Data vendor diperbarui")
         setFormData({ name: "", email: "", vendorName: "", password: "" }) // Reset form
-        // Ideally we should close a separate edit dialog, relying on reusing the Add dialog or a new one?
-        // Let's use a separate Dialog for Edit to avoid confusion or reuse properly.
-        // For simplicity in this interaction, I'll inline a Dialog in the table row like StudentManager.
-        fetchVendors()
+        fetchVendors(true)
       } else {
         toast.error("Gagal update vendor")
       }
@@ -555,7 +631,7 @@ function VendorManager() {
     try {
       await fetch(`/api/admin/users/vendors?id=${id}`, { method: "DELETE" })
       toast.success("Akun vendor berhasil dihapus")
-      fetchVendors()
+      fetchVendors(true)
     } catch (e) {
       toast.error("Gagal menghapus vendor")
     }
@@ -564,7 +640,8 @@ function VendorManager() {
   async function handleToggleActive(id: string, currentStatus: boolean) {
     const newStatus = !currentStatus
     const vendorName = vendors.find(v => v.id === id)?.vendorName || "Vendor"
-    // Optimistic update di UI
+    // Optimistic update di UI & bersihkan cache halaman lain
+    vendorsPageCache.clear()
     setVendors(prev => prev.map(v => v.id === id ? { ...v, isActive: newStatus } : v))
     try {
       const res = await fetch("/api/admin/users/vendors", {
